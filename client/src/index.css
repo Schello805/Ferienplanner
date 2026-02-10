@@ -1,0 +1,536 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #f9fafb;
+  /* gray-50 */
+  color: #0f172a;
+  /* slate-900 */
+  transition: background-color 0.3s, color 0.3s;
+  background-image: radial-gradient(1200px 600px at 20% -10%, rgba(14, 165, 233, 0.12), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(99, 102, 241, 0.10), transparent 55%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root.dark body {
+  background-color: #0f172a;
+  /* slate-900 */
+  color: #ffffff;
+  background-image: radial-gradient(1200px 600px at 20% -10%, rgba(14, 165, 233, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(99, 102, 241, 0.08), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* --- DARK MODE FORCED OVERRIDES --- */
+/* These ensure dark mode works even if Tailwind config is misbehaving */
+
+:root.dark header {
+  background-color: #0f172a !important; /* slate-900 */
+  border-color: #1e293b !important; /* slate-800 */
+}
+
+:root.dark header h1 {
+  color: #ffffff !important;
+}
+
+:root.dark header p {
+  color: #94a3b8 !important; /* gray-400 */
+}
+
+/* Force Logo Gradient */
+:root.dark header .bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #0ea5e9, #6366f1) !important;
+}
+
+/* Calendar Toolbar & Legend */
+:root.dark .backdrop-blur.bg-white\/50,
+:root.dark .backdrop-blur.bg-white\/90 {
+  background-color: rgba(15, 23, 42, 0.9) !important; /* slate-900/90 */
+  border-color: #1e293b !important;
+}
+
+/* Calendar Grid Headers */
+:root.dark .sticky.top-0, 
+:root.dark .sticky.left-0 {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important; /* slate-200 */
+  border-color: #1e293b !important;
+}
+
+:root.dark .grid > div {
+  border-color: #1e293b !important;
+}
+
+/* Vacation Input Form */
+:root.dark .vacation-input-form {
+  background-color: #0f172a !important; /* slate-900 */
+  border-color: #1e293b !important;
+}
+
+:root.dark .vacation-input-form label {
+  color: #94a3b8 !important; /* gray-400 */
+}
+
+:root.dark .vacation-input-form input {
+  background-color: #020617 !important; /* slate-950 */
+  color: #ffffff !important;
+  border-color: #334155 !important; /* slate-700 */
+}
+
+/* "Wer" Toggle Container */
+:root.dark .wer-toggle-container {
+  background-color: #1e293b !important; /* slate-800 */
+  border-color: #334155 !important;
+}
+
+/* Active User Button in Toggle */
+:root.dark .wer-toggle-container button.bg-white {
+  background-color: #475569 !important; /* slate-600 */
+  color: #ffffff !important;
+}
+
+/* Inactive User Button in Toggle */
+:root.dark .wer-toggle-container button.text-gray-500 {
+  color: #94a3b8 !important; /* gray-400 */
+}
+:root.dark .wer-toggle-container button.text-gray-500:hover {
+  color: #e2e8f0 !important; /* gray-200 */
+}
+
+/* Calendar Container Force Dark */
+:root.dark .calendar-container {
+  background-color: #0f172a !important; /* slate-900 */
+  border-color: #1e293b !important;
+}
+
+/* Calendar Row Hover Force Dark */
+:root.dark .calendar-row:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Calendar Header Cells Force Dark */
+:root.dark .calendar-header-cell {
+  background-color: #0f172a !important; /* slate-900 */
+}
+
+/* Weekend Cells Force Dark */
+:root.dark .day-cell-weekend {
+  background-color: #020617 !important; /* slate-950 */
+  border-color: #1e293b !important; /* slate-800 */
+}
+
+/* Corner Header & Day Column Force Dark */
+:root.dark .calendar-corner-header,
+:root.dark .calendar-day-column {
+  background-color: #0f172a !important; /* slate-900 */
+  color: #94a3b8 !important; /* gray-400 */
+  border-color: #1e293b !important; /* slate-800 */
+}
+
+/* Unattended Cells Force Dark Red */
+:root.dark .day-cell-unattended {
+  background-color: #450a0a !important; /* red-950 */
+}
+
+/* Public Holiday Cells Force Dark Red */
+:root.dark .day-cell-public-holiday {
+  background-color: #450a0a !important; /* red-950 */
+  border-color: #7f1d1d !important; /* red-900 */
+}
+
+/* School Holiday Cells Force Dark Amber */
+:root.dark .day-cell-school-holiday {
+  background-color: rgba(69, 26, 3, 0.2) !important; /* amber-950/20 */
+}
+
+/* --- TOOLBAR STATS FORCE DARK --- */
+:root.dark .stat-item-care {
+  background-color: rgba(88, 28, 135, 0.4) !important; /* purple-900/40 */
+  border-color: rgba(107, 33, 168, 0.5) !important;
+  color: #f3e8ff !important; /* purple-100 */
+}
+
+:root.dark .stat-item-holiday {
+  background-color: rgba(120, 53, 15, 0.4) !important; /* amber-900/40 */
+  border-color: rgba(146, 64, 14, 0.5) !important;
+  color: #fef3c7 !important; /* amber-100 */
+}
+
+:root.dark .stat-item-warning {
+  background-color: rgba(127, 29, 29, 0.4) !important; /* red-900/40 */
+  border-color: rgba(153, 27, 27, 0.5) !important;
+  color: #fee2e2 !important; /* red-100 */
+}
+
+/* --- LEGEND FORCE DARK --- */
+:root.dark .calendar-legend {
+  background-color: rgba(15, 23, 42, 0.95) !important; /* slate-900/95 */
+  border-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+:root.dark .legend-marker-holiday {
+  background-color: rgba(120, 53, 15, 0.4) !important;
+  border-color: rgba(146, 64, 14, 0.5) !important;
+}
+
+:root.dark .legend-marker-public {
+  background-color: rgba(127, 29, 29, 0.5) !important;
+  border-color: rgba(153, 27, 27, 0.5) !important;
+}
+
+:root.dark .day-cell-holiday-text,
+html.dark .day-cell-holiday-text {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* --- SETTINGS MODAL FORCE DARK --- */
+/* Title: Explicit Light/Dark Handling */
+html:not(.dark) .settings-modal-heading {
+  color: #0f172a !important; /* slate-900 */
+}
+
+html.dark .settings-modal-heading {
+  color: #ffffff !important;
+}
+
+.dark .settings-modal-content {
+  background-color: #1e293b !important; /* slate-800 */
+  border-color: #334155 !important;
+}
+
+.dark .settings-modal-header {
+  background-color: #1e293b !important; /* slate-800 */
+  border-color: #334155 !important;
+}
+
+.dark .settings-close-button {
+  color: #94a3b8 !important; /* gray-400 */
+}
+.dark .settings-close-button:hover {
+  color: #e2e8f0 !important; /* gray-200 */
+}
+
+.dark .settings-section-title {
+  color: #94a3b8 !important; /* gray-400 */
+}
+
+.dark .settings-label {
+  color: #e2e8f0 !important; /* gray-200 */
+}
+
+.dark .settings-row {
+  background-color: rgba(51, 65, 85, 0.5) !important; /* slate-700/50 */
+}
+
+.dark .settings-footer {
+  background-color: rgba(30, 41, 59, 0.5) !important; /* slate-800/50 */
+  border-color: #334155 !important;
+}
+
+.dark .settings-info-box {
+  background-color: rgba(30, 58, 138, 0.2) !important; /* blue-900/20 */
+  color: #bfdbfe !important; /* blue-200 */
+}
+
+.dark .settings-done-button {
+  background-color: #334155 !important; /* slate-700 */
+  color: #ffffff !important;
+}
+.dark .settings-done-button:hover {
+  background-color: #475569 !important; /* slate-600 */
+}
+
+.dark .settings-day-btn-inactive {
+  background-color: #334155 !important; /* slate-700 */
+  color: #94a3b8 !important; /* gray-400 */
+}
+.dark .settings-day-btn-inactive:hover {
+  background-color: #475569 !important; /* slate-600 */
+}
+
+/* --- HELP MODAL FORCE DARK --- */
+.dark .help-modal-content {
+  background-color: #1e293b !important; /* slate-800 */
+  border-color: #334155 !important;
+}
+
+.dark .help-modal-header {
+  background-color: #1e293b !important; /* slate-800 */
+  border-color: #334155 !important;
+}
+
+.dark .help-modal-title {
+  color: #ffffff !important;
+}
+
+.dark .help-section-title {
+  color: #ffffff !important;
+}
+
+.dark .help-close-button {
+  color: #94a3b8 !important; /* gray-400 */
+}
+.dark .help-close-button:hover {
+  color: #e2e8f0 !important; /* gray-200 */
+}
+
+.dark .help-modal-footer {
+  background-color: rgba(30, 41, 59, 0.5) !important; /* slate-800/50 */
+  border-color: #334155 !important;
+}
+
+.dark .help-done-button {
+  background-color: #334155 !important; /* slate-700 */
+  color: #ffffff !important;
+}
+.dark .help-done-button:hover {
+  background-color: #475569 !important; /* slate-600 */
+}
+
+.dark .help-text-content {
+  color: #d1d5db !important; /* gray-300 */
+}
+.dark .help-text-content .font-bold {
+  color: #ffffff !important;
+}
+
+.dark .help-info-box {
+  background-color: rgba(51, 65, 85, 0.3) !important; /* slate-700/30 */
+}
+
+/* Feature Boxes Force Dark */
+.dark .help-feature-blue {
+  background-color: rgba(30, 58, 138, 0.2) !important; /* blue-900/20 */
+  border-color: rgba(30, 58, 138, 0.3) !important;
+}
+.dark .help-feature-blue h4 { color: #93c5fd !important; } /* blue-300 */
+.dark .help-feature-blue p { color: #dbeafe !important; } /* blue-100 */
+
+.dark .help-feature-purple {
+  background-color: rgba(88, 28, 135, 0.2) !important; /* purple-900/20 */
+  border-color: rgba(88, 28, 135, 0.3) !important;
+}
+.dark .help-feature-purple h4 { color: #d8b4fe !important; } /* purple-300 */
+.dark .help-feature-purple p { color: #f3e8ff !important; } /* purple-100 */
+
+.dark .help-feature-amber {
+  background-color: rgba(120, 53, 15, 0.2) !important; /* amber-900/20 */
+  border-color: rgba(120, 53, 15, 0.3) !important;
+}
+.dark .help-feature-amber h4 { color: #fcd34d !important; } /* amber-300 */
+.dark .help-feature-amber p { color: #fef3c7 !important; } /* amber-100 */
+
+/* Legend Icons Force Dark */
+.dark .help-legend-icon-school {
+  background-color: rgba(120, 53, 15, 0.4) !important; /* amber-900/40 */
+  border-color: rgba(146, 64, 14, 0.5) !important;
+}
+
+.dark .help-legend-icon-public {
+  background-color: rgba(127, 29, 29, 0.5) !important; /* red-900/50 */
+  border-color: rgba(153, 27, 27, 0.5) !important;
+}
+
+.dark .help-legend-icon-alarm {
+  background-color: rgba(127, 29, 29, 0.2) !important; /* red-900/20 */
+  border-color: #7f1d1d !important; /* red-900 */
+  color: #ef4444 !important; /* red-500 */
+}
+
+.dark .help-legend-text {
+  color: #ffffff !important;
+}
+
+/* --- FOOTER FORCE DARK --- */
+.dark footer {
+  border-color: #1e293b !important; /* slate-800 */
+  color: #94a3b8 !important; /* gray-400 - Readable contrast */
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 5mm; /* Minimal safe margin */
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* --- HIDE ELEMENTS --- */
+  body > div > header, /* App Header */
+  footer,
+  .app-footer,
+  button,
+  .no-print,
+  ::-webkit-scrollbar,
+  .fixed,
+  .calendar-toolbar,
+  .calendar-legend,
+  .print-header,
+  .print-footer,
+  form {
+    display: none !important;
+  }
+
+  /* --- MAIN LAYOUT --- */
+  main {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  /* --- CALENDAR CONTAINER --- */
+  .calendar-container {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+
+  /* Reset Min Widths using specific class */
+  .calendar-min-width-wrapper {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* --- GRID LAYOUT --- */
+  .calendar-grid {
+    display: grid !important;
+    width: 100% !important;
+    border: 1px solid #000 !important;
+    font-size: 9px !important;
+  }
+
+  /* Header Row (Months) */
+  .sticky.top-0 {
+    position: static !important;
+    background: #e2e8f0 !important;
+    color: black !important;
+    border-bottom: 1px solid #000 !important;
+    font-weight: bold !important;
+    height: auto !important;
+    min-height: 20px !important;
+  }
+  
+  .sticky.top-0 .calendar-header-cell {
+    border-right: 1px solid #000 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    padding: 1px !important;
+  }
+
+  /* Day Number Column */
+  .sticky.left-0 {
+    position: static !important;
+    background: #f1f5f9 !important;
+    border-right: 1px solid #000 !important;
+    color: black !important;
+    font-weight: bold !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 20px !important;
+  }
+
+  /* Rows */
+  .calendar-row {
+    break-inside: avoid;
+    border-bottom: 1px solid #ccc !important;
+    page-break-inside: avoid;
+    height: 18px !important;
+    overflow: hidden !important;
+  }
+
+  /* Cells */
+  .calendar-header-cell, 
+  .calendar-day-column {
+    padding: 1px !important;
+  }
+
+  /* Override Height Utilities for Print */
+  .h-8, .sm\:h-10, .h-6, .sm\:h-7 {
+    height: 18px !important;
+    min-height: 18px !important; 
+  }
+
+  /* Day Cell content */
+  .calendar-row > div:not(.calendar-day-column) > div {
+    border: 1px solid #eee !important;
+    height: 100% !important;
+    min-height: 18px !important;
+  }
+  
+  /* Weekday Indicator */
+  .day-cell-weekday {
+    position: absolute !important;
+    top: 1px !important;
+    right: 1px !important;
+    opacity: 1 !important;
+    color: #475569 !important;
+    font-size: 7px !important;
+    font-weight: normal !important;
+  }
+
+  /* Holiday Text */
+  .day-cell-holiday-text {
+    font-size: 7px !important;
+    color: #000 !important;
+    font-weight: bold !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 18px !important;
+    display: block !important;
+  }
+
+  /* Unattended Warning */
+  .animate-pulse {
+    animation: none !important;
+  }
+
+  /* Borders between months vertical */
+  .grid > div {
+    border-right: 1px solid #999 !important;
+  }
+  .calendar-grid > div {
+    border-right: 1px solid #999 !important;
+  }
+
+  /* Increase readability of Month Stats */
+  .calendar-header-cell span {
+     font-size: 9px !important;
+  }
+
+  /* Ensure background colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
