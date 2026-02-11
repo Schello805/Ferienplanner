@@ -22,8 +22,8 @@ npm run preview
 
 ### `VITE_API_URL` (optional)
 
-Wenn dein Backend nicht auf `http://localhost:3001` läuft:
+Wenn dein Backend nicht auf `http://localhost:3000` läuft:
 
 ```bash
-VITE_API_URL=http://<server-ip>:3001 npm run dev
+VITE_API_URL=http://<server-ip>:3000 npm run dev
 ```

@@ -39,7 +39,7 @@ Eine moderne Webanwendung zur einfachen Urlaubsplanung für Familien.
    npm install
    npm start
    ```
-   Der Server läuft auf `http://localhost:3001`.
+   Der Server läuft auf `http://localhost:3000`.
 
 3. **Frontend starten**
    (In einem neuen Terminal)
@@ -52,20 +52,20 @@ Eine moderne Webanwendung zur einfachen Urlaubsplanung für Familien.
 
 ### Schnelltest
 
-- Backend Healthcheck: `http://localhost:3001/health`
+- Backend Healthcheck: `http://localhost:3000/health`
 
 ## Konfiguration (ENV)
 
 ### Frontend (Vite)
 
 - **`VITE_API_URL`** (optional)
-  - Default: `http://localhost:3001`
-  - Beispiel: `VITE_API_URL=http://<server-ip>:3001`
+  - Default: `http://localhost:3000`
+  - Beispiel: `VITE_API_URL=http://<server-ip>:3000`
 
 ### Backend (Express)
 
 - **`PORT`** (optional)
-  - Default: `3001`
+  - Default: `3000`
 - **`DB_PATH`** (optional)
   - Default: `server/data/database.sqlite`
 
@@ -87,7 +87,7 @@ Als Referenz gibt es ein Multi-Stage Dockerfile unter `client/Dockerfile`.
 ```bash
 cd server
 npm ci
-PORT=3001 node server.js
+PORT=3000 node server.js
 ```
 
 Für produktiven Betrieb:
@@ -121,7 +121,7 @@ sudo apt install -y git
 
 - Backend:
   - `cd server && npm ci && npm start`
-  - Läuft standardmäßig auf **Port 3001**
+  - Läuft standardmäßig auf **Port 3000**
 - Frontend (Dev):
   - `cd client && npm ci && npm run dev -- --host`
   - Läuft standardmäßig auf **Port 5173**
