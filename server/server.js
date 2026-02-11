@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sqlite3 from 'sqlite3';
@@ -11,6 +12,12 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'database.sqlite');
+
+try {
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+} catch (e) {
+  process.stderr.write(`Failed to ensure DB directory exists: ${e?.message || e}\n`);
+}
 
 const app = express();
 app.use(cors());
