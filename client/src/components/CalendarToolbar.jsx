@@ -5,7 +5,9 @@ const formatUnattendedLabel = (value) => {
     const match = typeof value === 'string' ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
     if (!match) return value;
     const [, year, month, day] = match;
-    return `${day}.${month}.${year}`;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    const weekday = new Intl.DateTimeFormat('de-DE', { weekday: 'short' }).format(date);
+    return `${day}.${month}.${year} (${weekday})`;
 };
 
 export const CalendarToolbar = ({ 
@@ -71,8 +73,8 @@ export const CalendarToolbar = ({
     );
 
     return (
-        <div className="calendar-toolbar mb-2 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white/88 p-2 shadow-sm shadow-slate-200/60 backdrop-blur dark:border-slate-700 dark:bg-slate-950/88 dark:shadow-black/20">
+        <div className="calendar-toolbar relative z-[60] mb-2 space-y-2 overflow-visible">
+            <div className="relative z-[60] flex flex-wrap items-center justify-between gap-2 overflow-visible rounded-2xl border border-slate-200/80 bg-white/88 p-2 shadow-sm shadow-slate-200/60 backdrop-blur dark:border-slate-700 dark:bg-slate-950/88 dark:shadow-black/20">
                 <div className="flex flex-wrap items-center gap-2">
                     <div className="flex rounded-xl border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-900">
                     {[currentYear, currentYear + 1, currentYear + 2].map(y => (
@@ -97,22 +99,30 @@ export const CalendarToolbar = ({
                 <div className="flex flex-wrap items-center justify-end gap-2">
                     {summaryItems.map(item => {
                         const showUnattendedTooltip = item.label === 'Warnung' && stats.unattended > 0 && stats.unattended < 5;
-                        const unattendedTooltip = showUnattendedTooltip
-                            ? ['Unbetreute Tage', ...stats.unattendedDates.map((date) => formatUnattendedLabel(date))].join('\n')
-                            : undefined;
                         return (
                             <div
                                 key={`${item.label}-${item.value}`}
-                                className={`relative flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs ${item.tone} ${showUnattendedTooltip ? 'cursor-help' : ''}`}
-                                title={unattendedTooltip}
+                                className={`relative overflow-visible flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs ${item.tone}`}
                             >
                                 {item.marker}
                                 <span className="font-semibold">{item.label}</span>
                                 <span>{item.value}</span>
                                 {showUnattendedTooltip && (
-                                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current/30 text-[10px] font-bold opacity-80">
-                                        i
-                                    </span>
+                                    <div className="group relative ml-1">
+                                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current/30 text-[10px] font-bold opacity-80">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25h.008v.008H12V8.25Zm0 3v4.5m9-3.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                            </svg>
+                                        </span>
+                                        <div className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-[70] w-52 rounded-xl border border-red-200 bg-white/98 p-3 text-left text-[11px] font-medium text-slate-700 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 dark:border-red-900/40 dark:bg-slate-950/98 dark:text-slate-100">
+                                            <div className="mb-2 font-bold text-red-700 dark:text-red-300">Unbetreute Tage</div>
+                                            <div className="space-y-1">
+                                                {stats.unattendedDates.map((date) => (
+                                                    <div key={date}>{formatUnattendedLabel(date)}</div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         );
