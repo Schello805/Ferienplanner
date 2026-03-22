@@ -33,12 +33,14 @@ export const Header = ({ darkMode, setDarkMode, stateName, currentUser, onLogout
             <div className="flex items-center gap-2 no-print">
                 <button
                     onClick={onLogout}
-                    className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                     title="Abmelden"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6A2.25 2.25 0 0 0 5.25 5.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m-3 0 3-3m0 0 3 3m-3-3H9" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5H6A2.25 2.25 0 0 0 3.75 6.75v10.5A2.25 2.25 0 0 0 6 19.5h2.25" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 8.25 18 12m0 0-4.5 3.75M18 12H8.25" />
                     </svg>
+                    <span className="hidden text-xs font-semibold sm:inline">Abmelden</span>
                 </button>
 
                 <button
