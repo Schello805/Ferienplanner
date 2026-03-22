@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import CalendarView from './components/CalendarView'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
-import { SettingsModal } from './components/SettingsModal'
-import { HelpModal } from './components/HelpModal'
+import { UtilitySidebar } from './components/UtilitySidebar'
 import { Toaster } from 'sonner'
 
 function App() {
@@ -32,9 +31,13 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Modal State
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+  const [sidebarTab, setSidebarTab] = useState('legend');
 
   // Theme Effect
   useEffect(() => {
@@ -65,18 +68,39 @@ function App() {
   }, [p1DaysOff, p2DaysOff]);
 
   return (
-    <div className="min-h-screen px-3 py-4 sm:px-6 sm:py-6 transition-colors duration-300 flex flex-col max-w-[1600px] mx-auto">
+    <div className="mx-auto flex h-screen max-w-[1800px] flex-col overflow-hidden px-2 py-2 transition-colors duration-300 sm:px-3 sm:py-3">
       <Toaster position="top-center" richColors theme={darkMode ? 'dark' : 'light'} />
 
       <Header
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenHelp={() => setIsHelpOpen(true)}
+        onOpenSettings={() => {
+          setSidebarTab('settings');
+          setSidebarOpen(true);
+        }}
+        onOpenHelp={() => {
+          setSidebarTab('help');
+          setSidebarOpen(true);
+        }}
       />
 
-      <main className="flex-1">
-        <CalendarView
+      <main className="flex min-h-0 flex-1 gap-3">
+        <div className="min-h-0 flex-1">
+          <CalendarView
+            p1Color={p1Color}
+            p2Color={p2Color}
+            careColor={careColor}
+            p1DaysOff={p1DaysOff}
+            p2DaysOff={p2DaysOff}
+          />
+        </div>
+
+        <UtilitySidebar
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+          activeTab={sidebarTab}
+          setActiveTab={setSidebarTab}
+          onClose={() => setSidebarOpen(false)}
           p1Color={p1Color}
           p2Color={p2Color}
           careColor={careColor}
@@ -84,31 +108,13 @@ function App() {
           setP2Color={setP2Color}
           setCareColor={setCareColor}
           p1DaysOff={p1DaysOff}
+          setP1DaysOff={setP1DaysOff}
           p2DaysOff={p2DaysOff}
+          setP2DaysOff={setP2DaysOff}
         />
       </main>
 
       <Footer />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        p1Color={p1Color}
-        setP1Color={setP1Color}
-        p2Color={p2Color}
-        setP2Color={setP2Color}
-        careColor={careColor}
-        setCareColor={setCareColor}
-        p1DaysOff={p1DaysOff}
-        setP1DaysOff={setP1DaysOff}
-        p2DaysOff={p2DaysOff}
-        setP2DaysOff={setP2DaysOff}
-      />
-
-      <HelpModal
-        isOpen={isHelpOpen}
-        onClose={() => setIsHelpOpen(false)}
-      />
     </div>
   )
 }

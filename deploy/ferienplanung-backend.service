@@ -1,0 +1,22 @@
+[Unit]
+Description=Ferienplanung Backend (Node/Express)
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/root/Ferienplanner/server
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=DB_PATH=/var/lib/ferienplaner/database.sqlite
+ExecStart=/usr/bin/node /root/Ferienplanner/server/server.js
+Restart=on-failure
+RestartSec=2
+KillMode=mixed
+TimeoutStopSec=10
+
+StateDirectory=ferienplaner
+
+[Install]
+WantedBy=multi-user.target

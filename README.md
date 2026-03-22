@@ -24,13 +24,13 @@ Eine moderne Webanwendung zur einfachen Urlaubsplanung für Familien.
 
 ### Voraussetzungen
 
-- Node.js (empfohlen: 20+)
+- Node.js (empfohlen: 18+)
 - npm
 
 1. **Repository klonen**
    ```bash
-   git clone <repository-url>
-   cd ferienplanung
+   git clone https://github.com/Schello805/Ferienplanner.git
+   cd Ferienplanner
    ```
 
 2. **Backend starten**
@@ -79,8 +79,9 @@ npm ci
 npm run build
 ```
 
-Das Ergebnis liegt in `client/dist/` und kann z.B. über Nginx/Apache ausgeliefert werden.
-Als Referenz gibt es ein Multi-Stage Dockerfile unter `client/Dockerfile`.
+Das Ergebnis liegt in `client/dist/`.
+
+Im Production-Setup wird `client/dist` direkt vom Backend ausgeliefert (siehe Ubuntu LXC Abschnitt).
 
 ### Backend
 
@@ -95,41 +96,108 @@ Für produktiven Betrieb:
 - als systemd service laufen lassen
 - per Reverse Proxy (Nginx/Traefik/Caddy) nach außen exponieren
 
-## Proxmox LXC (Ubuntu) – Hinweise
+## Ubuntu 24.04 LXC (Proxmox) – Production Setup (empfohlen)
 
-Grundsätzlich ist die Installation in einem **Ubuntu LXC** problemlos möglich. Wichtig ist nur, dass für das npm-Paket `sqlite3` die Build-Dependencies vorhanden sind.
+Ziel: **ein Dienst auf Port 3000**, der sowohl API als auch Frontend ausliefert.
+Das Frontend wird einmalig gebaut und vom Backend aus `client/dist` als Static/SPAs ausgeliefert.
+
+Wichtig:
+
+- Frontend Build ist auf **Node 18 kompatibel** (Vite 5).
+- Die SQLite DB liegt **außerhalb** des Repos unter `/var/lib/ferienplaner/database.sqlite`, damit `git pull` Updates nicht an die DB kommen.
 
 ### Voraussetzungen
 
-- Node.js (empfohlen: 20+)
+- Node.js (Node 18 oder 20+)
 - build tools für `sqlite3`
 
 Beispiel für Ubuntu:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential python3 make g++
+sudo apt install -y build-essential python3 make g++ git
 ```
 
-Optional (je nach Setup):
+### Install / Build
+
+1) **Repo klonen**
 
 ```bash
-sudo apt install -y git
+cd /root
+git clone https://github.com/Schello805/Ferienplanner.git
+cd Ferienplanner
 ```
 
-### Start (typisch auf Server)
+2) **Backend Dependencies**
 
-- Backend:
-  - `cd server && npm ci && npm start`
-  - Läuft standardmäßig auf **Port 3000**
-- Frontend (Dev):
-  - `cd client && npm ci && npm run dev -- --host`
-  - Läuft standardmäßig auf **Port 5173**
+```bash
+cd server
+npm ci --omit=dev
+```
 
-Für den produktiven Betrieb bietet sich an:
+3) **Frontend bauen**
 
-- Frontend via `npm run build` bauen und z.B. über Nginx ausliefern (siehe `client/Dockerfile` als Referenz).
-- Backend als Service (systemd) laufen lassen und ggf. per Reverse Proxy (Nginx/Traefik) nach außen exposen.
+```bash
+cd ../client
+npm ci
+npm run build
+```
+
+### systemd Service installieren
+
+Die Unit liegt im Repo unter `deploy/ferienplanung-backend.service`.
+
+```bash
+sudo cp /root/Ferienplanner/deploy/ferienplanung-backend.service /etc/systemd/system/ferienplanung-backend.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now ferienplanung-backend
+sudo systemctl status ferienplanung-backend --no-pager
+```
+
+Danach erreichst du:
+
+- Frontend: `http://<lxc-ip>:3000/`
+- Healthcheck: `http://<lxc-ip>:3000/health`
+- API: `http://<lxc-ip>:3000/api/vacations`
+
+### Update (einfach)
+
+```bash
+cd /root/Ferienplanner
+git pull
+
+cd server
+npm ci --omit=dev
+
+cd ../client
+npm ci
+npm run build
+
+sudo systemctl restart ferienplanung-backend
+sudo systemctl status ferienplanung-backend --no-pager
+```
+
+### Logs / Debug
+
+```bash
+sudo journalctl -u ferienplanung-backend -f
+```
+
+### Häufige Probleme
+
+- **`EADDRINUSE :3000`**: Ein anderer Prozess blockiert Port 3000.
+  - Prüfen: `sudo ss -ltnp | grep ':3000'`
+  - Prozess beenden oder Port ändern.
+- **`SQLITE_CANTOPEN`**: Meist fehlende Rechte/Ordner.
+  - In Production wird `DB_PATH=/var/lib/ferienplaner/database.sqlite` verwendet.
+  - Prüfen: `ls -la /var/lib/ferienplaner`
+
+### Dev-Mode (optional)
+
+Wenn du lokal entwickelst:
+
+- Backend: `cd server && npm install && npm start` (Port 3000)
+- Frontend: `cd client && npm install && npm run dev` (Port 5173)
 
 ## Lizenz
 

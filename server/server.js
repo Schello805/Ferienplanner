@@ -17,17 +17,73 @@ try {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 } catch (e) {
   process.stderr.write(`Failed to ensure DB directory exists: ${e?.message || e}\n`);
+  process.stderr.write(`DB_PATH=${DB_PATH}\n`);
+  process.exit(1);
 }
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
+if (fs.existsSync(CLIENT_DIST)) {
+  app.use(express.static(CLIENT_DIST));
+}
+
 // Initialize Holidays for Bavaria, Germany
 const hd = new Holidays('DE', 'BY');
 
+function normalizeDateOnly(value) {
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getUTCFullYear();
+    const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(value.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  if (value) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  return null;
+}
+
+function parseDateOnly(value) {
+  const normalized = normalizeDateOnly(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const [year, month, day] = normalized.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isValid =
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+
+  return isValid ? date : null;
+}
+
 function openDb() {
-  return new sqlite3.Database(DB_PATH);
+  return new sqlite3.Database(DB_PATH, (err) => {
+    if (err) {
+      process.stderr.write(`Failed to open SQLite DB: ${err?.message || err}\n`);
+      process.stderr.write(`DB_PATH=${DB_PATH}\n`);
+    }
+  });
 }
 
 
@@ -44,17 +100,39 @@ dbInit.serialize(() => {
   `);
 
   dbInit.all(`PRAGMA table_info(vacations)`, [], (err, rows) => {
-    if (err) return;
+    if (err) {
+      dbInit.close();
+      return;
+    }
+
     const existing = new Set(rows.map(r => r.name));
+    const migrations = [];
     if (!existing.has('createdAt')) {
-      dbInit.run(`ALTER TABLE vacations ADD COLUMN createdAt TEXT`);
+      migrations.push(`ALTER TABLE vacations ADD COLUMN createdAt TEXT`);
     }
     if (!existing.has('updatedAt')) {
-      dbInit.run(`ALTER TABLE vacations ADD COLUMN updatedAt TEXT`);
+      migrations.push(`ALTER TABLE vacations ADD COLUMN updatedAt TEXT`);
     }
+
+    if (migrations.length === 0) {
+      dbInit.close();
+      return;
+    }
+
+    let remaining = migrations.length;
+    migrations.forEach((sql) => {
+      dbInit.run(sql, (migrationErr) => {
+        if (migrationErr) {
+          process.stderr.write(`SQLite migration failed: ${migrationErr?.message || migrationErr}\n`);
+        }
+        remaining -= 1;
+        if (remaining === 0) {
+          dbInit.close();
+        }
+      });
+    });
   });
 });
-dbInit.close();
 
 app.get('/health', (req, res) => {
   res.json({ ok: true });
@@ -107,10 +185,10 @@ app.post('/api/vacations/range', (req, res) => {
     return res.status(400).json({ error: 'startDate, endDate, and userId are required' });
   }
 
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseDateOnly(startDate);
+  const end = parseDateOnly(endDate);
   
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+  if (!start || !end) {
      return res.status(400).json({ error: 'Invalid dates' });
   }
 
@@ -126,8 +204,8 @@ app.post('/api/vacations/range', (req, res) => {
     `);
 
     // Loop from start to end
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+        const dateStr = normalizeDateOnly(d);
         stmt.run(dateStr, userId, now, now);
     }
 
@@ -171,6 +249,33 @@ const STATIC_HOLIDAYS = {
     }
 };
 
+const HOLIDAY_CACHE_TTL_MS = 1000 * 60 * 60 * 12;
+const HOLIDAY_CACHE_MAX_STALE_MS = 1000 * 60 * 60 * 24 * 14;
+const HOLIDAY_FALLBACK_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+const schoolHolidayCache = new Map();
+
+function buildHolidayMeta(source, message = null, fetchedAt = null) {
+  return {
+    source,
+    message,
+    cachedAt: fetchedAt ? new Date(fetchedAt).toISOString() : null,
+  };
+}
+
+function getCachedSchoolHolidays(year) {
+  const cached = schoolHolidayCache.get(year);
+  if (!cached) {
+    return null;
+  }
+
+  const age = Date.now() - cached.fetchedAt;
+  return {
+    ...cached,
+    isFresh: age < (cached.ttlMs || HOLIDAY_CACHE_TTL_MS),
+    isUsableStale: age < HOLIDAY_CACHE_MAX_STALE_MS,
+  };
+}
+
 // GET /api/holidays (Dynamic with Fallback)
 app.get('/api/holidays', async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -178,36 +283,90 @@ app.get('/api/holidays', async (req, res) => {
     // 1. Public Holidays (Calculated dynamically via date-holidays)
     // Note: hd.getHolidays returns date objects/strings. We ensure YYYY-MM-DD.
     const publicHolidaysRaw = hd.getHolidays(year);
-    const publicHolidays = publicHolidaysRaw.map(h => ({
-        date: new Date(h.date).toISOString().split('T')[0],
+    const publicHolidays = publicHolidaysRaw
+      .filter(h => h.type === 'public')
+      .map(h => ({
+        date: normalizeDateOnly(h.date),
         name: h.name
-    }));
+      }))
+      .filter(h => h.date);
 
     // 2. School Holidays (Fetched via API with fallback)
     let schoolHolidays = [];
-    
-    try {
-        // Fetch from ferien-api.de (Bavaria)
-        const response = await axios.get(`https://ferien-api.de/api/v1/holidays/DE-BY/${year}`, { timeout: 3000 });
-        schoolHolidays = response.data.map(h => ({
-            start: new Date(h.start).toISOString().split('T')[0],
-            end: new Date(h.end).toISOString().split('T')[0],
-            name: h.name
-        }));
-    } catch (error) {
-        console.warn(`API fetch failed for ${year}, using fallback if available. Error: ${error.message}`);
-        if (STATIC_HOLIDAYS[year]) {
+    let meta = buildHolidayMeta('live');
+    const cached = getCachedSchoolHolidays(year);
+
+    if (cached?.isFresh) {
+      schoolHolidays = cached.school;
+      meta = cached.source === 'live'
+        ? buildHolidayMeta(
+            'cache',
+            'Ferien wurden aus dem Zwischenspeicher geladen, um unnötige Aufrufe der externen API zu vermeiden.',
+            cached.fetchedAt
+          )
+        : buildHolidayMeta(cached.source, cached.message, cached.fetchedAt);
+    } else {
+      try {
+          // Fetch from ferien-api.de (Bavaria)
+          const response = await axios.get(`https://ferien-api.de/api/v1/holidays/DE-BY/${year}`, { timeout: 3000 });
+          schoolHolidays = response.data.map(h => ({
+              start: normalizeDateOnly(h.start),
+              end: normalizeDateOnly(h.end),
+              name: h.name
+          })).filter(h => h.start && h.end);
+
+          schoolHolidayCache.set(year, {
+            school: schoolHolidays,
+            fetchedAt: Date.now(),
+            ttlMs: HOLIDAY_CACHE_TTL_MS,
+            source: 'live',
+            message: null,
+          });
+      } catch (error) {
+          console.warn(`API fetch failed for ${year}, using fallback if available. Error: ${error.message}`);
+          if (cached?.isUsableStale) {
+            schoolHolidays = cached.school;
+            meta = buildHolidayMeta(
+              'stale-cache',
+              `Die Live-Quelle antwortete nicht (${error.message}). Es werden zuletzt erfolgreich geladene Feriendaten verwendet.`,
+              cached.fetchedAt
+            );
+          } else if (STATIC_HOLIDAYS[year]) {
             schoolHolidays = STATIC_HOLIDAYS[year].school;
-        } else {
+            const fallbackMessage = `Die Live-Quelle antwortete nicht (${error.message}). Es werden hinterlegte Feriendaten verwendet.`;
+            schoolHolidayCache.set(year, {
+              school: schoolHolidays,
+              fetchedAt: Date.now(),
+              ttlMs: HOLIDAY_FALLBACK_CACHE_TTL_MS,
+              source: 'static-fallback',
+              message: fallbackMessage,
+            });
+            meta = buildHolidayMeta(
+              'static-fallback',
+              fallbackMessage
+            );
+          } else {
             schoolHolidays = [];
-        }
+            meta = buildHolidayMeta(
+              'error',
+              `Die Live-Quelle antwortete nicht (${error.message}) und es gibt keinen lokalen Fallback für ${year}.`
+            );
+          }
+      }
     }
 
     res.json({
         public: publicHolidays,
-        school: schoolHolidays
+        school: schoolHolidays,
+        meta,
     });
 });
+
+if (fs.existsSync(CLIENT_DIST)) {
+  app.get(/^\/(?!api\/).*/, (req, res) => {
+    res.sendFile(path.join(CLIENT_DIST, 'index.html'));
+  });
+}
 
 app.listen(PORT, () => {
   // Intentionally no console.log comments added

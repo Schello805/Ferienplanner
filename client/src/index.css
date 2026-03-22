@@ -60,6 +60,26 @@ body {
   border-color: #1e293b !important;
 }
 
+:root.dark .calendar-toolbar > div {
+  background-color: rgba(2, 6, 23, 0.9) !important; /* slate-950/90 */
+  border-color: #334155 !important; /* slate-700 */
+}
+
+:root.dark .utility-sidebar {
+  background-color: rgba(2, 6, 23, 0.96) !important; /* slate-950 */
+  border-color: #334155 !important;
+}
+
+:root.dark .utility-sidebar nav {
+  background-color: rgba(15, 23, 42, 0.82) !important; /* slate-900 */
+  border-color: #334155 !important;
+}
+
+:root.dark .utility-sidebar section {
+  background-color: rgba(15, 23, 42, 0.78) !important; /* slate-900 */
+  border-color: #334155 !important;
+}
+
 /* Calendar Grid Headers */
 :root.dark .sticky.top-0, 
 :root.dark .sticky.left-0 {
@@ -387,6 +407,7 @@ html.dark .settings-modal-heading {
   .fixed,
   .calendar-toolbar,
   .calendar-legend,
+  .utility-sidebar,
   .print-header,
   .print-footer,
   form {

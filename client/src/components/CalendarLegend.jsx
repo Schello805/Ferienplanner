@@ -2,7 +2,7 @@ import React from 'react';
 
 export const CalendarLegend = ({ p1Color, p2Color, careColor, setP1Color, setP2Color, setCareColor }) => {
     return (
-        <div className="calendar-legend mb-4 p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-xl border border-gray-200 dark:border-slate-800 shadow-lg flex flex-wrap gap-4 justify-center text-xs sm:text-sm text-gray-700 dark:text-gray-200 sticky top-0 z-30 transition-colors">
+        <div className="calendar-legend flex flex-wrap gap-3 rounded-2xl border border-gray-200 bg-white/90 p-3 text-xs text-gray-700 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900/90 dark:text-gray-200">
             <div className="flex items-center gap-2">
                 <div className="legend-marker-holiday w-3 h-3 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-600/30 rounded"></div>
                 <span>Ferien</span>

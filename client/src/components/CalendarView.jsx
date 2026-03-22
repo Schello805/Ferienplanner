@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { CalendarToolbar } from './CalendarToolbar';
-import { CalendarLegend } from './CalendarLegend';
 import { DayCell } from './DayCell';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -13,22 +12,87 @@ const MONTHS = [
 
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
+const parseDateOnly = (value) => {
+    const match = typeof value === 'string' ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
+    if (!match) return null;
+
+    const [, year, month, day] = match;
+    const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    const isValid =
+        date.getUTCFullYear() === Number(year) &&
+        date.getUTCMonth() === Number(month) - 1 &&
+        date.getUTCDate() === Number(day);
+
+    return isValid ? date : null;
+};
+
+const formatDateOnly = (date) => {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const buildNotice = (meta) => {
+    if (!meta) return null;
+
+    if (meta.source === 'cache') {
+        return {
+            tone: 'info',
+            title: 'Ferien aus Cache geladen',
+            message: 'Die externe Ferienquelle wurde für dieses Jahr bereits geladen. Das vermeidet unnötige API-Aufrufe.',
+        };
+    }
+
+    if (meta.source === 'stale-cache') {
+        return {
+            tone: 'warning',
+            title: 'Ferien aus Zwischenspeicher',
+            message: meta.message || 'Die Live-Quelle war nicht erreichbar. Es werden zuletzt erfolgreich geladene Feriendaten verwendet.',
+        };
+    }
+
+    if (meta.source === 'static-fallback') {
+        return {
+            tone: 'warning',
+            title: 'Statischer Ferien-Fallback aktiv',
+            message: meta.message || 'Die Live-Quelle war nicht erreichbar. Es werden hinterlegte Feriendaten verwendet.',
+        };
+    }
+
+    if (meta.source === 'error') {
+        return {
+            tone: 'error',
+            title: 'Ferien konnten nicht geladen werden',
+            message: meta.message || 'Weder Live-Daten noch Fallback-Daten sind verfügbar.',
+        };
+    }
+
+    if (meta.warning) {
+        return {
+            tone: 'info',
+            title: 'Hinweis',
+            message: meta.warning,
+        };
+    }
+
+    return null;
+};
+
 const CalendarView = ({ 
     p1Color, 
     p2Color, 
     careColor, 
-    setP1Color, 
-    setP2Color, 
-    setCareColor,
     p1DaysOff = [], // Array of day indices (0-6)
     p2DaysOff = []
 }) => {
     const currentYear = new Date().getFullYear();
     const [year, setYear] = useState(currentYear);
-    const [holidays, setHolidays] = useState({ public: [], school: [] });
+    const [holidays, setHolidays] = useState({ public: [], school: [], meta: null });
     const [vacations, setVacations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [apiOnline, setApiOnline] = useState(true);
+    const [apiNotice, setApiNotice] = useState(null);
     
     // Cache for holiday data to avoid redundant API calls
     const holidayCache = React.useRef({});
@@ -38,6 +102,7 @@ const CalendarView = ({
     const [endDate, setEndDate] = useState('');
     const [userId, setUserId] = useState('p1');
     const [isDragging, setIsDragging] = useState(false);
+    const [showPlanner, setShowPlanner] = useState(false);
 
     // Optimize vacation lookup using Map (O(1))
     const vacationsMap = useMemo(() => {
@@ -51,23 +116,34 @@ const CalendarView = ({
         // Don't set loading true here to avoid flickering on updates
         // setLoading(true); 
         try {
+            setApiOnline(true);
             // Check cache first
             if (holidayCache.current[year]) {
-                setHolidays(holidayCache.current[year]);
+                const cachedHolidayData = holidayCache.current[year];
+                setHolidays(cachedHolidayData);
+                setApiNotice(buildNotice(cachedHolidayData.meta));
             } else {
                 const holidayRes = await fetch(`${API_URL}/api/holidays?year=${year}`);
+                if (!holidayRes.ok) throw new Error(`holidays request failed: ${holidayRes.status}`);
                 const holidayData = await holidayRes.json();
                 setHolidays(holidayData);
+                setApiNotice(buildNotice(holidayData.meta));
                 // Update cache
                 holidayCache.current[year] = holidayData;
             }
 
             const vacationRes = await fetch(`${API_URL}/api/vacations`);
+            if (!vacationRes.ok) throw new Error(`vacations request failed: ${vacationRes.status}`);
             const vacationData = await vacationRes.json();
             setVacations(vacationData);
         } catch (err) {
             console.error("Failed to fetch data", err);
             setApiOnline(false);
+            setApiNotice({
+                tone: 'error',
+                title: 'Backend nicht erreichbar',
+                message: 'Kalenderdaten konnten nicht geladen werden. Prüfe, ob der Server läuft, und versuche es erneut.',
+            });
             toast.error("Fehler beim Laden der Daten");
         } finally {
             setLoading(false);
@@ -78,16 +154,17 @@ const CalendarView = ({
     useEffect(() => {
         setLoading(true);
         fetchData();
-        setApiOnline(true);
         document.title = `Ferienplaner ${year} - Bayern`;
     }, [fetchData, year]);
 
     const getDatesInRange = useCallback((s, e) => {
+        const start = parseDateOnly(s);
+        const end = parseDateOnly(e);
+        if (!start || !end) return [];
+
         const dates = [];
-        const start = new Date(s);
-        const end = new Date(e);
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            dates.push(d.toISOString().split('T')[0]);
+        for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+            dates.push(formatDateOnly(d));
         }
         return dates;
     }, []);
@@ -110,7 +187,7 @@ const CalendarView = ({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ startDate: range.s, endDate: range.e, userId: rangeUserId })
             });
-            if (!res.ok) throw new Error('Failed to save');
+            if (!res.ok) throw new Error(`Failed to save: ${res.status}`);
 
             toast.success('Urlaub eingetragen', {
                 action: {
@@ -118,7 +195,7 @@ const CalendarView = ({
                     onClick: async () => {
                         setVacations(previousVacations);
                         try {
-                            await Promise.all(
+                            const responses = await Promise.all(
                                 dates.map(date => {
                                     const prevUserId = prevMap.get(date);
                                     return fetch(`${API_URL}/api/vacations`, {
@@ -128,6 +205,8 @@ const CalendarView = ({
                                     });
                                 })
                             );
+                            const firstError = responses.find(r => !r.ok);
+                            if (firstError) throw new Error(`Undo failed: ${firstError.status}`);
                         } catch {
                             toast.error('Undo fehlgeschlagen');
                         }
@@ -136,6 +215,11 @@ const CalendarView = ({
             });
         } catch (err) {
             console.error(err);
+            setApiNotice({
+                tone: 'error',
+                title: 'Speichern fehlgeschlagen',
+                message: 'Der Bereich konnte nicht gespeichert werden. Die lokale Änderung wurde zurückgesetzt.',
+            });
             toast.error('Fehler beim Speichern');
             setVacations(previousVacations);
         } finally {
@@ -352,13 +436,20 @@ const CalendarView = ({
         setVacations(newVacationsList);
 
         try {
-            await fetch(`${API_URL}/api/vacations`, {
+            const res = await fetch(`${API_URL}/api/vacations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ date: dateString, userId: newUserId })
             });
+            if (!res.ok) throw new Error(`Failed to save: ${res.status}`);
         } catch (err) {
             console.error("Failed to save vacation", err);
+            setApiOnline(false);
+            setApiNotice({
+                tone: 'error',
+                title: 'Speichern fehlgeschlagen',
+                message: 'Der Tag konnte nicht gespeichert werden. Bitte Backend-Verbindung prüfen.',
+            });
             toast.error("Speichern fehlgeschlagen!");
             setVacations(previousVacations); 
         } finally {
@@ -424,7 +515,7 @@ const CalendarView = ({
     );
 
     return (
-        <div className="flex flex-col select-none relative">
+        <div className="flex h-full min-h-0 flex-col select-none relative">
             {/* Custom Tooltip */}
             {hoveredDay && (
                 <div 
@@ -468,6 +559,9 @@ const CalendarView = ({
                 onUpdate={fetchData}
                 onSubmitRange={handleSubmitRange}
                 apiOnline={apiOnline}
+                showPlanner={showPlanner}
+                setShowPlanner={setShowPlanner}
+                compactMode
             />
 
             {/* Print Header (Visible only in print) */}
@@ -477,21 +571,36 @@ const CalendarView = ({
             </div>
 
             {/* Legend */}
-            <CalendarLegend 
-                p1Color={p1Color} 
-                p2Color={p2Color} 
-                careColor={careColor}
-                setP1Color={setP1Color} 
-                setP2Color={setP2Color} 
-                setCareColor={setCareColor}
-            />
+            {apiNotice && (
+                <div className={`mb-2 rounded-2xl border px-4 py-3 text-sm shadow-sm ${
+                    apiNotice.tone === 'error'
+                        ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-100'
+                        : apiNotice.tone === 'warning'
+                            ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100'
+                            : 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100'
+                }`}>
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <div className="font-bold">{apiNotice.title}</div>
+                            <div className="mt-1 text-xs sm:text-sm">{apiNotice.message}</div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setApiNotice(null)}
+                            className="rounded-lg px-2 py-1 text-xs font-semibold opacity-70 transition-opacity hover:opacity-100"
+                        >
+                            Ausblenden
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Scrollable Calendar Container */}
-            <div className="calendar-container flex-1 overflow-auto relative rounded-xl border border-gray-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900 shadow-2xl transition-colors">
-                <div className="calendar-min-width-wrapper min-w-[800px] sm:min-w-[1000px]"> {/* Reduced min-width */}
+            <div className="calendar-container flex-1 min-h-0 overflow-auto relative rounded-2xl border border-gray-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900 shadow-2xl transition-colors">
+                <div className="calendar-min-width-wrapper min-w-[760px] sm:min-w-[920px]">
 
                     {/* Sticky Header Row */}
-                    <div className="calendar-grid grid grid-cols-[40px_repeat(12,1fr)] gap-px sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-md transition-colors h-auto min-h-[40px] items-stretch">
+                    <div className="calendar-grid grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-md transition-colors h-auto min-h-[34px] items-stretch">
                         <div className="calendar-corner-header font-bold text-center text-gray-500 dark:text-gray-400 flex items-end justify-center pb-1 text-[10px] bg-white dark:bg-slate-900">Tag</div>
                         {MONTHS.map((m, i) => {
                             const stats = monthStats[i];
@@ -512,7 +621,7 @@ const CalendarView = ({
 
                     {/* Days Rows */}
                     {DAYS.map(day => (
-                        <div key={day} className="calendar-row grid grid-cols-[40px_repeat(12,1fr)] gap-px mb-px group/row hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                        <div key={day} className="calendar-row grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px mb-px group/row hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
                             {/* Sticky Day Column */}
                             <div className="calendar-day-column sticky left-0 z-10 bg-white/95 dark:bg-slate-900 text-[10px] text-gray-500 dark:text-gray-400 flex items-center justify-center font-mono border-r border-gray-200 dark:border-slate-800 transition-colors">
                                 {day}

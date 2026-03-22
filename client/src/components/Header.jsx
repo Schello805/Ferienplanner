@@ -1,24 +1,24 @@
 export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHelp }) => {
     return (
-        <header className="mb-6 flex justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors">
+        <header className="mb-2 flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white/92 px-3 py-2 shadow-sm shadow-slate-200/60 transition-colors dark:border-slate-700 dark:bg-slate-950/92 dark:shadow-black/20">
             <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-lg shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-white">
+                <div className="rounded-xl border border-white/70 bg-gradient-to-br from-sky-500 via-sky-500 to-indigo-500 p-2 shadow-lg shadow-sky-200/80 ring-1 ring-sky-100 dark:border-white/10 dark:shadow-sky-950/40 dark:ring-sky-900/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-white">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                     </svg>
                 </div>
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+                    <h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white tracking-tight">
                         Ferienplaner
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Bayern</p>
+                    <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Jahresübersicht Bayern</p>
                 </div>
             </div>
 
             <div className="flex items-center gap-2 no-print">
                 <button
                     onClick={() => window.print()}
-                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-700 transition-colors"
+                    className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                     title="Drucken"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -28,7 +28,7 @@ export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHelp }) =>
 
                 <button
                     onClick={onOpenHelp}
-                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-700 transition-colors"
+                    className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                     title="Hilfe"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -38,7 +38,7 @@ export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHelp }) =>
 
                 <button
                     onClick={onOpenSettings}
-                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-700 transition-colors"
+                    className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                     title="Einstellungen"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -47,11 +47,11 @@ export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHelp }) =>
                     </svg>
                 </button>
 
-                <div className="w-px h-6 bg-gray-200 dark:bg-slate-700 mx-1"></div>
+                <div className="mx-1 h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
 
                 <button
                     onClick={() => setDarkMode(!darkMode)}
-                    className="p-2 rounded-lg bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+                    className="rounded-lg border border-slate-200 bg-slate-100 p-2 text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     title={darkMode ? "Licht an" : "Licht aus"}
                 >
                     {darkMode ? (
