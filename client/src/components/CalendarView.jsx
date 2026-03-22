@@ -2,8 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner';
 import { CalendarToolbar } from './CalendarToolbar';
 import { DayCell } from './DayCell';
-
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
+import { authFetch } from '../lib/api';
 
 const MONTHS = [
     'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -324,7 +323,7 @@ const CalendarView = ({
                 setHolidays(cachedHolidayData);
                 setApiNotice(buildNotice(cachedHolidayData.meta));
             } else {
-                const holidayRes = await fetch(`${API_URL}/api/holidays?year=${year}&state=${stateCode}`);
+                const holidayRes = await authFetch(`/api/holidays?year=${year}&state=${stateCode}`);
                 if (!holidayRes.ok) throw new Error(`holidays request failed: ${holidayRes.status}`);
                 const holidayData = await holidayRes.json();
                 setHolidays(holidayData);
@@ -333,7 +332,7 @@ const CalendarView = ({
                 holidayCache.current[cacheKey] = holidayData;
             }
 
-            const vacationRes = await fetch(`${API_URL}/api/vacations`);
+            const vacationRes = await authFetch('/api/vacations');
             if (!vacationRes.ok) throw new Error(`vacations request failed: ${vacationRes.status}`);
             const vacationData = await vacationRes.json();
             setVacations(vacationData);
@@ -392,7 +391,7 @@ const CalendarView = ({
         setVacations(optimisticVacations);
 
         try {
-            const res = await fetch(`${API_URL}/api/vacations/range`, {
+            const res = await authFetch('/api/vacations/range', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ startDate: range.s, endDate: range.e, userId: rangeUserId })
@@ -408,7 +407,7 @@ const CalendarView = ({
                             const responses = await Promise.all(
                                 dates.map(date => {
                                     const prevUserId = prevMap.get(date);
-                                    return fetch(`${API_URL}/api/vacations`, {
+                                    return authFetch('/api/vacations', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ date, userId: prevUserId ?? null })
@@ -711,7 +710,7 @@ const CalendarView = ({
         setVacations(newVacationsList);
 
         try {
-            const res = await fetch(`${API_URL}/api/vacations`, {
+            const res = await authFetch('/api/vacations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ date: dateString, userId: newUserId })

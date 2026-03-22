@@ -2,8 +2,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import { CalendarLegend } from './CalendarLegend';
 import { GERMAN_STATES } from '../constants/germanStates';
-
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
+import { authFetch } from '../lib/api';
 
 const formatGermanDate = (value) => {
     if (!value) return value;
@@ -278,7 +277,7 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
         }
 
         try {
-            const response = await fetch(`${API_URL}/api/children`, {
+            const response = await authFetch('/api/children', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(draft),
@@ -300,7 +299,7 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
 
     const toggleSchoolHolidays = async (child) => {
         try {
-            const response = await fetch(`${API_URL}/api/children`, {
+            const response = await authFetch('/api/children', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -318,7 +317,7 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
 
     const deleteChild = async (childId) => {
         try {
-            const response = await fetch(`${API_URL}/api/children/${childId}`, { method: 'DELETE' });
+            const response = await authFetch(`/api/children/${childId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error(`delete child failed: ${response.status}`);
             await onRefreshFamilyData();
             toast.success('Kind entfernt');
@@ -434,7 +433,7 @@ const ChildFreeDayManager = ({ children, childFreeDays, onRefreshFamilyData }) =
         }
 
         try {
-            const response = await fetch(`${API_URL}/api/child-free-days`, {
+            const response = await authFetch('/api/child-free-days', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -456,7 +455,7 @@ const ChildFreeDayManager = ({ children, childFreeDays, onRefreshFamilyData }) =
 
     const deleteFreeDay = async (entryId) => {
         try {
-            const response = await fetch(`${API_URL}/api/child-free-days/${entryId}`, { method: 'DELETE' });
+            const response = await authFetch(`/api/child-free-days/${entryId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error(`delete child-free-day failed: ${response.status}`);
             await onRefreshFamilyData();
             toast.success('Freier Tag entfernt');

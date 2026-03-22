@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
+import { authFetch } from '../lib/api';
 
 export const VacationRangeInput = ({ 
     startDate, 
@@ -36,7 +35,7 @@ export const VacationRangeInput = ({
             if (onSubmitRange) {
                 await onSubmitRange({ startDate, endDate, userId });
             } else {
-                const res = await fetch(`${API_URL}/api/vacations/range`, {
+                const res = await authFetch('/api/vacations/range', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ startDate, endDate, userId })

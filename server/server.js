@@ -6,12 +6,14 @@ import { fileURLToPath } from 'url';
 import sqlite3 from 'sqlite3';
 import Holidays from 'date-holidays';
 import axios from 'axios';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'database.sqlite');
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 try {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -88,6 +90,140 @@ function openDb() {
   });
 }
 
+function dbGet(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+function dbAll(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+}
+
+function dbRun(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function onRun(err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+}
+
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return { salt, hash };
+}
+
+function verifyPassword(password, salt, expectedHash) {
+  const actualHash = crypto.scryptSync(password, salt, 64);
+  const expected = Buffer.from(expectedHash, 'hex');
+  if (actualHash.length !== expected.length) return false;
+  return crypto.timingSafeEqual(actualHash, expected);
+}
+
+function generateSessionToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+function getBearerToken(req) {
+  const authHeader = req.headers.authorization || '';
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1] : null;
+}
+
+async function getUserCount() {
+  const db = openDb();
+  try {
+    const row = await dbGet(db, 'SELECT COUNT(*) AS count FROM users');
+    return Number(row?.count || 0);
+  } finally {
+    db.close();
+  }
+}
+
+async function createSessionForUser(userId) {
+  const db = openDb();
+  const token = generateSessionToken();
+  const now = Date.now();
+  const expiresAt = new Date(now + SESSION_TTL_MS).toISOString();
+  const createdAt = new Date(now).toISOString();
+
+  try {
+    await dbRun(
+      db,
+      `INSERT INTO sessions (token, userId, createdAt, expiresAt)
+       VALUES (?, ?, ?, ?)`,
+      [token, userId, createdAt, expiresAt]
+    );
+    return { token, expiresAt };
+  } finally {
+    db.close();
+  }
+}
+
+async function getAuthState(req) {
+  const token = getBearerToken(req);
+  const userCount = await getUserCount();
+  const setupRequired = userCount === 0;
+
+  if (!token) {
+    return { setupRequired, authenticated: false, user: null, token: null };
+  }
+
+  const db = openDb();
+  try {
+    await dbRun(db, 'DELETE FROM sessions WHERE expiresAt <= ?', [new Date().toISOString()]);
+    const row = await dbGet(
+      db,
+      `SELECT sessions.token, users.id, users.username
+       FROM sessions
+       JOIN users ON users.id = sessions.userId
+       WHERE sessions.token = ? AND sessions.expiresAt > ?`,
+      [token, new Date().toISOString()]
+    );
+
+    if (!row) {
+      return { setupRequired, authenticated: false, user: null, token: null };
+    }
+
+    return {
+      setupRequired,
+      authenticated: true,
+      token,
+      user: {
+        id: row.id,
+        username: row.username,
+      },
+    };
+  } finally {
+    db.close();
+  }
+}
+
+async function requireAuth(req, res, next) {
+  try {
+    const authState = await getAuthState(req);
+    if (!authState.authenticated) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        setupRequired: authState.setupRequired,
+      });
+    }
+    req.auth = authState;
+    next();
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
 
 // Initialize DB
 const dbInit = openDb();
@@ -124,6 +260,27 @@ dbInit.serialize(() => {
       createdAt TEXT,
       updatedAt TEXT,
       FOREIGN KEY (childId) REFERENCES children(id) ON DELETE CASCADE
+    )
+  `);
+
+  dbInit.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      passwordHash TEXT NOT NULL,
+      passwordSalt TEXT NOT NULL,
+      createdAt TEXT,
+      updatedAt TEXT
+    )
+  `);
+
+  dbInit.run(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      userId INTEGER NOT NULL,
+      createdAt TEXT,
+      expiresAt TEXT,
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
@@ -164,6 +321,105 @@ dbInit.serialize(() => {
 
 app.get('/health', (req, res) => {
   res.json({ ok: true });
+});
+
+app.get('/api/auth/status', async (req, res) => {
+  try {
+    const authState = await getAuthState(req);
+    res.json({
+      setupRequired: authState.setupRequired,
+      authenticated: authState.authenticated,
+      user: authState.user,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/bootstrap', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password are required' });
+  }
+
+  const existingUsers = await getUserCount();
+  if (existingUsers > 0) {
+    return res.status(409).json({ error: 'Setup already completed' });
+  }
+
+  const db = openDb();
+  const now = new Date().toISOString();
+
+  try {
+    const { salt, hash } = hashPassword(password);
+    const result = await dbRun(
+      db,
+      `INSERT INTO users (username, passwordHash, passwordSalt, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?)`,
+      [String(username).trim(), hash, salt, now, now]
+    );
+    db.close();
+
+    const session = await createSessionForUser(result.lastID);
+    return res.json({
+      success: true,
+      token: session.token,
+      user: { id: result.lastID, username: String(username).trim() },
+    });
+  } catch (error) {
+    db.close();
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password are required' });
+  }
+
+  const db = openDb();
+  try {
+    const user = await dbGet(
+      db,
+      'SELECT id, username, passwordHash, passwordSalt FROM users WHERE username = ?',
+      [String(username).trim()]
+    );
+    db.close();
+
+    if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const session = await createSessionForUser(user.id);
+    return res.json({
+      success: true,
+      token: session.token,
+      user: { id: user.id, username: user.username },
+    });
+  } catch (error) {
+    db.close();
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
+  const db = openDb();
+  try {
+    await dbRun(db, 'DELETE FROM sessions WHERE token = ?', [req.auth.token]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth/')) {
+    return next();
+  }
+  return requireAuth(req, res, next);
 });
 
 app.get('/api/children', (req, res) => {

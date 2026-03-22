@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import CalendarView from './components/CalendarView'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { UtilitySidebar } from './components/UtilitySidebar'
+import { AuthScreen } from './components/AuthScreen'
 import { Toaster } from 'sonner'
 import { toast } from 'sonner'
 import { GERMAN_STATE_MAP } from './constants/germanStates'
-
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
+import { authFetch, clearStoredAuthToken, setStoredAuthToken } from './lib/api'
 
 const formatLocalDateInput = (date) => {
   const year = date.getFullYear();
@@ -132,6 +132,10 @@ function App() {
   const [apiOnline, setApiOnline] = useState(true);
   const [children, setChildren] = useState([]);
   const [childFreeDays, setChildFreeDays] = useState([]);
+  const [authReady, setAuthReady] = useState(false);
+  const [setupRequired, setSetupRequired] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 1024 : false
   );
@@ -200,12 +204,55 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const loadFamilyData = async () => {
+  const refreshAuthStatus = useCallback(async () => {
+    try {
+      const response = await authFetch('/api/auth/status');
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `auth status failed: ${response.status}`);
+      }
+      setSetupRequired(Boolean(data.setupRequired));
+      setCurrentUser(data.authenticated ? data.user : null);
+    } catch (error) {
+      console.error('Failed to load auth status', error);
+      clearStoredAuthToken();
+      setCurrentUser(null);
+    } finally {
+      setAuthReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshAuthStatus();
+  }, [refreshAuthStatus]);
+
+  useEffect(() => {
+    const handleUnauthorized = async () => {
+      clearStoredAuthToken();
+      setCurrentUser(null);
+      setChildren([]);
+      setChildFreeDays([]);
+      await refreshAuthStatus();
+      toast.error('Sitzung abgelaufen. Bitte erneut anmelden.');
+    };
+
+    window.addEventListener('ferienplaner:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('ferienplaner:unauthorized', handleUnauthorized);
+  }, [refreshAuthStatus]);
+
+  const loadFamilyData = useCallback(async () => {
     try {
       const [childrenRes, freeDaysRes] = await Promise.all([
-        fetch(`${API_URL}/api/children`),
-        fetch(`${API_URL}/api/child-free-days`),
+        authFetch('/api/children'),
+        authFetch('/api/child-free-days'),
       ]);
+
+      if (childrenRes.status === 401 || freeDaysRes.status === 401) {
+        clearStoredAuthToken();
+        setCurrentUser(null);
+        await refreshAuthStatus();
+        return;
+      }
 
       if (!childrenRes.ok) {
         throw new Error(`children request failed: ${childrenRes.status}`);
@@ -225,11 +272,54 @@ function App() {
       console.error('Failed to load family data', error);
       toast.error('Kinderdaten konnten nicht geladen werden');
     }
-  };
+  }, [refreshAuthStatus]);
 
   useEffect(() => {
-    loadFamilyData();
-  }, []);
+    if (currentUser) {
+      loadFamilyData();
+    }
+  }, [currentUser, loadFamilyData]);
+
+  const handleAuthSubmit = async ({ username, password }) => {
+    setAuthSubmitting(true);
+    try {
+      const path = setupRequired ? '/api/auth/bootstrap' : '/api/auth/login';
+      const response = await authFetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Anmeldung fehlgeschlagen');
+      }
+
+      setStoredAuthToken(data.token);
+      setCurrentUser(data.user);
+      setSetupRequired(false);
+      toast.success(setupRequired ? 'Benutzer angelegt' : 'Angemeldet');
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || 'Anmeldung fehlgeschlagen');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authFetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout failed', error);
+    } finally {
+      clearStoredAuthToken();
+      setCurrentUser(null);
+      setChildren([]);
+      setChildFreeDays([]);
+      await refreshAuthStatus();
+      toast.success('Abgemeldet');
+    }
+  };
 
   const mobileNavItems = [
     {
@@ -326,6 +416,27 @@ function App() {
     });
   };
 
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-slate-900 dark:border-white" />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <>
+        <Toaster position="top-center" richColors theme={darkMode ? 'dark' : 'light'} />
+        <AuthScreen
+          setupRequired={setupRequired}
+          onSubmit={handleAuthSubmit}
+          loading={authSubmitting}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="mx-auto flex h-screen max-w-[1800px] flex-col overflow-hidden px-2 py-2 transition-colors duration-300 sm:px-3 sm:py-3">
       <Toaster position="top-center" richColors theme={darkMode ? 'dark' : 'light'} />
@@ -334,6 +445,8 @@ function App() {
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         stateName={GERMAN_STATE_MAP[stateCode] || 'Bayern'}
+        currentUser={currentUser}
+        onLogout={handleLogout}
         shareMode={shareMode}
         onToggleShareMode={toggleShareMode}
         onCopyShareLink={copyShareLink}
