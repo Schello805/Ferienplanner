@@ -964,6 +964,30 @@ export const UtilitySidebar = ({
                 </div>
 
                 <div className={`flex min-h-0 flex-1 ${isMobile ? 'flex-col' : ''}`}>
+                    {isMobile && isOpen && (
+                        <nav className="border-b border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/70">
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                {tabs.map((tab) => {
+                                    const active = activeTab === tab.id;
+                                    return (
+                                        <button
+                                            key={tab.id}
+                                            type="button"
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                                                active
+                                                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                                                    : 'bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white'
+                                            }`}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </nav>
+                    )}
+
                     {!isMobile && (
                     <nav className="flex w-16 flex-col items-center gap-2 border-r border-slate-200 bg-slate-50/70 px-2 py-3 dark:border-slate-700 dark:bg-slate-900/70">
                         {tabs.map(tab => {
