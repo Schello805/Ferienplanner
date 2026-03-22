@@ -14,6 +14,7 @@ CLIENT_DIR="${REPO_ROOT}/client"
 ENV_DIR="/etc/${APP_NAME}"
 ENV_FILE="${ENV_DIR}/${APP_NAME}.env"
 SYSTEMD_UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+BACKUP_DIR="/var/lib/${APP_NAME}/backups"
 
 log() {
   printf '[%s] %s\n' "${APP_NAME}" "$*"
@@ -79,6 +80,7 @@ ensure_runtime_layout() {
   log "Bereite Runtime-Verzeichnisse vor"
   mkdir -p "${ENV_DIR}"
   mkdir -p "$(dirname "${DEFAULT_DB_PATH}")"
+  mkdir -p "${BACKUP_DIR}"
 
   if [[ ! -f "${ENV_FILE}" ]]; then
     cat > "${ENV_FILE}" <<EOF
@@ -90,6 +92,34 @@ EOF
   else
     log "Environment-Datei bleibt erhalten: ${ENV_FILE}"
   fi
+}
+
+log_versions() {
+  local git_ref
+  git_ref="$(
+    cd "${REPO_ROOT}" &&
+    git rev-parse --short HEAD 2>/dev/null || printf 'unbekannt'
+  )"
+
+  log "Versionen: node $(node --version), npm $(npm --version), git ${git_ref}"
+}
+
+backup_database() {
+  local db_path="${1:-${DEFAULT_DB_PATH}}"
+  local timestamp backup_path
+
+  if [[ ! -f "${db_path}" ]]; then
+    log "Keine bestehende Datenbank fuer Backup gefunden: ${db_path}"
+    return 0
+  fi
+
+  mkdir -p "${BACKUP_DIR}"
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  backup_path="${BACKUP_DIR}/database-${timestamp}.sqlite"
+  cp "${db_path}" "${backup_path}"
+  log "Datenbank-Backup erstellt: ${backup_path}"
+
+  find "${BACKUP_DIR}" -type f -name 'database-*.sqlite' | sort | head -n -10 | xargs -r rm -f
 }
 
 write_systemd_unit() {

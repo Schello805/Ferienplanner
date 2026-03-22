@@ -408,8 +408,6 @@ html.dark .settings-modal-heading {
   .calendar-toolbar,
   .calendar-legend,
   .utility-sidebar,
-  .print-header,
-  .print-footer,
   form {
     display: none !important;
   }
@@ -432,6 +430,20 @@ html.dark .settings-modal-heading {
     background: none !important;
     box-shadow: none !important;
     margin: 0 !important;
+  }
+
+  .print-header,
+  .print-summary,
+  .print-footer {
+    display: flex !important;
+  }
+
+  .print-summary {
+    display: grid !important;
+  }
+
+  .print-footer {
+    margin-top: 4mm !important;
   }
 
   /* Reset Min Widths using specific class */
@@ -485,7 +497,7 @@ html.dark .settings-modal-heading {
     break-inside: avoid;
     border-bottom: 1px solid #ccc !important;
     page-break-inside: avoid;
-    height: 18px !important;
+    height: 16px !important;
     overflow: hidden !important;
   }
 
@@ -497,15 +509,15 @@ html.dark .settings-modal-heading {
 
   /* Override Height Utilities for Print */
   .h-8, .sm\:h-10, .h-6, .sm\:h-7 {
-    height: 18px !important;
-    min-height: 18px !important; 
+    height: 16px !important;
+    min-height: 16px !important; 
   }
 
   /* Day Cell content */
   .calendar-row > div:not(.calendar-day-column) > div {
     border: 1px solid #eee !important;
     height: 100% !important;
-    min-height: 18px !important;
+    min-height: 16px !important;
   }
   
   /* Weekday Indicator */
@@ -527,7 +539,7 @@ html.dark .settings-modal-heading {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    line-height: 18px !important;
+    line-height: 16px !important;
     display: block !important;
   }
 

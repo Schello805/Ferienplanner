@@ -9,6 +9,8 @@ source "${SCRIPT_DIR}/common.sh"
 require_root
 ensure_prerequisites
 ensure_runtime_layout
+log_versions
+backup_database
 clean_worktree
 update_code
 full_build

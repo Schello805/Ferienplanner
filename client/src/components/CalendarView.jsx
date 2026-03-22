@@ -81,10 +81,25 @@ const isRecurringDayMatch = (date, selectedDays = [], rule = { frequency: 'weekl
     return true;
 };
 
+const getMatchingRecurringRules = (date, rules = []) =>
+    rules.filter((rule) => isRecurringDayMatch(date, rule?.days || [], rule));
+
 const getRecurringRuleLabel = (rule = { frequency: 'weekly' }) => {
     if (rule.frequency === 'biweekly') return '14-tägig';
     if (rule.frequency === 'monthly') return 'monatlich';
     return 'wöchentlich';
+};
+
+const getRecurringRuleDetails = (rule = {}) => {
+    const weekdayLabels = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    const selectedDays = (rule.days || [])
+        .map((day) => weekdayLabels[day])
+        .join(', ');
+    const mode = getRecurringRuleLabel(rule);
+
+    if (!selectedDays) return mode;
+    if (rule.frequency === 'weekly') return `${mode}: ${selectedDays}`;
+    return `${mode}: ${selectedDays} ab ${rule.anchorDate}`;
 };
 
 const formatHolidayName = (value) => {
@@ -164,10 +179,9 @@ const CalendarView = ({
     careColor, 
     stateCode,
     stateName,
-    p1DaysOff = [], // Array of day indices (0-6)
-    p2DaysOff = [],
-    p1RecurringRule,
-    p2RecurringRule,
+    p1RecurringRules = [],
+    p2RecurringRules = [],
+    onApiStatusChange,
     onStatsChange,
     onHolidayBreakdownChange
 }) => {
@@ -347,8 +361,8 @@ const CalendarView = ({
                 // Check Free Days (Recurring)
                 // dayOfWeek is 0 (Sun) to 6 (Sat)
                 // p1DaysOff/p2DaysOff contains these numbers
-                const isP1Free = isRecurringDayMatch(date, p1DaysOff, p1RecurringRule);
-                const isP2Free = isRecurringDayMatch(date, p2DaysOff, p2RecurringRule);
+                const isP1Free = getMatchingRecurringRules(date, p1RecurringRules).length > 0;
+                const isP2Free = getMatchingRecurringRules(date, p2RecurringRules).length > 0;
 
                 // Count Personal Vacation Days (Total)
                 if (hasP1) p1++;
@@ -374,13 +388,19 @@ const CalendarView = ({
         }
 
         return { p1, p2, care, p1Net, p2Net, totalNetHolidays, unattended };
-    }, [vacationsMap, holidays, year, p1DaysOff, p2DaysOff, p1RecurringRule, p2RecurringRule]);
+    }, [vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules]);
 
     useEffect(() => {
         if (onStatsChange) {
             onStatsChange(stats);
         }
     }, [onStatsChange, stats]);
+
+    useEffect(() => {
+        if (onApiStatusChange) {
+            onApiStatusChange(apiOnline);
+        }
+    }, [apiOnline, onApiStatusChange]);
 
     const holidayBreakdown = useMemo(() => {
         return holidays.school.map((holiday) => {
@@ -449,8 +469,8 @@ const CalendarView = ({
                 const hasP1 = vacationUserId === 'p1' || vacationUserId === 'both';
                 const hasP2 = vacationUserId === 'p2' || vacationUserId === 'both';
                 const hasCare = vacationUserId === 'care';
-                const isP1Free = isRecurringDayMatch(date, p1DaysOff, p1RecurringRule);
-                const isP2Free = isRecurringDayMatch(date, p2DaysOff, p2RecurringRule);
+                const isP1Free = getMatchingRecurringRules(date, p1RecurringRules).length > 0;
+                const isP2Free = getMatchingRecurringRules(date, p2RecurringRules).length > 0;
 
                 // We only care about School Holidays that are NOT weekends or public holidays
                 if (isSchoolHoliday && !isWeekend && !isPublicHoliday) {
@@ -464,7 +484,7 @@ const CalendarView = ({
             }
         }
         return statsByMonth;
-    }, [vacationsMap, holidays, year, p1DaysOff, p2DaysOff, p1RecurringRule, p2RecurringRule]);
+    }, [vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules]);
 
     // Add a saving state to track which cell is currently updating
     const [savingDate, setSavingDate] = useState(null);
@@ -617,8 +637,10 @@ const CalendarView = ({
         const care = vacationUserId === 'care';
 
         // Check Free Days
-        const isP1Free = isRecurringDayMatch(date, p1DaysOff, p1RecurringRule);
-        const isP2Free = isRecurringDayMatch(date, p2DaysOff, p2RecurringRule);
+        const matchingP1Rules = getMatchingRecurringRules(date, p1RecurringRules);
+        const matchingP2Rules = getMatchingRecurringRules(date, p2RecurringRules);
+        const isP1Free = matchingP1Rules.length > 0;
+        const isP2Free = matchingP2Rules.length > 0;
 
         // Check Selection Range
         let isSelected = false;
@@ -640,8 +662,8 @@ const CalendarView = ({
             care,
             isP1Free,
             isP2Free,
-            p1RecurringLabel: getRecurringRuleLabel(p1RecurringRule),
-            p2RecurringLabel: getRecurringRuleLabel(p2RecurringRule),
+            p1RecurringLabels: matchingP1Rules.map(getRecurringRuleDetails),
+            p2RecurringLabels: matchingP2Rules.map(getRecurringRuleDetails),
             isSelected
         };
     };
@@ -668,8 +690,18 @@ const CalendarView = ({
                         {hoveredDay.p1 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: p1Color}}></div> Papa hat Urlaub</div>}
                         {hoveredDay.p2 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: p2Color}}></div> Mama hat Urlaub</div>}
                         
-                        {hoveredDay.isP1Free && !hoveredDay.p1 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-current" style={{color: p1Color}}></div> Papa frei ({hoveredDay.p1RecurringLabel})</div>}
-                        {hoveredDay.isP2Free && !hoveredDay.p2 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-current" style={{color: p2Color}}></div> Mama frei ({hoveredDay.p2RecurringLabel})</div>}
+                        {hoveredDay.isP1Free && !hoveredDay.p1 && hoveredDay.p1RecurringLabels.map((label) => (
+                            <div key={`p1-${label}`} className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full border border-current" style={{color: p1Color}}></div>
+                                Papa frei ({label})
+                            </div>
+                        ))}
+                        {hoveredDay.isP2Free && !hoveredDay.p2 && hoveredDay.p2RecurringLabels.map((label) => (
+                            <div key={`p2-${label}`} className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full border border-current" style={{color: p2Color}}></div>
+                                Mama frei ({label})
+                            </div>
+                        ))}
 
                         {hoveredDay.care && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: careColor}}></div> Betreuung (Oma/Opa)</div>}
                         
@@ -696,21 +728,30 @@ const CalendarView = ({
                 setUserId={setUserId}
                 onUpdate={fetchData}
                 onSubmitRange={handleSubmitRange}
-                apiOnline={apiOnline}
                 showPlanner={showPlanner}
                 setShowPlanner={setShowPlanner}
-                compactMode
             />
 
             {/* Print Header (Visible only in print) */}
-            <div className="hidden print-header mb-4 items-center justify-between border-b-2 border-slate-800 pb-2">
-                <h1 className="text-2xl font-bold text-slate-900">Ferienplaner {year}</h1>
+            <div className="print-header mb-4 hidden items-center justify-between border-b-2 border-slate-800 pb-2">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Ferienplaner {year}</h1>
+                    <div className="text-sm text-slate-600">{stateName}</div>
+                </div>
                 <div className="text-sm text-slate-500">Stand: {new Date().toLocaleDateString('de-DE')}</div>
             </div>
 
-            {/* Legend */}
-            {apiNotice && (
-                <div className={`mb-2 rounded-2xl border px-4 py-3 text-sm shadow-sm ${
+            <div className="print-summary mb-3 hidden grid-cols-5 gap-2 text-[11px] text-slate-800">
+                <div className="rounded border border-slate-300 px-2 py-1"><strong>Papa:</strong> {stats.p1Net}</div>
+                <div className="rounded border border-slate-300 px-2 py-1"><strong>Mama:</strong> {stats.p2Net}</div>
+                <div className="rounded border border-slate-300 px-2 py-1"><strong>Ferien:</strong> {stats.totalNetHolidays}</div>
+                <div className="rounded border border-slate-300 px-2 py-1"><strong>Betreuung:</strong> {stats.care}</div>
+                <div className="rounded border border-slate-300 px-2 py-1"><strong>Warnung:</strong> {stats.unattended}</div>
+            </div>
+
+            {/* Prominent notices */}
+            {apiNotice && apiNotice.tone !== 'info' && (
+                <div className={`mb-2 rounded-2xl border px-4 py-3 text-sm shadow-sm print:hidden ${
                     apiNotice.tone === 'error'
                         ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-100'
                         : apiNotice.tone === 'warning'
@@ -738,14 +779,14 @@ const CalendarView = ({
                 <div className="calendar-min-width-wrapper min-w-[760px] sm:min-w-[920px]">
 
                     {/* Sticky Header Row */}
-                    <div className="calendar-grid grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-md transition-colors h-auto min-h-[34px] items-stretch">
+                    <div className="calendar-grid grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px sticky top-0 z-40 bg-white dark:bg-slate-900 shadow-md transition-colors h-auto min-h-[34px] items-stretch">
                         <div className="calendar-corner-header font-bold text-center text-gray-500 dark:text-gray-400 flex items-end justify-center pb-1 text-[10px] bg-white dark:bg-slate-900">Tag</div>
                         {MONTHS.map((m, i) => {
                             const stats = monthStats[i];
                             const isFullyCovered = stats.covered >= stats.required;
                             
                             return (
-                                <div key={m} className="calendar-header-cell font-bold text-center text-primary uppercase tracking-wider text-[10px] py-1 bg-white/95 dark:bg-slate-900 backdrop-blur transition-colors flex flex-col justify-center items-center h-full">
+                                <div key={m} className="calendar-header-cell flex h-full flex-col items-center justify-center bg-white/95 py-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-700 backdrop-blur transition-colors dark:bg-slate-900 dark:text-slate-100">
                                     <span>{m.substring(0, 3)}</span>
                                     {stats.required > 0 && (
                                         <span className={`text-[9px] font-bold leading-tight ${isFullyCovered ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -788,9 +829,32 @@ const CalendarView = ({
                 </div>
             </div>
 
+            {apiNotice?.tone === 'info' && (
+                <div className="mt-2 rounded-xl border border-sky-100 bg-sky-50/80 px-3 py-2 text-xs text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200 print:hidden">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <div className="font-semibold">{apiNotice.title}</div>
+                            <div className="mt-0.5 opacity-80">{apiNotice.message}</div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setApiNotice(null)}
+                            className="rounded-lg px-2 py-1 font-semibold opacity-70 transition-opacity hover:opacity-100"
+                        >
+                            Ausblenden
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Print Footer */}
-            <div className="hidden print-footer">
-                <span>{typeof window !== 'undefined' ? window.location.href : ''}</span>
+            <div className="print-footer hidden items-center justify-between border-t border-slate-300 pt-2 text-[10px] text-slate-600">
+                <div className="print-legend flex flex-wrap gap-3">
+                    <span>Ferien: gelber Hintergrund</span>
+                    <span>Feiertag: roter Hintergrund</span>
+                    <span>Papa/Mama/Betreuung: farbige Einträge</span>
+                    <span>Warnung: rote Markierung</span>
+                </div>
                 <span>Druckdatum: {new Date().toLocaleString('de-DE')}</span>
             </div>
         </div>

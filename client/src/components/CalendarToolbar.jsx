@@ -16,10 +16,8 @@ export const CalendarToolbar = ({
     setUserId,
     onUpdate,
     onSubmitRange,
-    apiOnline,
     showPlanner,
-    setShowPlanner,
-    compactMode
+    setShowPlanner
 }) => {
     const currentYear = new Date().getFullYear();
     const summaryItems = [
@@ -80,14 +78,6 @@ export const CalendarToolbar = ({
                         </button>
                     ))}
                     </div>
-
-                    {typeof apiOnline === 'boolean' && (
-                        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                        <span className={`inline-block w-2 h-2 rounded-full ${apiOnline ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span>{apiOnline ? 'Online' : 'Offline'}</span>
-                        </div>
-                    )}
-
                     <button
                         type="button"
                         onClick={() => setShowPlanner(!showPlanner)}
@@ -105,11 +95,6 @@ export const CalendarToolbar = ({
                             <span>{item.value}</span>
                         </div>
                     ))}
-                    {compactMode && (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                            Fokus: Kalender im Viewport
-                        </div>
-                    )}
                 </div>
             </div>
 

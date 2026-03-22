@@ -27,6 +27,12 @@ const RECURRENCE_HINTS = {
     monthly: 'Die gewählten Wochentage gelten monatlich in derselben Wochenlage wie das Referenzdatum.',
 };
 
+const RECURRENCE_LABELS = {
+    weekly: 'jede Woche',
+    biweekly: 'alle 2 Wochen',
+    monthly: 'monatlich',
+};
+
 const WEEKDAYS = [
     { label: 'Mo', value: 1 },
     { label: 'Di', value: 2 },
@@ -69,6 +75,15 @@ const TABS = [
     },
 ];
 
+const createRuleId = () => `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const createEmptyRule = () => ({
+    id: createRuleId(),
+    days: [],
+    frequency: 'weekly',
+    anchorDate: new Date().toISOString().slice(0, 10),
+});
+
 const DaySelector = ({ selectedDays, onChange, color }) => (
     <div className="flex gap-1">
         {WEEKDAYS.map(day => {
@@ -100,20 +115,48 @@ const DaySelector = ({ selectedDays, onChange, color }) => (
     </div>
 );
 
-const RecurringRuleEditor = ({ label, color, selectedDays, onChangeDays, rule, onChangeRule }) => (
+const formatRecurringSummary = (selectedDays, rule) => {
+    if (!selectedDays.length) return 'Noch kein Wochentag ausgewählt.';
+
+    const dayLabels = WEEKDAYS
+        .filter((day) => selectedDays.includes(day.value))
+        .map((day) => day.label)
+        .join(', ');
+
+    const frequencyLabel = RECURRENCE_LABELS[rule?.frequency] || RECURRENCE_LABELS.weekly;
+    if (rule?.frequency === 'weekly') {
+        return `Gilt ${frequencyLabel}: ${dayLabels}`;
+    }
+
+    const anchorDate = rule?.anchorDate ? formatGermanDate(rule.anchorDate) : 'dem Referenzdatum';
+    return `Gilt ${frequencyLabel} ab ${anchorDate}: ${dayLabels}`;
+};
+
+const RecurringRuleEditor = ({ label, color, rule, onChangeRule, onRemoveRule, canRemove }) => (
     <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-        <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: color }}></div>
-            <span className="settings-label text-sm font-bold text-slate-700 dark:text-gray-200">{label}</span>
+        <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: color }}></div>
+                <span className="settings-label text-sm font-bold text-slate-700 dark:text-gray-200">{label}</span>
+            </div>
+            {canRemove && (
+                <button
+                    type="button"
+                    onClick={onRemoveRule}
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                >
+                    Entfernen
+                </button>
+            )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
                 <span>Rhythmus</span>
                 <select
                     value={rule.frequency}
                     onChange={(e) => onChangeRule({ ...rule, frequency: e.target.value })}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    className="h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                 >
                     {RECURRENCE_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -130,7 +173,7 @@ const RecurringRuleEditor = ({ label, color, selectedDays, onChangeDays, rule, o
                         type="date"
                         value={rule.anchorDate}
                         onChange={(e) => onChangeRule({ ...rule, anchorDate: e.target.value })}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        className="h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                     />
                 </label>
             )}
@@ -140,7 +183,46 @@ const RecurringRuleEditor = ({ label, color, selectedDays, onChangeDays, rule, o
             {RECURRENCE_HINTS[rule.frequency]}
         </div>
 
-        <DaySelector selectedDays={selectedDays} onChange={onChangeDays} color={color} />
+        <DaySelector
+            selectedDays={rule.days}
+            onChange={(days) => onChangeRule({ ...rule, days })}
+            color={color}
+        />
+        <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-[11px] font-medium text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100">
+            {formatRecurringSummary(rule.days, rule)}
+        </div>
+    </div>
+);
+
+const RecurringRulesGroup = ({ label, color, rules, setRules }) => (
+    <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: color }}></div>
+                <span className="settings-label text-sm font-bold text-slate-700 dark:text-gray-200">{label}</span>
+            </div>
+            <button
+                type="button"
+                onClick={() => setRules([...rules, createEmptyRule()])}
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+                Regel hinzufügen
+            </button>
+        </div>
+
+        <div className="space-y-3">
+            {rules.map((rule) => (
+                <RecurringRuleEditor
+                    key={rule.id}
+                    label={label}
+                    color={color}
+                    rule={rule}
+                    onChangeRule={(nextRule) => setRules(rules.map((item) => item.id === rule.id ? nextRule : item))}
+                    onRemoveRule={() => setRules(rules.length > 1 ? rules.filter((item) => item.id !== rule.id) : [createEmptyRule()])}
+                    canRemove={rules.length > 1}
+                />
+            ))}
+        </div>
     </div>
 );
 
@@ -155,18 +237,25 @@ const SidebarSection = ({ title, subtitle, children }) => (
 );
 
 const InfoHint = ({ text }) => (
-    <span
-        title={text}
-        aria-label={text}
-        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] font-bold text-slate-500 dark:border-slate-600 dark:text-slate-300"
-    >
-        i
+    <span className="group/tooltip relative ml-1 inline-flex">
+        <span
+            aria-label={text}
+            className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-slate-300 text-[10px] font-bold text-slate-500 transition-colors group-hover/tooltip:border-sky-400 group-hover/tooltip:text-sky-600 dark:border-slate-600 dark:text-slate-300 dark:group-hover/tooltip:border-sky-500 dark:group-hover/tooltip:text-sky-300"
+        >
+            i
+        </span>
+        <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-20 w-48 -translate-x-1/2 rounded-lg bg-slate-950 px-2 py-1.5 text-[11px] font-medium leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover/tooltip:opacity-100 dark:bg-slate-100 dark:text-slate-900">
+            {text}
+        </span>
     </span>
 );
 
 const SettingsPanel = ({
     stateCode,
     setStateCode,
+    apiOnline,
+    holidayTableOpen,
+    setHolidayTableOpen,
     totalNetHolidays,
     holidayBreakdown,
     p1Color,
@@ -175,14 +264,10 @@ const SettingsPanel = ({
     setP2Color,
     careColor,
     setCareColor,
-    p1DaysOff,
-    setP1DaysOff,
-    p1RecurringRule,
-    setP1RecurringRule,
-    p2DaysOff,
-    setP2DaysOff,
-    p2RecurringRule,
-    setP2RecurringRule
+    p1RecurringRules,
+    setP1RecurringRules,
+    p2RecurringRules,
+    setP2RecurringRules
 }) => {
     const totals = holidayBreakdown.reduce((acc, holiday) => {
         acc.calendarDays += holiday.calendarDays;
@@ -207,16 +292,33 @@ const SettingsPanel = ({
                     ))}
                 </select>
             </label>
+            <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                apiOnline
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100'
+                    : 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-100'
+            }`}>
+                <span className={`inline-block h-2.5 w-2.5 rounded-full ${apiOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+                <div>
+                    <div className="font-semibold">API-Status: {apiOnline ? 'Online' : 'Offline'}</div>
+                    <div className="text-xs opacity-80">Bezieht sich auf die Server-Verbindung der Webapp.</div>
+                </div>
+            </div>
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
                 <div className="font-semibold">Ferientage</div>
                 <div className="text-xs opacity-80">Netto-Schulferientage im gewählten Jahr</div>
                 <div className="mt-1 text-lg font-bold">{totalNetHolidays}</div>
             </div>
             {holidayBreakdown.length > 0 && (
-                <details className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                <details
+                    open={holidayTableOpen}
+                    onToggle={(event) => setHolidayTableOpen(event.currentTarget.open)}
+                    className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                >
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800/80">
                         <span>Ferientabelle anzeigen</span>
-                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">eingeklappt</span>
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            {holidayTableOpen ? 'geöffnet' : 'eingeklappt'}
+                        </span>
                     </summary>
                     <div className="border-t border-slate-200 dark:border-slate-700">
                         <div className="max-h-80 overflow-y-auto">
@@ -229,13 +331,13 @@ const SettingsPanel = ({
                                 <thead className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                     <tr>
                                         <th className="px-2 py-2 text-left font-semibold">Ferien</th>
-                                        <th className="px-2 py-2 text-right font-semibold" title={INFO_TEXT.calendarDays}>
+                                        <th className="px-2 py-2 text-right font-semibold">
                                             <span className="inline-flex items-center justify-end">
                                                 Kal.
                                                 <InfoHint text={INFO_TEXT.calendarDays} />
                                             </span>
                                         </th>
-                                        <th className="px-2 py-2 text-right font-semibold" title={INFO_TEXT.netDays}>
+                                        <th className="px-2 py-2 text-right font-semibold">
                                             <span className="inline-flex items-center justify-end">
                                                 Netto
                                                 <InfoHint text={INFO_TEXT.netDays} />
@@ -252,27 +354,27 @@ const SettingsPanel = ({
                                                     {formatGermanDate(holiday.start)} bis {formatGermanDate(holiday.end)}
                                                 </div>
                                             </td>
-                                            <td className="px-2 py-2 text-right font-medium text-slate-700 dark:text-slate-200" title={INFO_TEXT.calendarDays}>{holiday.calendarDays}</td>
-                                            <td className="px-2 py-2 text-right font-medium text-slate-900 dark:text-white" title={INFO_TEXT.netDays}>{holiday.netDays}</td>
+                                            <td className="px-2 py-2 text-right font-medium text-slate-700 dark:text-slate-200">{holiday.calendarDays}</td>
+                                            <td className="px-2 py-2 text-right font-medium text-slate-900 dark:text-white">{holiday.netDays}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot className="bg-slate-50 dark:bg-slate-950/80">
                                     <tr>
                                         <td className="px-2 py-2 font-semibold text-slate-800 dark:text-slate-100">Summe</td>
-                                        <td className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-200" title={INFO_TEXT.calendarDays}>{totals.calendarDays}</td>
-                                        <td className="px-2 py-2 text-right font-semibold text-slate-900 dark:text-white" title={INFO_TEXT.netDays}>{totals.netDays}</td>
+                                        <td className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-200">{totals.calendarDays}</td>
+                                        <td className="px-2 py-2 text-right font-semibold text-slate-900 dark:text-white">{totals.netDays}</td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
                         <div className="border-t border-slate-200 px-3 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                            <span title={INFO_TEXT.calendarDays}>
+                            <span className="inline-flex items-center">
                                 Kal.
                                 <InfoHint text={INFO_TEXT.calendarDays} />
                             </span>
                             {' = Kalendertage, '}
-                            <span title={INFO_TEXT.netDays}>
+                            <span className="inline-flex items-center">
                                 Netto
                                 <InfoHint text={INFO_TEXT.netDays} />
                             </span>
@@ -308,21 +410,17 @@ const SettingsPanel = ({
 
         <SidebarSection title="Regelmäßige freie Tage" subtitle="Diese Tage gelten als betreut, verbrauchen aber keinen Urlaub. Rhythmus und Referenzdatum steuern die Wiederholung.">
             <div className="space-y-5">
-                <RecurringRuleEditor
+                <RecurringRulesGroup
                     label="Papa"
                     color={p1Color}
-                    selectedDays={p1DaysOff}
-                    onChangeDays={setP1DaysOff}
-                    rule={p1RecurringRule}
-                    onChangeRule={setP1RecurringRule}
+                    rules={p1RecurringRules}
+                    setRules={setP1RecurringRules}
                 />
-                <RecurringRuleEditor
+                <RecurringRulesGroup
                     label="Mama"
                     color={p2Color}
-                    selectedDays={p2DaysOff}
-                    onChangeDays={setP2DaysOff}
-                    rule={p2RecurringRule}
-                    onChangeRule={setP2RecurringRule}
+                    rules={p2RecurringRules}
+                    setRules={setP2RecurringRules}
                 />
             </div>
         </SidebarSection>
@@ -388,19 +486,18 @@ export const UtilitySidebar = ({
     careColor,
     stateCode,
     setStateCode,
+    apiOnline,
+    holidayTableOpen,
+    setHolidayTableOpen,
     totalNetHolidays,
     holidayBreakdown,
     setP1Color,
     setP2Color,
     setCareColor,
-    p1DaysOff,
-    setP1DaysOff,
-    p1RecurringRule,
-    setP1RecurringRule,
-    p2DaysOff,
-    setP2DaysOff,
-    p2RecurringRule,
-    setP2RecurringRule,
+    p1RecurringRules,
+    setP1RecurringRules,
+    p2RecurringRules,
+    setP2RecurringRules,
 }) => {
     const activeLabel = TABS.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
 
@@ -424,6 +521,9 @@ export const UtilitySidebar = ({
                     <SettingsPanel
                         stateCode={stateCode}
                         setStateCode={setStateCode}
+                        apiOnline={apiOnline}
+                        holidayTableOpen={holidayTableOpen}
+                        setHolidayTableOpen={setHolidayTableOpen}
                         totalNetHolidays={totalNetHolidays}
                         holidayBreakdown={holidayBreakdown}
                         p1Color={p1Color}
@@ -432,14 +532,10 @@ export const UtilitySidebar = ({
                         setP2Color={setP2Color}
                         careColor={careColor}
                         setCareColor={setCareColor}
-                        p1DaysOff={p1DaysOff}
-                        setP1DaysOff={setP1DaysOff}
-                        p1RecurringRule={p1RecurringRule}
-                        setP1RecurringRule={setP1RecurringRule}
-                        p2DaysOff={p2DaysOff}
-                        setP2DaysOff={setP2DaysOff}
-                        p2RecurringRule={p2RecurringRule}
-                        setP2RecurringRule={setP2RecurringRule}
+                        p1RecurringRules={p1RecurringRules}
+                        setP1RecurringRules={setP1RecurringRules}
+                        p2RecurringRules={p2RecurringRules}
+                        setP2RecurringRules={setP2RecurringRules}
                     />
                 );
             case 'help':
