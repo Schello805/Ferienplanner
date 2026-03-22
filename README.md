@@ -118,7 +118,7 @@ sudo apt update
 sudo apt install -y build-essential python3 make g++ git
 ```
 
-### Install / Build
+### Automatisches Install (empfohlen)
 
 1) **Repo klonen**
 
@@ -128,30 +128,35 @@ git clone https://github.com/Schello805/Ferienplanner.git
 cd Ferienplanner
 ```
 
-2) **Backend Dependencies**
+2) **Install-Skript ausführen**
 
 ```bash
-cd server
-npm ci --omit=dev
+bash deploy/install.sh
 ```
 
-3) **Frontend bauen**
+Das Skript übernimmt automatisch:
 
-```bash
-cd ../client
-npm ci
-npm run build
-```
+- Runtime-Verzeichnisse anlegen
+- Backend-Dependencies installieren
+- Frontend-Dependencies installieren
+- Frontend bauen
+- systemd-Unit schreiben/aktualisieren
+- Service aktivieren und starten
+- Healthcheck prüfen
+
+Wichtige Details:
+
+- Die DB bleibt außerhalb des Repos unter `/var/lib/ferienplaner/database.sqlite`
+- Die Laufzeit-Konfiguration liegt unter `/etc/ferienplaner/ferienplaner.env`
+- Falls `npm ci` wegen eines Lockfile-Problems fehlschlägt, fällt das Skript automatisch auf `npm install` zurück
 
 ### systemd Service installieren
 
 Die Unit liegt im Repo unter `deploy/ferienplanung-backend.service`.
+Normalerweise musst du sie nicht manuell kopieren, weil `deploy/install.sh` das automatisch erledigt.
 
 ```bash
-sudo cp /root/Ferienplanner/deploy/ferienplanung-backend.service /etc/systemd/system/ferienplanung-backend.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now ferienplanung-backend
-sudo systemctl status ferienplanung-backend --no-pager
+systemctl status ferienplanung-backend --no-pager
 ```
 
 Danach erreichst du:
@@ -160,22 +165,26 @@ Danach erreichst du:
 - Healthcheck: `http://<lxc-ip>:3000/health`
 - API: `http://<lxc-ip>:3000/api/vacations`
 
-### Update (einfach)
+### Update (automatisch)
 
 ```bash
 cd /root/Ferienplanner
-git pull
-
-cd server
-npm ci --omit=dev
-
-cd ../client
-npm ci
-npm run build
-
-sudo systemctl restart ferienplanung-backend
-sudo systemctl status ferienplanung-backend --no-pager
+bash deploy/update.sh
 ```
+
+Das Update-Skript übernimmt automatisch:
+
+- `git pull --ff-only`
+- Dependency-Install für Backend und Frontend
+- Frontend-Build
+- systemd-Unit aktualisieren
+- Service-Neustart
+- Healthcheck
+
+Wichtig:
+
+- Das Skript bricht ab, wenn das Repo lokale, uncommittete Änderungen enthält
+- Die Datenbank bleibt erhalten, weil sie außerhalb des Repos liegt
 
 ### Logs / Debug
 
