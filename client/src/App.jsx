@@ -4,7 +4,10 @@ import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { UtilitySidebar } from './components/UtilitySidebar'
 import { Toaster } from 'sonner'
+import { toast } from 'sonner'
 import { GERMAN_STATE_MAP } from './constants/germanStates'
+
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
 const formatLocalDateInput = (date) => {
   const year = date.getFullYear();
@@ -68,6 +71,13 @@ const loadRecurringRules = (rulesKey, daysKey, singleRuleKey) => {
 };
 
 function App() {
+  const currentYear = new Date().getFullYear();
+
+  const [shareMode, setShareMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('view') === 'share';
+  });
+
   // Theme State
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -94,12 +104,34 @@ function App() {
     }
     return true;
   });
-  const [sidebarTab, setSidebarTab] = useState(() => localStorage.getItem('sidebarTab') || 'legend');
+  const [sidebarTab, setSidebarTab] = useState(() => {
+    const saved = localStorage.getItem('sidebarTab') || 'legend';
+    return saved === 'settings' ? 'general' : saved;
+  });
   const [holidayTableOpen, setHolidayTableOpen] = useState(() => localStorage.getItem('holidayTableOpen') === 'true');
-  const [stateCode, setStateCode] = useState(() => localStorage.getItem('stateCode') || 'BY');
+  const [stateCode, setStateCode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get('state');
+      if (fromUrl) return fromUrl.toUpperCase();
+    }
+    return localStorage.getItem('stateCode') || 'BY';
+  });
+  const [viewYear, setViewYear] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = Number(params.get('year'));
+      if (Number.isInteger(fromUrl) && fromUrl >= 2000 && fromUrl <= 2100) {
+        return fromUrl;
+      }
+    }
+    return currentYear;
+  });
   const [totalNetHolidays, setTotalNetHolidays] = useState(0);
   const [holidayBreakdown, setHolidayBreakdown] = useState([]);
   const [apiOnline, setApiOnline] = useState(true);
+  const [children, setChildren] = useState([]);
+  const [childFreeDays, setChildFreeDays] = useState([]);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 1024 : false
   );
@@ -136,6 +168,21 @@ function App() {
   }, [stateCode]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (shareMode) {
+      url.searchParams.set('view', 'share');
+      url.searchParams.set('year', String(viewYear));
+      url.searchParams.set('state', stateCode);
+    } else {
+      url.searchParams.delete('view');
+      url.searchParams.delete('year');
+      url.searchParams.delete('state');
+    }
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [shareMode, stateCode, viewYear]);
+
+  useEffect(() => {
     localStorage.setItem('sidebarOpen', String(sidebarOpen));
   }, [sidebarOpen]);
 
@@ -153,6 +200,37 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const loadFamilyData = async () => {
+    try {
+      const [childrenRes, freeDaysRes] = await Promise.all([
+        fetch(`${API_URL}/api/children`),
+        fetch(`${API_URL}/api/child-free-days`),
+      ]);
+
+      if (!childrenRes.ok) {
+        throw new Error(`children request failed: ${childrenRes.status}`);
+      }
+      if (!freeDaysRes.ok) {
+        throw new Error(`child-free-days request failed: ${freeDaysRes.status}`);
+      }
+
+      const [childrenData, freeDaysData] = await Promise.all([
+        childrenRes.json(),
+        freeDaysRes.json(),
+      ]);
+
+      setChildren(childrenData);
+      setChildFreeDays(freeDaysData);
+    } catch (error) {
+      console.error('Failed to load family data', error);
+      toast.error('Kinderdaten konnten nicht geladen werden');
+    }
+  };
+
+  useEffect(() => {
+    loadFamilyData();
+  }, []);
+
   const mobileNavItems = [
     {
       id: 'calendar',
@@ -164,12 +242,12 @@ function App() {
       )
     },
     {
-      id: 'settings',
-      label: 'Einstellungen',
+      id: 'general',
+      label: 'Allgemein',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2.25" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
         </svg>
       )
     },
@@ -196,6 +274,40 @@ function App() {
 
   const activeMobileNav = !isMobile || !sidebarOpen ? 'calendar' : sidebarTab;
 
+  const buildShareUrl = () => {
+    if (typeof window === 'undefined') return '';
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', 'share');
+    url.searchParams.set('year', String(viewYear));
+    url.searchParams.set('state', stateCode);
+    return url.toString();
+  };
+
+  const copyShareLink = async () => {
+    const shareUrl = buildShareUrl();
+    if (!shareUrl) {
+      toast.error('Freigabelink konnte nicht erstellt werden');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Freigabelink kopiert');
+    } catch {
+      toast.error('Freigabelink konnte nicht kopiert werden');
+    }
+  };
+
+  const toggleShareMode = () => {
+    setShareMode((current) => {
+      const next = !current;
+      if (next) {
+        setSidebarOpen(false);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="mx-auto flex h-screen max-w-[1800px] flex-col overflow-hidden px-2 py-2 transition-colors duration-300 sm:px-3 sm:py-3">
       <Toaster position="top-center" richColors theme={darkMode ? 'dark' : 'light'} />
@@ -204,53 +316,96 @@ function App() {
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         stateName={GERMAN_STATE_MAP[stateCode] || 'Bayern'}
+        shareMode={shareMode}
+        onToggleShareMode={toggleShareMode}
+        onCopyShareLink={copyShareLink}
       />
 
-      <main className={`flex min-h-0 flex-1 gap-3 ${isMobile ? 'pb-24' : ''}`}>
+      {shareMode && (
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-sky-200/80 bg-sky-50/90 px-3 py-2 text-sm text-sky-900 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-100">
+          <div>
+            <div className="font-semibold">Freigabeansicht aktiv</div>
+            <div className="text-xs opacity-80">Kompakt, schreibgeschützt und bereit zum Teilen.</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={copyShareLink}
+              className="rounded-xl border border-sky-300 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-slate-950 dark:text-sky-100 dark:hover:bg-sky-950/40"
+            >
+              Link kopieren
+            </button>
+            <button
+              type="button"
+              onClick={() => setShareMode(false)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            >
+              Freigabe beenden
+            </button>
+          </div>
+        </div>
+      )}
+
+      <main className={`flex min-h-0 flex-1 gap-3 ${isMobile && !shareMode ? 'pb-24' : ''}`}>
         <div className="min-h-0 flex-1">
           <CalendarView
+            year={viewYear}
+            setYear={setViewYear}
             p1Color={p1Color}
             p2Color={p2Color}
             careColor={careColor}
             stateCode={stateCode}
             stateName={GERMAN_STATE_MAP[stateCode] || 'Bayern'}
-            isMobile={isMobile}
+            isMobile={isMobile && !shareMode}
+            shareMode={shareMode}
+            readOnly={shareMode}
+            children={children}
+            childFreeDays={childFreeDays}
             p1RecurringRules={p1RecurringRules}
             p2RecurringRules={p2RecurringRules}
             onApiStatusChange={setApiOnline}
             onStatsChange={(stats) => setTotalNetHolidays(stats.totalNetHolidays)}
             onHolidayBreakdownChange={setHolidayBreakdown}
+            onCopyShareLink={copyShareLink}
+            onExitShareMode={() => setShareMode(false)}
           />
         </div>
 
-        <UtilitySidebar
-          isMobile={isMobile}
-          isOpen={sidebarOpen}
-          setIsOpen={setSidebarOpen}
-          activeTab={sidebarTab}
-          setActiveTab={setSidebarTab}
-          onClose={() => setSidebarOpen(false)}
-          p1Color={p1Color}
-          p2Color={p2Color}
-          careColor={careColor}
-          setP1Color={setP1Color}
-          setP2Color={setP2Color}
-          setCareColor={setCareColor}
-          stateCode={stateCode}
-          setStateCode={setStateCode}
-          apiOnline={apiOnline}
-          holidayTableOpen={holidayTableOpen}
-          setHolidayTableOpen={setHolidayTableOpen}
-          totalNetHolidays={totalNetHolidays}
-          holidayBreakdown={holidayBreakdown}
-          p1RecurringRules={p1RecurringRules}
-          setP1RecurringRules={setP1RecurringRules}
-          p2RecurringRules={p2RecurringRules}
-          setP2RecurringRules={setP2RecurringRules}
-        />
+        {!shareMode && (
+          <UtilitySidebar
+            isMobile={isMobile}
+            isOpen={sidebarOpen}
+            setIsOpen={setSidebarOpen}
+            activeTab={sidebarTab}
+            setActiveTab={setSidebarTab}
+            onClose={() => setSidebarOpen(false)}
+            p1Color={p1Color}
+            p2Color={p2Color}
+            careColor={careColor}
+            setP1Color={setP1Color}
+            setP2Color={setP2Color}
+            setCareColor={setCareColor}
+            stateCode={stateCode}
+            setStateCode={setStateCode}
+            apiOnline={apiOnline}
+            holidayTableOpen={holidayTableOpen}
+            setHolidayTableOpen={setHolidayTableOpen}
+            totalNetHolidays={totalNetHolidays}
+            holidayBreakdown={holidayBreakdown}
+            children={children}
+            childFreeDays={childFreeDays}
+            onRefreshFamilyData={loadFamilyData}
+            p1RecurringRules={p1RecurringRules}
+            setP1RecurringRules={setP1RecurringRules}
+            p2RecurringRules={p2RecurringRules}
+            setP2RecurringRules={setP2RecurringRules}
+            onCopyShareLink={copyShareLink}
+            onEnterShareMode={() => setShareMode(true)}
+          />
+        )}
       </main>
 
-      {isMobile && (
+      {isMobile && !shareMode && (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/96 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.18)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/96">
           <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
             {mobileNavItems.map((item) => {
@@ -278,7 +433,7 @@ function App() {
         </nav>
       )}
 
-      <Footer />
+      {!shareMode && <Footer />}
     </div>
   )
 }

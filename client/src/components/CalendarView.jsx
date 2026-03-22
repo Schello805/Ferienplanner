@@ -36,6 +36,16 @@ const formatDateOnly = (date) => {
 const formatGermanDateLabel = (date) =>
     new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(date);
 
+const formatDateWithWeekday = (value) => {
+    const parsed = parseDateOnly(value);
+    if (!parsed) return value;
+    const weekday = new Intl.DateTimeFormat('de-DE', { weekday: 'short' }).format(parsed);
+    const day = String(parsed.getUTCDate()).padStart(2, '0');
+    const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+    const year = parsed.getUTCFullYear();
+    return `${day}.${month}.${year} (${weekday})`;
+};
+
 const mobileActionProps = (handler) => ({
     onPointerUp: (event) => {
         event.preventDefault();
@@ -185,20 +195,26 @@ const buildNotice = (meta) => {
 };
 
 const CalendarView = ({ 
+    year,
+    setYear,
     p1Color, 
     p2Color, 
     careColor, 
     stateCode,
     stateName,
     isMobile,
+    shareMode,
+    readOnly,
+    children = [],
+    childFreeDays = [],
     p1RecurringRules = [],
     p2RecurringRules = [],
     onApiStatusChange,
     onStatsChange,
-    onHolidayBreakdownChange
+    onHolidayBreakdownChange,
+    onCopyShareLink,
+    onExitShareMode
 }) => {
-    const currentYear = new Date().getFullYear();
-    const [year, setYear] = useState(currentYear);
     const [holidays, setHolidays] = useState({ public: [], school: [], meta: null });
     const [vacations, setVacations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -216,6 +232,7 @@ const CalendarView = ({
     const [showPlanner, setShowPlanner] = useState(false);
     const [mobileMonth, setMobileMonth] = useState(new Date().getMonth());
     const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
+    const [mobileGapInfoOpen, setMobileGapInfoOpen] = useState(false);
     const [pendingMobileScrollDate, setPendingMobileScrollDate] = useState(null);
     const mobileDayRefs = useRef({});
 
@@ -225,6 +242,74 @@ const CalendarView = ({
         vacations.forEach(v => map.set(v.date, v.userId));
         return map;
     }, [vacations]);
+
+    const childrenById = useMemo(
+        () => new Map(children.map((child) => [Number(child.id), child])),
+        [children]
+    );
+
+    const childFreeDaysByDate = useMemo(() => {
+        const map = new Map();
+        childFreeDays.forEach((entry) => {
+            const child = childrenById.get(Number(entry.childId));
+            if (!child) return;
+            const start = parseDateOnly(entry.startDate);
+            const end = parseDateOnly(entry.endDate);
+            if (!start || !end) return;
+
+            for (let day = new Date(start); day <= end; day.setUTCDate(day.getUTCDate() + 1)) {
+                const dateString = formatDateOnly(day);
+                if (!map.has(dateString)) {
+                    map.set(dateString, []);
+                }
+                map.get(dateString).push({
+                    childId: child.id,
+                    childName: child.name,
+                    childColor: child.color,
+                    label: entry.label || 'Individueller freier Tag',
+                });
+            }
+        });
+        return map;
+    }, [childFreeDays, childrenById]);
+
+    const getChildrenNeedingCare = useCallback((dateString, isSchoolHoliday) => {
+        if (children.length === 0) {
+            return [];
+        }
+
+        const activeChildren = new Map();
+
+        if (isSchoolHoliday) {
+            children.forEach((child) => {
+                if (!child.usesSchoolHolidays) return;
+                activeChildren.set(child.id, {
+                    childId: child.id,
+                    childName: child.name,
+                    childColor: child.color,
+                    reasons: ['Schulferien'],
+                });
+            });
+        }
+
+        (childFreeDaysByDate.get(dateString) || []).forEach((entry) => {
+            const existing = activeChildren.get(entry.childId);
+            if (existing) {
+                if (!existing.reasons.includes(entry.label)) {
+                    existing.reasons.push(entry.label);
+                }
+                return;
+            }
+            activeChildren.set(entry.childId, {
+                childId: entry.childId,
+                childName: entry.childName,
+                childColor: entry.childColor,
+                reasons: [entry.label],
+            });
+        });
+
+        return Array.from(activeChildren.values());
+    }, [childFreeDaysByDate, children]);
 
     // Fetch Data Function
     const fetchData = useCallback(async () => {
@@ -400,12 +485,15 @@ const CalendarView = ({
                 if (hasP1 && !isWeekend && !isPublicHoliday) p1Net++;
                 if (hasP2 && !isWeekend && !isPublicHoliday) p2Net++;
 
+                const childrenNeedingCare = getChildrenNeedingCare(dateString, isSchoolHoliday);
+                const requiresCare = children.length === 0 ? isSchoolHoliday : childrenNeedingCare.length > 0;
+
                 // Count Net Holiday Days (School holiday, no weekend, no public holiday)
                 if (isSchoolHoliday && !isWeekend && !isPublicHoliday) {
                     totalNetHolidays++;
+                }
 
-                    // Count Unattended
-                    // If either parent has vacation OR care OR it's a recurring free day for either parent, it's attended
+                if (requiresCare && !isWeekend && !isPublicHoliday) {
                     if (!hasP1 && !hasP2 && !hasCare && !isP1Free && !isP2Free) {
                         unattended++;
                         unattendedDates.push(dateString);
@@ -415,7 +503,7 @@ const CalendarView = ({
         }
 
         return { p1, p2, care, p1Net, p2Net, totalNetHolidays, unattended, unattendedDates };
-    }, [vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules]);
+    }, [children.length, getChildrenNeedingCare, vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules]);
 
     useEffect(() => {
         if (onStatsChange) {
@@ -499,8 +587,10 @@ const CalendarView = ({
                 const isP1Free = getMatchingRecurringRules(date, p1RecurringRules).length > 0;
                 const isP2Free = getMatchingRecurringRules(date, p2RecurringRules).length > 0;
 
-                // We only care about School Holidays that are NOT weekends or public holidays
-                if (isSchoolHoliday && !isWeekend && !isPublicHoliday) {
+                const childrenNeedingCare = getChildrenNeedingCare(dateString, isSchoolHoliday);
+                const requiresCare = children.length === 0 ? isSchoolHoliday : childrenNeedingCare.length > 0;
+
+                if (requiresCare && !isWeekend && !isPublicHoliday) {
                     statsByMonth[m].required++;
                     
                     // Check if covered
@@ -511,13 +601,14 @@ const CalendarView = ({
             }
         }
         return statsByMonth;
-    }, [vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules]);
+    }, [children.length, getChildrenNeedingCare, vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules]);
 
     // Add a saving state to track which cell is currently updating
     const [savingDate, setSavingDate] = useState(null);
 
     // --- Drag & Select Handlers ---
     const handleMouseDown = (dateString, e) => {
+        if (readOnly) return;
         // Prevent default text selection
         e.preventDefault();
         setIsDragging(true);
@@ -579,6 +670,7 @@ const CalendarView = ({
     };
 
     const handleCellClick = async (dateString) => {
+        if (readOnly) return;
         if (isDragging && startDate !== endDate) return;
 
         if (savingDate) return; 
@@ -668,6 +760,8 @@ const CalendarView = ({
         const matchingP2Rules = getMatchingRecurringRules(date, p2RecurringRules);
         const isP1Free = matchingP1Rules.length > 0;
         const isP2Free = matchingP2Rules.length > 0;
+        const childrenNeedingCare = getChildrenNeedingCare(dateString, !!schoolHoliday);
+        const requiresCare = children.length === 0 ? !!schoolHoliday : childrenNeedingCare.length > 0;
 
         // Check Selection Range
         let isSelected = false;
@@ -691,9 +785,11 @@ const CalendarView = ({
             isP2Free,
             p1RecurringLabels: matchingP1Rules.map(getRecurringRuleDetails),
             p2RecurringLabels: matchingP2Rules.map(getRecurringRuleDetails),
+            childrenNeedingCare,
+            requiresCare,
             isSelected
         };
-    }, [year, holidays.public, holidays.school, vacationsMap, p1RecurringRules, p2RecurringRules, startDate, endDate]);
+    }, [children.length, getChildrenNeedingCare, year, holidays.public, holidays.school, vacationsMap, p1RecurringRules, p2RecurringRules, startDate, endDate]);
 
     const mobileDays = useMemo(() => {
         const daysInMonth = new Date(year, mobileMonth + 1, 0).getDate();
@@ -725,7 +821,7 @@ const CalendarView = ({
             const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
             for (let day = 1; day <= daysInMonth; day++) {
                 const status = getDayStatus(monthIndex, day);
-                const unattended = status.schoolHoliday && !status.isWeekend && !status.publicHoliday && !status.p1 && !status.p2 && !status.care && !status.isP1Free && !status.isP2Free;
+                const unattended = status.requiresCare && !status.isWeekend && !status.publicHoliday && !status.p1 && !status.p2 && !status.care && !status.isP1Free && !status.isP2Free;
                 if (unattended) {
                     setMobileMonth(monthIndex);
                     setPendingMobileScrollDate(status.dateString);
@@ -812,8 +908,31 @@ const CalendarView = ({
                                 <div>{stats.totalNetHolidays}</div>
                             </div>
                             <div className={`rounded-xl border px-3 py-2 text-xs ${stats.unattended > 0 ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-100' : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100'}`}>
-                                <div className="font-semibold">{stats.unattended > 0 ? 'Lücken' : 'Status'}</div>
-                                <div>{stats.unattended > 0 ? `${stats.unattended} offen` : 'Alles betreut'}</div>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <div className="font-semibold">{stats.unattended > 0 ? 'Lücken' : 'Status'}</div>
+                                        <div>{stats.unattended > 0 ? `${stats.unattended} offen` : 'Alles betreut'}</div>
+                                    </div>
+                                    {stats.unattended > 0 && stats.unattended < 5 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setMobileGapInfoOpen((value) => !value)}
+                                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current/30 text-[10px] font-bold opacity-80"
+                                        >
+                                            i
+                                        </button>
+                                    )}
+                                </div>
+                                {stats.unattended > 0 && stats.unattended < 5 && mobileGapInfoOpen && (
+                                    <div className="mt-2 rounded-lg border border-red-200/70 bg-white/80 p-2 text-[11px] text-red-900 dark:border-red-900/40 dark:bg-slate-950/40 dark:text-red-100">
+                                        <div className="mb-1 font-semibold">Unbetreute Tage</div>
+                                        <div className="space-y-1">
+                                            {stats.unattendedDates.map((date) => (
+                                                <div key={date}>{formatDateWithWeekday(date)}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -825,25 +944,36 @@ const CalendarView = ({
                             const labels = [];
                             if (status.publicHoliday) labels.push({ text: status.publicHoliday, tone: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-100' });
                             if (status.schoolHoliday) labels.push({ text: 'Schulferien', tone: 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100' });
+                            status.childrenNeedingCare.forEach((child) => {
+                                labels.push({
+                                    text: child.childName,
+                                    tone: 'text-white',
+                                    style: { backgroundColor: child.childColor || '#f59e0b' }
+                                });
+                            });
                             if (status.p1) labels.push({ text: 'Papa Urlaub', tone: 'text-white', style: { backgroundColor: p1Color } });
                             if (status.p2) labels.push({ text: 'Mama Urlaub', tone: 'text-white', style: { backgroundColor: p2Color } });
                             if (status.care) labels.push({ text: 'Betreuung', tone: 'text-white', style: { backgroundColor: careColor } });
                             if (status.isP1Free && !status.p1) labels.push({ text: 'Papa frei', tone: 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-100', style: { boxShadow: `inset 0 0 0 2px ${p1Color}` } });
                             if (status.isP2Free && !status.p2) labels.push({ text: 'Mama frei', tone: 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-100', style: { boxShadow: `inset 0 0 0 2px ${p2Color}` } });
 
-                            const unattended = status.schoolHoliday && !status.isWeekend && !status.publicHoliday && !status.p1 && !status.p2 && !status.care && !status.isP1Free && !status.isP2Free;
+                            const unattended = status.requiresCare && !status.isWeekend && !status.publicHoliday && !status.p1 && !status.p2 && !status.care && !status.isP1Free && !status.isP2Free;
 
                             return (
                                 <button
                                     key={status.dateString}
                                     type="button"
-                                    onClick={() => handleCellClick(status.dateString)}
+                                    onClick={() => {
+                                        if (!readOnly) {
+                                            handleCellClick(status.dateString);
+                                        }
+                                    }}
                                     ref={(element) => {
                                         if (element) {
                                             mobileDayRefs.current[status.dateString] = element;
                                         }
                                     }}
-                                    className={`w-full rounded-2xl border p-3 text-left transition-colors ${unattended ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}
+                                    className={`w-full rounded-2xl border p-3 text-left transition-colors ${unattended ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'} ${readOnly ? 'cursor-default' : ''}`}
                                 >
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
@@ -886,6 +1016,12 @@ const CalendarView = ({
                     <div className="space-y-1">
                         {hoveredDay.publicHoliday && <div className="text-red-300 dark:text-red-600 font-bold">🎉 {hoveredDay.publicHoliday}</div>}
                         {hoveredDay.schoolHoliday && <div className="text-amber-300 dark:text-amber-600">🏫 Schulferien</div>}
+                        {hoveredDay.childrenNeedingCare?.map((child) => (
+                            <div key={`child-${child.childId}`} className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: child.childColor || '#f59e0b' }}></div>
+                                {child.childName} frei ({child.reasons.join(', ')})
+                            </div>
+                        ))}
                         
                         {hoveredDay.p1 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: p1Color}}></div> Papa hat Urlaub</div>}
                         {hoveredDay.p2 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: p2Color}}></div> Mama hat Urlaub</div>}
@@ -907,7 +1043,7 @@ const CalendarView = ({
                         
                         {!hoveredDay.p1 && !hoveredDay.p2 && !hoveredDay.care && !hoveredDay.isP1Free && !hoveredDay.isP2Free && !hoveredDay.schoolHoliday && !hoveredDay.publicHoliday && !hoveredDay.isWeekend && <div className="opacity-70">Arbeitstag</div>}
                         
-                        {!hoveredDay.p1 && !hoveredDay.p2 && !hoveredDay.care && !hoveredDay.isP1Free && !hoveredDay.isP2Free && hoveredDay.schoolHoliday && !hoveredDay.isWeekend && !hoveredDay.publicHoliday && <div className="text-red-400 font-bold animate-pulse">⚠️ Unbetreut!</div>}
+                        {!hoveredDay.p1 && !hoveredDay.p2 && !hoveredDay.care && !hoveredDay.isP1Free && !hoveredDay.isP2Free && hoveredDay.requiresCare && !hoveredDay.isWeekend && !hoveredDay.publicHoliday && <div className="text-red-400 font-bold animate-pulse">⚠️ Unbetreut!</div>}
                     </div>
                 </div>
             )}
@@ -930,6 +1066,10 @@ const CalendarView = ({
                 onSubmitRange={handleSubmitRange}
                 showPlanner={showPlanner}
                 setShowPlanner={setShowPlanner}
+                readOnly={readOnly}
+                shareMode={shareMode}
+                onCopyShareLink={onCopyShareLink}
+                onExitShareMode={onExitShareMode}
             />
 
             {/* Print Header (Visible only in print) */}
@@ -975,7 +1115,7 @@ const CalendarView = ({
             )}
 
             {/* Scrollable Calendar Container */}
-            <div className="calendar-container flex-1 min-h-0 overflow-auto relative rounded-2xl border border-gray-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900 shadow-2xl transition-colors">
+            <div className={`calendar-container relative flex-1 min-h-0 overflow-auto rounded-2xl border border-gray-200 bg-white/60 shadow-2xl transition-colors dark:border-slate-800 dark:bg-slate-900 ${shareMode ? 'ring-1 ring-slate-200/70 dark:ring-slate-700/70' : ''}`}>
                 <div className="calendar-min-width-wrapper min-w-[760px] sm:min-w-[920px]">
 
                     {/* Sticky Header Row */}
@@ -1044,6 +1184,12 @@ const CalendarView = ({
                             Ausblenden
                         </button>
                     </div>
+                </div>
+            )}
+
+            {shareMode && (
+                <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300 print:hidden">
+                    Diese Ansicht ist schreibgeschützt und für die Weitergabe optimiert. Urlaub, Betreuung und Einstellungen lassen sich nur in der normalen Arbeitsansicht ändern.
                 </div>
             )}
 

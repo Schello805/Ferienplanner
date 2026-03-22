@@ -92,12 +92,38 @@ function openDb() {
 // Initialize DB
 const dbInit = openDb();
 dbInit.serialize(() => {
+  dbInit.run('PRAGMA foreign_keys = ON');
   dbInit.run(`
     CREATE TABLE IF NOT EXISTS vacations (
       date TEXT PRIMARY KEY,
       userId TEXT,
       createdAt TEXT,
       updatedAt TEXT
+    )
+  `);
+
+  dbInit.run(`
+    CREATE TABLE IF NOT EXISTS children (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'school',
+      color TEXT,
+      usesSchoolHolidays INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT,
+      updatedAt TEXT
+    )
+  `);
+
+  dbInit.run(`
+    CREATE TABLE IF NOT EXISTS child_free_days (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      childId INTEGER NOT NULL,
+      startDate TEXT NOT NULL,
+      endDate TEXT NOT NULL,
+      label TEXT,
+      createdAt TEXT,
+      updatedAt TEXT,
+      FOREIGN KEY (childId) REFERENCES children(id) ON DELETE CASCADE
     )
   `);
 
@@ -138,6 +164,180 @@ dbInit.serialize(() => {
 
 app.get('/health', (req, res) => {
   res.json({ ok: true });
+});
+
+app.get('/api/children', (req, res) => {
+  const db = openDb();
+  db.all(
+    `SELECT id, name, type, color, usesSchoolHolidays
+     FROM children
+     ORDER BY id ASC`,
+    [],
+    (err, rows) => {
+      db.close();
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows.map((row) => ({
+        ...row,
+        usesSchoolHolidays: Boolean(row.usesSchoolHolidays),
+      })));
+    }
+  );
+});
+
+app.post('/api/children', (req, res) => {
+  const { id, name, type = 'school', color = null, usesSchoolHolidays = true } = req.body;
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Name required' });
+  }
+
+  const normalizedType = ['school', 'kita', 'other'].includes(type) ? type : 'school';
+  const now = new Date().toISOString();
+  const db = openDb();
+
+  if (id) {
+    db.run(
+      `UPDATE children
+       SET name = ?, type = ?, color = ?, usesSchoolHolidays = ?, updatedAt = ?
+       WHERE id = ?`,
+      [name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, now, id],
+      function onUpdate(err) {
+        db.close();
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, id });
+      }
+    );
+    return;
+  }
+
+  db.run(
+    `INSERT INTO children (name, type, color, usesSchoolHolidays, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, now, now],
+    function onInsert(err) {
+      db.close();
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, id: this.lastID });
+    }
+  );
+});
+
+app.delete('/api/children/:id', (req, res) => {
+  const childId = Number(req.params.id);
+  if (!Number.isInteger(childId) || childId <= 0) {
+    return res.status(400).json({ error: 'Invalid child id' });
+  }
+
+  const db = openDb();
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+    db.run('DELETE FROM child_free_days WHERE childId = ?', [childId]);
+    db.run('DELETE FROM children WHERE id = ?', [childId], (err) => {
+      if (err) {
+        db.run('ROLLBACK');
+        db.close();
+        return res.status(500).json({ error: err.message });
+      }
+      db.run('COMMIT', () => {
+        db.close();
+        res.json({ success: true });
+      });
+    });
+  });
+});
+
+app.get('/api/child-free-days', (req, res) => {
+  const childId = req.query.childId ? Number(req.query.childId) : null;
+  const year = req.query.year ? Number(req.query.year) : null;
+  const db = openDb();
+
+  const conditions = [];
+  const params = [];
+
+  if (childId && Number.isInteger(childId)) {
+    conditions.push('childId = ?');
+    params.push(childId);
+  }
+
+  if (year && Number.isInteger(year)) {
+    const yearStart = `${year}-01-01`;
+    const yearEnd = `${year}-12-31`;
+    conditions.push('endDate >= ? AND startDate <= ?');
+    params.push(yearStart, yearEnd);
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  db.all(
+    `SELECT id, childId, startDate, endDate, label
+     FROM child_free_days
+     ${whereClause}
+     ORDER BY startDate ASC, id ASC`,
+    params,
+    (err, rows) => {
+      db.close();
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    }
+  );
+});
+
+app.post('/api/child-free-days', (req, res) => {
+  const { id, childId, startDate, endDate, label = '' } = req.body;
+  const normalizedStart = normalizeDateOnly(startDate);
+  const normalizedEnd = normalizeDateOnly(endDate);
+  const numericChildId = Number(childId);
+
+  if (!Number.isInteger(numericChildId) || numericChildId <= 0) {
+    return res.status(400).json({ error: 'Valid childId required' });
+  }
+  if (!normalizedStart || !normalizedEnd) {
+    return res.status(400).json({ error: 'Valid startDate and endDate required' });
+  }
+  if (normalizedEnd < normalizedStart) {
+    return res.status(400).json({ error: 'endDate must be on or after startDate' });
+  }
+
+  const now = new Date().toISOString();
+  const db = openDb();
+
+  if (id) {
+    db.run(
+      `UPDATE child_free_days
+       SET childId = ?, startDate = ?, endDate = ?, label = ?, updatedAt = ?
+       WHERE id = ?`,
+      [numericChildId, normalizedStart, normalizedEnd, label.trim(), now, id],
+      function onUpdate(err) {
+        db.close();
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, id });
+      }
+    );
+    return;
+  }
+
+  db.run(
+    `INSERT INTO child_free_days (childId, startDate, endDate, label, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [numericChildId, normalizedStart, normalizedEnd, label.trim(), now, now],
+    function onInsert(err) {
+      db.close();
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, id: this.lastID });
+    }
+  );
+});
+
+app.delete('/api/child-free-days/:id', (req, res) => {
+  const freeDayId = Number(req.params.id);
+  if (!Number.isInteger(freeDayId) || freeDayId <= 0) {
+    return res.status(400).json({ error: 'Invalid free day id' });
+  }
+
+  const db = openDb();
+  db.run('DELETE FROM child_free_days WHERE id = ?', [freeDayId], (err) => {
+    db.close();
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
 });
 
 // GET /api/vacations

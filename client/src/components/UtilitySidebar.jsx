@@ -1,6 +1,9 @@
 import React from 'react';
+import { toast } from 'sonner';
 import { CalendarLegend } from './CalendarLegend';
 import { GERMAN_STATES } from '../constants/germanStates';
+
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
 const formatGermanDate = (value) => {
     if (!value) return value;
@@ -43,6 +46,12 @@ const WEEKDAYS = [
     { label: 'So', value: 0 },
 ];
 
+const CHILD_TYPE_OPTIONS = [
+    { value: 'school', label: 'Schule' },
+    { value: 'kita', label: 'Kita' },
+    { value: 'other', label: 'Sonstiges' },
+];
+
 const TABS = [
     {
         id: 'legend',
@@ -54,12 +63,30 @@ const TABS = [
         )
     },
     {
-        id: 'settings',
-        label: 'Einstellungen',
+        id: 'general',
+        label: 'Allgemein',
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2.25" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+        )
+    },
+    {
+        id: 'parents',
+        label: 'Eltern',
+        icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75a17.93 17.93 0 0 1-7.5-1.632Z" />
+            </svg>
+        )
+    },
+    {
+        id: 'children',
+        label: 'Kinder',
+        icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm10.5 1.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM3.75 20.25a6.75 6.75 0 0 1 10.5-5.622m1.654 5.31a8.966 8.966 0 0 0 4.846 1.312c.173 0 .344-.005.514-.015a8.966 8.966 0 0 0-2.827-6.145 8.966 8.966 0 0 0-6.255-2.59c-.76 0-1.499.094-2.205.271" />
             </svg>
         )
     },
@@ -236,6 +263,292 @@ const SidebarSection = ({ title, subtitle, children }) => (
     </section>
 );
 
+const ChildManager = ({ children, onRefreshFamilyData }) => {
+    const [draft, setDraft] = React.useState({
+        name: '',
+        type: 'school',
+        color: '#f59e0b',
+        usesSchoolHolidays: true,
+    });
+
+    const saveChild = async () => {
+        if (!draft.name.trim()) {
+            toast.error('Bitte einen Kindernamen angeben');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/api/children`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(draft),
+            });
+            if (!response.ok) throw new Error(`save child failed: ${response.status}`);
+            setDraft({
+                name: '',
+                type: 'school',
+                color: '#f59e0b',
+                usesSchoolHolidays: true,
+            });
+            await onRefreshFamilyData();
+            toast.success('Kind gespeichert');
+        } catch (error) {
+            console.error(error);
+            toast.error('Kind konnte nicht gespeichert werden');
+        }
+    };
+
+    const toggleSchoolHolidays = async (child) => {
+        try {
+            const response = await fetch(`${API_URL}/api/children`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...child,
+                    usesSchoolHolidays: !child.usesSchoolHolidays,
+                }),
+            });
+            if (!response.ok) throw new Error(`update child failed: ${response.status}`);
+            await onRefreshFamilyData();
+        } catch (error) {
+            console.error(error);
+            toast.error('Kind konnte nicht aktualisiert werden');
+        }
+    };
+
+    const deleteChild = async (childId) => {
+        try {
+            const response = await fetch(`${API_URL}/api/children/${childId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error(`delete child failed: ${response.status}`);
+            await onRefreshFamilyData();
+            toast.success('Kind entfernt');
+        } catch (error) {
+            console.error(error);
+            toast.error('Kind konnte nicht entfernt werden');
+        }
+    };
+
+    return (
+        <div className="space-y-3">
+            <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                <div className="grid gap-2 sm:grid-cols-[1.4fr_1fr]">
+                    <input
+                        type="text"
+                        value={draft.name}
+                        onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+                        placeholder="Name des Kindes"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    />
+                    <select
+                        value={draft.type}
+                        onChange={(event) => setDraft((current) => ({ ...current, type: event.target.value }))}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    >
+                        {CHILD_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                        <span>Farbe</span>
+                        <input
+                            type="color"
+                            value={draft.color}
+                            onChange={(event) => setDraft((current) => ({ ...current, color: event.target.value }))}
+                            className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                        />
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                        <input
+                            type="checkbox"
+                            checked={draft.usesSchoolHolidays}
+                            onChange={(event) => setDraft((current) => ({ ...current, usesSchoolHolidays: event.target.checked }))}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        Landesweite Schulferien übernehmen
+                    </label>
+                </div>
+                <button
+                    type="button"
+                    onClick={saveChild}
+                    className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
+                >
+                    Kind anlegen
+                </button>
+            </div>
+
+            <div className="space-y-2">
+                {children.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        Noch keine Kinder angelegt. Solange das leer ist, arbeitet der Kalender weiter mit dem bisherigen Familienmodell.
+                    </div>
+                ) : children.map((child) => (
+                    <div key={child.id} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 dark:border-slate-700 dark:bg-slate-900">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: child.color || '#f59e0b' }} />
+                                <div className="font-semibold text-slate-800 dark:text-slate-100">{child.name}</div>
+                                <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                                    {CHILD_TYPE_OPTIONS.find((option) => option.value === child.type)?.label || 'Schule'}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => toggleSchoolHolidays(child)}
+                                className={`mt-2 rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors ${
+                                    child.usesSchoolHolidays
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100'
+                                        : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                }`}
+                            >
+                                {child.usesSchoolHolidays ? 'Landesferien aktiv' : 'Nur individuelle freie Tage'}
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => deleteChild(child.id)}
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                        >
+                            Entfernen
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ChildFreeDayManager = ({ children, childFreeDays, onRefreshFamilyData }) => {
+    const [draft, setDraft] = React.useState(() => ({
+        childId: '',
+        startDate: new Date().toISOString().slice(0, 10),
+        endDate: new Date().toISOString().slice(0, 10),
+        label: '',
+    }));
+
+    const saveFreeDay = async () => {
+        if (!draft.childId) {
+            toast.error('Bitte ein Kind auswählen');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/api/child-free-days`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    childId: Number(draft.childId),
+                    startDate: draft.startDate,
+                    endDate: draft.endDate,
+                    label: draft.label,
+                }),
+            });
+            if (!response.ok) throw new Error(`save child-free-day failed: ${response.status}`);
+            setDraft((current) => ({ ...current, label: '' }));
+            await onRefreshFamilyData();
+            toast.success('Freier Tag gespeichert');
+        } catch (error) {
+            console.error(error);
+            toast.error('Freier Tag konnte nicht gespeichert werden');
+        }
+    };
+
+    const deleteFreeDay = async (entryId) => {
+        try {
+            const response = await fetch(`${API_URL}/api/child-free-days/${entryId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error(`delete child-free-day failed: ${response.status}`);
+            await onRefreshFamilyData();
+            toast.success('Freier Tag entfernt');
+        } catch (error) {
+            console.error(error);
+            toast.error('Freier Tag konnte nicht entfernt werden');
+        }
+    };
+
+    const entriesByChildName = childFreeDays.map((entry) => ({
+        ...entry,
+        childName: children.find((child) => child.id === entry.childId)?.name || 'Unbekannt',
+        childColor: children.find((child) => child.id === entry.childId)?.color || '#f59e0b',
+    }));
+
+    return (
+        <div className="space-y-3">
+            <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                <div className="grid gap-2 sm:grid-cols-[1.1fr_1fr_1fr]">
+                    <select
+                        value={draft.childId}
+                        onChange={(event) => setDraft((current) => ({ ...current, childId: event.target.value }))}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    >
+                        <option value="">Kind wählen</option>
+                        {children.map((child) => (
+                            <option key={child.id} value={child.id}>{child.name}</option>
+                        ))}
+                    </select>
+                    <input
+                        type="date"
+                        value={draft.startDate}
+                        onChange={(event) => setDraft((current) => ({ ...current, startDate: event.target.value }))}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    />
+                    <input
+                        type="date"
+                        value={draft.endDate}
+                        onChange={(event) => setDraft((current) => ({ ...current, endDate: event.target.value }))}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    />
+                </div>
+                <input
+                    type="text"
+                    value={draft.label}
+                    onChange={(event) => setDraft((current) => ({ ...current, label: event.target.value }))}
+                    placeholder="Bezeichnung, z.B. Studientag oder Kita zu"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                />
+                <button
+                    type="button"
+                    onClick={saveFreeDay}
+                    disabled={children.length === 0}
+                    className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
+                >
+                    Einzelnen freien Tag anlegen
+                </button>
+            </div>
+
+            <div className="space-y-2">
+                {entriesByChildName.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        Noch keine individuellen freien Tage angelegt.
+                    </div>
+                ) : entriesByChildName.map((entry) => (
+                    <div key={entry.id} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 dark:border-slate-700 dark:bg-slate-900">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: entry.childColor }} />
+                                <div className="font-semibold text-slate-800 dark:text-slate-100">{entry.childName}</div>
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {formatGermanDate(entry.startDate)} bis {formatGermanDate(entry.endDate)}
+                            </div>
+                            {entry.label && (
+                                <div className="mt-1 text-sm text-slate-700 dark:text-slate-300">{entry.label}</div>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => deleteFreeDay(entry.id)}
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                        >
+                            Löschen
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const InfoHint = ({ text }) => (
     <span className="group/tooltip relative ml-1 inline-flex">
         <span
@@ -250,7 +563,7 @@ const InfoHint = ({ text }) => (
     </span>
 );
 
-const SettingsPanel = ({
+const GeneralSettingsPanel = ({
     stateCode,
     setStateCode,
     apiOnline,
@@ -258,16 +571,8 @@ const SettingsPanel = ({
     setHolidayTableOpen,
     totalNetHolidays,
     holidayBreakdown,
-    p1Color,
-    setP1Color,
-    p2Color,
-    setP2Color,
-    careColor,
-    setCareColor,
-    p1RecurringRules,
-    setP1RecurringRules,
-    p2RecurringRules,
-    setP2RecurringRules
+    onCopyShareLink,
+    onEnterShareMode,
 }) => {
     const totals = holidayBreakdown.reduce((acc, holiday) => {
         acc.calendarDays += holiday.calendarDays;
@@ -277,9 +582,9 @@ const SettingsPanel = ({
 
     return (
     <div className="space-y-4">
-        <SidebarSection title="Bundesland" subtitle="Feiertage und Schulferien werden für dieses Bundesland geladen.">
+        <SidebarSection title="Allgemeine Einstellungen" subtitle="Bundesland, API-Status und kompakte Freigabeansicht.">
             <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-200">
-                <span className="font-medium">Auswahl</span>
+                <span className="font-medium">Bundesland</span>
                 <select
                     value={stateCode}
                     onChange={(e) => setStateCode(e.target.value)}
@@ -385,7 +690,48 @@ const SettingsPanel = ({
             )}
         </SidebarSection>
 
-        <SidebarSection title="Farben" subtitle="Direkt anpassen, ohne den Kalender zu verlassen.">
+        <SidebarSection title="Freigabe" subtitle="Erzeuge eine reduzierte, schreibgeschützte Ansicht zum Teilen.">
+            <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                    type="button"
+                    onClick={onEnterShareMode}
+                    className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
+                >
+                    Freigabemodus öffnen
+                </button>
+                <button
+                    type="button"
+                    onClick={onCopyShareLink}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                    Link kopieren
+                </button>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                Die Freigabeansicht zeigt Jahr, Bundesland und Kennzahlen kompakt, blendet Bearbeitung aus und eignet sich für Handy oder Messenger-Link.
+            </div>
+        </SidebarSection>
+        <div className="settings-info-box rounded-2xl bg-blue-50 p-4 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+            Die Einstellungen werden automatisch gespeichert.
+        </div>
+    </div>
+    );
+};
+
+const ParentSettingsPanel = ({
+    p1Color,
+    setP1Color,
+    p2Color,
+    setP2Color,
+    careColor,
+    setCareColor,
+    p1RecurringRules,
+    setP1RecurringRules,
+    p2RecurringRules,
+    setP2RecurringRules
+}) => (
+    <div className="space-y-4">
+        <SidebarSection title="Eltern" subtitle="Farben und regelmäßige freie Tage für Papa und Mama.">
             <div className="space-y-3">
                 {[
                     { label: 'Papa', color: p1Color, setColor: setP1Color },
@@ -424,13 +770,27 @@ const SettingsPanel = ({
                 />
             </div>
         </SidebarSection>
-
-        <div className="settings-info-box rounded-2xl bg-blue-50 p-4 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
-            Die Einstellungen werden automatisch gespeichert.
-        </div>
     </div>
-    );
-};
+);
+
+const ChildSettingsPanel = ({ children, childFreeDays, onRefreshFamilyData }) => (
+    <div className="space-y-4">
+        <SidebarSection title="Kinder" subtitle="Lege Kinder an und entscheide, ob die landesweiten Schulferien für sie gelten.">
+            <ChildManager
+                children={children}
+                onRefreshFamilyData={onRefreshFamilyData}
+            />
+        </SidebarSection>
+
+        <SidebarSection title="Individuelle freie Tage" subtitle="Für Schließtage, Studientage oder einzelne freie Tage pro Kind.">
+            <ChildFreeDayManager
+                children={children}
+                childFreeDays={childFreeDays}
+                onRefreshFamilyData={onRefreshFamilyData}
+            />
+        </SidebarSection>
+    </div>
+);
 
 const HelpPanel = () => (
     <div className="space-y-4 text-sm text-slate-600 dark:text-gray-300">
@@ -492,6 +852,9 @@ export const UtilitySidebar = ({
     setHolidayTableOpen,
     totalNetHolidays,
     holidayBreakdown,
+    children,
+    childFreeDays,
+    onRefreshFamilyData,
     setP1Color,
     setP2Color,
     setCareColor,
@@ -499,6 +862,8 @@ export const UtilitySidebar = ({
     setP1RecurringRules,
     p2RecurringRules,
     setP2RecurringRules,
+    onCopyShareLink,
+    onEnterShareMode,
 }) => {
     const tabs = TABS;
     const activeLabel = tabs.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
@@ -518,9 +883,9 @@ export const UtilitySidebar = ({
                         />
                     </SidebarSection>
                 );
-            case 'settings':
+            case 'general':
                 return (
-                    <SettingsPanel
+                    <GeneralSettingsPanel
                         stateCode={stateCode}
                         setStateCode={setStateCode}
                         apiOnline={apiOnline}
@@ -534,10 +899,31 @@ export const UtilitySidebar = ({
                         setP2Color={setP2Color}
                         careColor={careColor}
                         setCareColor={setCareColor}
+                        onCopyShareLink={onCopyShareLink}
+                        onEnterShareMode={onEnterShareMode}
+                    />
+                );
+            case 'parents':
+                return (
+                    <ParentSettingsPanel
+                        p1Color={p1Color}
+                        setP1Color={setP1Color}
+                        p2Color={p2Color}
+                        setP2Color={setP2Color}
+                        careColor={careColor}
+                        setCareColor={setCareColor}
                         p1RecurringRules={p1RecurringRules}
                         setP1RecurringRules={setP1RecurringRules}
                         p2RecurringRules={p2RecurringRules}
                         setP2RecurringRules={setP2RecurringRules}
+                    />
+                );
+            case 'children':
+                return (
+                    <ChildSettingsPanel
+                        children={children}
+                        childFreeDays={childFreeDays}
+                        onRefreshFamilyData={onRefreshFamilyData}
                     />
                 );
             case 'help':
