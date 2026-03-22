@@ -83,8 +83,11 @@ const CalendarView = ({
     p1Color, 
     p2Color, 
     careColor, 
+    stateCode,
+    stateName,
     p1DaysOff = [], // Array of day indices (0-6)
-    p2DaysOff = []
+    p2DaysOff = [],
+    onStatsChange
 }) => {
     const currentYear = new Date().getFullYear();
     const [year, setYear] = useState(currentYear);
@@ -118,18 +121,19 @@ const CalendarView = ({
         try {
             setApiOnline(true);
             // Check cache first
-            if (holidayCache.current[year]) {
-                const cachedHolidayData = holidayCache.current[year];
+            const cacheKey = `${year}-${stateCode}`;
+            if (holidayCache.current[cacheKey]) {
+                const cachedHolidayData = holidayCache.current[cacheKey];
                 setHolidays(cachedHolidayData);
                 setApiNotice(buildNotice(cachedHolidayData.meta));
             } else {
-                const holidayRes = await fetch(`${API_URL}/api/holidays?year=${year}`);
+                const holidayRes = await fetch(`${API_URL}/api/holidays?year=${year}&state=${stateCode}`);
                 if (!holidayRes.ok) throw new Error(`holidays request failed: ${holidayRes.status}`);
                 const holidayData = await holidayRes.json();
                 setHolidays(holidayData);
                 setApiNotice(buildNotice(holidayData.meta));
                 // Update cache
-                holidayCache.current[year] = holidayData;
+                holidayCache.current[cacheKey] = holidayData;
             }
 
             const vacationRes = await fetch(`${API_URL}/api/vacations`);
@@ -148,14 +152,14 @@ const CalendarView = ({
         } finally {
             setLoading(false);
         }
-    }, [year]);
+    }, [stateCode, year]);
 
     // Initial Fetch
     useEffect(() => {
         setLoading(true);
         fetchData();
-        document.title = `Ferienplaner ${year} - Bayern`;
-    }, [fetchData, year]);
+        document.title = `Ferienplaner ${year} - ${stateName}`;
+    }, [fetchData, stateName, year]);
 
     const getDatesInRange = useCallback((s, e) => {
         const start = parseDateOnly(s);
@@ -289,6 +293,12 @@ const CalendarView = ({
 
         return { p1, p2, care, p1Net, p2Net, totalNetHolidays, unattended };
     }, [vacationsMap, holidays, year, p1DaysOff, p2DaysOff]);
+
+    useEffect(() => {
+        if (onStatsChange) {
+            onStatsChange(stats);
+        }
+    }, [onStatsChange, stats]);
 
     // Calculate Month Stats (Care coverage per month)
     const monthStats = useMemo(() => {

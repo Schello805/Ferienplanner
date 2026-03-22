@@ -1,4 +1,4 @@
-export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHelp }) => {
+export const Header = ({ darkMode, setDarkMode, stateName, onOpenSettings, onOpenHelp }) => {
     return (
         <header className="mb-2 flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white/92 px-3 py-2 shadow-sm shadow-slate-200/60 transition-colors dark:border-slate-700 dark:bg-slate-950/92 dark:shadow-black/20">
             <div className="flex items-center gap-3">
@@ -11,7 +11,7 @@ export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHelp }) =>
                     <h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white tracking-tight">
                         Ferienplaner
                     </h1>
-                    <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Jahresübersicht Bayern</p>
+                    <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Jahresübersicht {stateName}</p>
                 </div>
             </div>
 

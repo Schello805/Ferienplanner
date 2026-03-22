@@ -1,5 +1,6 @@
 import React from 'react';
 import { CalendarLegend } from './CalendarLegend';
+import { GERMAN_STATES } from '../constants/germanStates';
 
 const WEEKDAYS = [
     { label: 'Mo', value: 1 },
@@ -85,6 +86,9 @@ const SidebarSection = ({ title, subtitle, children }) => (
 );
 
 const SettingsPanel = ({
+    stateCode,
+    setStateCode,
+    totalNetHolidays,
     p1Color,
     setP1Color,
     p2Color,
@@ -97,6 +101,28 @@ const SettingsPanel = ({
     setP2DaysOff
 }) => (
     <div className="space-y-4">
+        <SidebarSection title="Bundesland" subtitle="Feiertage und Schulferien werden fuer dieses Bundesland geladen.">
+            <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-200">
+                <span className="font-medium">Auswahl</span>
+                <select
+                    value={stateCode}
+                    onChange={(e) => setStateCode(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                >
+                    {GERMAN_STATES.map((state) => (
+                        <option key={state.code} value={state.code}>
+                            {state.name}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
+                <div className="font-semibold">Ferientage</div>
+                <div className="text-xs opacity-80">Netto-Schulferientage im gewählten Jahr</div>
+                <div className="mt-1 text-lg font-bold">{totalNetHolidays}</div>
+            </div>
+        </SidebarSection>
+
         <SidebarSection title="Farben" subtitle="Direkt anpassen, ohne den Kalender zu verlassen.">
             <div className="space-y-3">
                 {[
@@ -181,7 +207,7 @@ const HelpPanel = () => (
                 </div>
                 <div className="help-feature-amber rounded-xl border border-amber-100 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
                     <div className="font-bold text-amber-800 dark:text-amber-300">Feiertage und Ferien</div>
-                    <p className="text-xs">Gesetzliche Feiertage und Schulferien für Bayern werden automatisch geladen und bei Bedarf aus Cache oder Fallback geliefert.</p>
+                    <p className="text-xs">Gesetzliche Feiertage und Schulferien werden fuer das gewaehlte Bundesland geladen und bei Bedarf aus Cache oder Fallback geliefert.</p>
                 </div>
             </div>
         </SidebarSection>
@@ -197,6 +223,9 @@ export const UtilitySidebar = ({
     p1Color,
     p2Color,
     careColor,
+    stateCode,
+    setStateCode,
+    totalNetHolidays,
     setP1Color,
     setP2Color,
     setCareColor,
@@ -225,6 +254,9 @@ export const UtilitySidebar = ({
             case 'settings':
                 return (
                     <SettingsPanel
+                        stateCode={stateCode}
+                        setStateCode={setStateCode}
+                        totalNetHolidays={totalNetHolidays}
                         p1Color={p1Color}
                         setP1Color={setP1Color}
                         p2Color={p2Color}

@@ -4,6 +4,7 @@ import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { UtilitySidebar } from './components/UtilitySidebar'
 import { Toaster } from 'sonner'
+import { GERMAN_STATE_MAP } from './constants/germanStates'
 
 function App() {
   // Theme State
@@ -38,6 +39,8 @@ function App() {
     return true;
   });
   const [sidebarTab, setSidebarTab] = useState('legend');
+  const [stateCode, setStateCode] = useState(() => localStorage.getItem('stateCode') || 'BY');
+  const [totalNetHolidays, setTotalNetHolidays] = useState(0);
 
   // Theme Effect
   useEffect(() => {
@@ -67,6 +70,10 @@ function App() {
     localStorage.setItem('p2DaysOff', JSON.stringify(p2DaysOff));
   }, [p1DaysOff, p2DaysOff]);
 
+  useEffect(() => {
+    localStorage.setItem('stateCode', stateCode);
+  }, [stateCode]);
+
   return (
     <div className="mx-auto flex h-screen max-w-[1800px] flex-col overflow-hidden px-2 py-2 transition-colors duration-300 sm:px-3 sm:py-3">
       <Toaster position="top-center" richColors theme={darkMode ? 'dark' : 'light'} />
@@ -74,6 +81,7 @@ function App() {
       <Header
         darkMode={darkMode}
         setDarkMode={setDarkMode}
+        stateName={GERMAN_STATE_MAP[stateCode] || 'Bayern'}
         onOpenSettings={() => {
           setSidebarTab('settings');
           setSidebarOpen(true);
@@ -90,8 +98,11 @@ function App() {
             p1Color={p1Color}
             p2Color={p2Color}
             careColor={careColor}
+            stateCode={stateCode}
+            stateName={GERMAN_STATE_MAP[stateCode] || 'Bayern'}
             p1DaysOff={p1DaysOff}
             p2DaysOff={p2DaysOff}
+            onStatsChange={(stats) => setTotalNetHolidays(stats.totalNetHolidays)}
           />
         </div>
 
@@ -107,6 +118,9 @@ function App() {
           setP1Color={setP1Color}
           setP2Color={setP2Color}
           setCareColor={setCareColor}
+          stateCode={stateCode}
+          setStateCode={setStateCode}
+          totalNetHolidays={totalNetHolidays}
           p1DaysOff={p1DaysOff}
           setP1DaysOff={setP1DaysOff}
           p2DaysOff={p2DaysOff}
