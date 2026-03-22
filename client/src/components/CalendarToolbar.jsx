@@ -1,6 +1,13 @@
 import React from 'react';
 import { VacationRangeInput } from './VacationRangeInput';
 
+const formatUnattendedLabel = (value) => {
+    const match = typeof value === 'string' ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
+    if (!match) return value;
+    const [, year, month, day] = match;
+    return `${day}.${month}.${year}`;
+};
+
 export const CalendarToolbar = ({ 
     year, 
     setYear, 
@@ -88,13 +95,28 @@ export const CalendarToolbar = ({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                    {summaryItems.map(item => (
-                        <div key={`${item.label}-${item.value}`} className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs ${item.tone}`}>
-                            {item.marker}
-                            <span className="font-semibold">{item.label}</span>
-                            <span>{item.value}</span>
-                        </div>
-                    ))}
+                    {summaryItems.map(item => {
+                        const showUnattendedTooltip = item.label === 'Warnung' && stats.unattended > 0 && stats.unattended < 5;
+                        const unattendedTooltip = showUnattendedTooltip
+                            ? ['Unbetreute Tage', ...stats.unattendedDates.map((date) => formatUnattendedLabel(date))].join('\n')
+                            : undefined;
+                        return (
+                            <div
+                                key={`${item.label}-${item.value}`}
+                                className={`relative flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs ${item.tone} ${showUnattendedTooltip ? 'cursor-help' : ''}`}
+                                title={unattendedTooltip}
+                            >
+                                {item.marker}
+                                <span className="font-semibold">{item.label}</span>
+                                <span>{item.value}</span>
+                                {showUnattendedTooltip && (
+                                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current/30 text-[10px] font-bold opacity-80">
+                                        i
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 

@@ -361,6 +361,7 @@ const CalendarView = ({
         let p2Net = 0;
         let totalNetHolidays = 0;
         let unattended = 0;
+        const unattendedDates = [];
 
         // Iterate through all days of the year to calculate stats
         for (let m = 0; m < 12; m++) {
@@ -407,12 +408,13 @@ const CalendarView = ({
                     // If either parent has vacation OR care OR it's a recurring free day for either parent, it's attended
                     if (!hasP1 && !hasP2 && !hasCare && !isP1Free && !isP2Free) {
                         unattended++;
+                        unattendedDates.push(dateString);
                     }
                 }
             }
         }
 
-        return { p1, p2, care, p1Net, p2Net, totalNetHolidays, unattended };
+        return { p1, p2, care, p1Net, p2Net, totalNetHolidays, unattended, unattendedDates };
     }, [vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules]);
 
     useEffect(() => {
