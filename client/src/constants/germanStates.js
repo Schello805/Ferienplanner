@@ -1,5 +1,5 @@
 export const GERMAN_STATES = [
-  { code: 'BW', name: 'Baden-Wuerttemberg' },
+  { code: 'BW', name: 'Baden-Württemberg' },
   { code: 'BY', name: 'Bayern' },
   { code: 'BE', name: 'Berlin' },
   { code: 'BB', name: 'Brandenburg' },
@@ -14,7 +14,7 @@ export const GERMAN_STATES = [
   { code: 'SN', name: 'Sachsen' },
   { code: 'ST', name: 'Sachsen-Anhalt' },
   { code: 'SH', name: 'Schleswig-Holstein' },
-  { code: 'TH', name: 'Thueringen' },
+  { code: 'TH', name: 'Thüringen' },
 ];
 
 export const GERMAN_STATE_MAP = Object.fromEntries(

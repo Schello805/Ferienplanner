@@ -48,24 +48,24 @@ const buildNotice = (meta) => {
     if (meta.source === 'cache') {
         return {
             tone: 'info',
-            title: 'Ferien aus Cache geladen',
-            message: 'Die externe Ferienquelle wurde für dieses Jahr bereits geladen. Das vermeidet unnötige API-Aufrufe.',
+            title: 'Ferien erfolgreich geladen',
+            message: 'Die Feriendaten kommen aus dem Zwischenspeicher. Das beschleunigt die Anzeige und vermeidet unnötige API-Aufrufe.',
         };
     }
 
     if (meta.source === 'stale-cache') {
         return {
             tone: 'warning',
-            title: 'Ferien aus Zwischenspeicher',
-            message: meta.message || 'Die Live-Quelle war nicht erreichbar. Es werden zuletzt erfolgreich geladene Feriendaten verwendet.',
+            title: 'Zwischengespeicherte Feriendaten aktiv',
+            message: meta.message || 'Die Live-Quelle war gerade nicht erreichbar. Es werden zuletzt erfolgreich geladene Feriendaten verwendet.',
         };
     }
 
     if (meta.source === 'static-fallback') {
         return {
             tone: 'warning',
-            title: 'Statischer Ferien-Fallback aktiv',
-            message: meta.message || 'Die Live-Quelle war nicht erreichbar. Es werden hinterlegte Feriendaten verwendet.',
+            title: 'Lokale Ersatzdaten aktiv',
+            message: meta.message || 'Die Live-Quelle war gerade nicht erreichbar. Es werden hinterlegte Feriendaten verwendet.',
         };
     }
 
@@ -73,7 +73,7 @@ const buildNotice = (meta) => {
         return {
             tone: 'error',
             title: 'Ferien konnten nicht geladen werden',
-            message: meta.message || 'Weder Live-Daten noch Fallback-Daten sind verfügbar.',
+            message: meta.message || 'Aktuell sind weder Live-Daten noch lokale Ersatzdaten verfügbar.',
         };
     }
 
@@ -155,8 +155,8 @@ const CalendarView = ({
             setApiOnline(false);
             setApiNotice({
                 tone: 'error',
-                title: 'Backend nicht erreichbar',
-                message: 'Kalenderdaten konnten nicht geladen werden. Prüfe, ob der Server läuft, und versuche es erneut.',
+                title: 'Keine API-Daten erhalten',
+                message: 'Die Webapp konnte keine Daten vom Server laden. Bitte Seite neu laden oder Server-Verbindung prüfen.',
             });
             toast.error("Fehler beim Laden der Daten");
         } finally {
@@ -232,7 +232,7 @@ const CalendarView = ({
             setApiNotice({
                 tone: 'error',
                 title: 'Speichern fehlgeschlagen',
-                message: 'Der Bereich konnte nicht gespeichert werden. Die lokale Änderung wurde zurückgesetzt.',
+                message: 'Der markierte Bereich konnte nicht gespeichert werden. Die lokale Änderung wurde zurückgesetzt.',
             });
             toast.error('Fehler beim Speichern');
             setVacations(previousVacations);
@@ -512,7 +512,7 @@ const CalendarView = ({
             setApiNotice({
                 tone: 'error',
                 title: 'Speichern fehlgeschlagen',
-                message: 'Der Tag konnte nicht gespeichert werden. Bitte Backend-Verbindung prüfen.',
+                message: 'Der ausgewählte Tag konnte nicht gespeichert werden. Bitte Server-Verbindung prüfen.',
             });
             toast.error("Speichern fehlgeschlagen!");
             setVacations(previousVacations); 

@@ -7,11 +7,16 @@ export const Header = ({ darkMode, setDarkMode, stateName, onOpenSettings, onOpe
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                     </svg>
                 </div>
-                <div>
+                <div className="min-w-0">
                     <h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white tracking-tight">
                         Ferienplaner
                     </h1>
-                    <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Jahresübersicht {stateName}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Jahresübersicht</p>
+                        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-100">
+                            {stateName}
+                        </span>
+                    </div>
                 </div>
             </div>
 
