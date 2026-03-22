@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { CalendarToolbar } from './CalendarToolbar';
 import { DayCell } from './DayCell';
@@ -32,6 +32,17 @@ const formatDateOnly = (date) => {
     const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
+
+const formatGermanDateLabel = (date) =>
+    new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(date);
+
+const mobileActionProps = (handler) => ({
+    onPointerUp: (event) => {
+        event.preventDefault();
+        handler();
+    },
+    style: { touchAction: 'manipulation' },
+});
 
 const parseLocalDateInput = (value) => {
     const match = typeof value === 'string' ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
@@ -179,6 +190,7 @@ const CalendarView = ({
     careColor, 
     stateCode,
     stateName,
+    isMobile,
     p1RecurringRules = [],
     p2RecurringRules = [],
     onApiStatusChange,
@@ -202,6 +214,10 @@ const CalendarView = ({
     const [userId, setUserId] = useState('p1');
     const [isDragging, setIsDragging] = useState(false);
     const [showPlanner, setShowPlanner] = useState(false);
+    const [mobileMonth, setMobileMonth] = useState(new Date().getMonth());
+    const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
+    const [pendingMobileScrollDate, setPendingMobileScrollDate] = useState(null);
+    const mobileDayRefs = useRef({});
 
     // Optimize vacation lookup using Map (O(1))
     const vacationsMap = useMemo(() => {
@@ -256,6 +272,15 @@ const CalendarView = ({
         fetchData();
         document.title = `Ferienplaner ${year} - ${stateName}`;
     }, [fetchData, stateName, year]);
+
+    useEffect(() => {
+        const now = new Date();
+        if (year === now.getFullYear()) {
+            setMobileMonth(now.getMonth());
+        } else {
+            setMobileMonth(0);
+        }
+    }, [year]);
 
     const getDatesInRange = useCallback((s, e) => {
         const start = parseDateOnly(s);
@@ -613,7 +638,7 @@ const CalendarView = ({
         }
     };
 
-    const getDayStatus = (monthIndex, day) => {
+    const getDayStatus = useCallback((monthIndex, day) => {
         const date = new Date(year, monthIndex, day);
         if (date.getMonth() !== monthIndex) return 'invalid';
 
@@ -666,13 +691,186 @@ const CalendarView = ({
             p2RecurringLabels: matchingP2Rules.map(getRecurringRuleDetails),
             isSelected
         };
+    }, [year, holidays.public, holidays.school, vacationsMap, p1RecurringRules, p2RecurringRules, startDate, endDate]);
+
+    const mobileDays = useMemo(() => {
+        const daysInMonth = new Date(year, mobileMonth + 1, 0).getDate();
+        return Array.from({ length: daysInMonth }, (_, index) => getDayStatus(mobileMonth, index + 1));
+    }, [year, mobileMonth, getDayStatus]);
+
+    const jumpToToday = () => {
+        const now = new Date();
+        const target = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        setYear(now.getFullYear());
+        setMobileMonth(now.getMonth());
+        setPendingMobileScrollDate(target);
     };
+
+    const jumpToNextHoliday = () => {
+        const today = new Date();
+        const nowString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const nextHoliday = holidays.school.find((holiday) => holiday.end >= nowString) || holidays.school[0];
+        if (!nextHoliday) return;
+        const date = parseDateOnly(nextHoliday.start);
+        if (!date) return;
+        setYear(date.getUTCFullYear());
+        setMobileMonth(date.getUTCMonth());
+        setPendingMobileScrollDate(nextHoliday.start);
+    };
+
+    const jumpToFirstGap = () => {
+        for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+            const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+            for (let day = 1; day <= daysInMonth; day++) {
+                const status = getDayStatus(monthIndex, day);
+                const unattended = status.schoolHoliday && !status.isWeekend && !status.publicHoliday && !status.p1 && !status.p2 && !status.care && !status.isP1Free && !status.isP2Free;
+                if (unattended) {
+                    setMobileMonth(monthIndex);
+                    setPendingMobileScrollDate(status.dateString);
+                    return;
+                }
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (!pendingMobileScrollDate) return;
+        const target = mobileDayRefs.current[pendingMobileScrollDate];
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setPendingMobileScrollDate(null);
+        }
+    }, [mobileDays, pendingMobileScrollDate]);
 
     if (loading) return (
         <div className="flex items-center justify-center h-screen text-primary">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
     );
+
+    if (isMobile) {
+        return (
+            <div className="flex h-full min-h-0 flex-col gap-2">
+                <div className="rounded-2xl border border-slate-200/80 bg-white/92 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/88">
+                    <div className="flex items-center justify-between gap-2">
+                        <button
+                            type="button"
+                            {...mobileActionProps(() => setMobileMonth((prev) => (prev === 0 ? 11 : prev - 1)))}
+                            className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-200"
+                        >
+                            ←
+                        </button>
+                        <div className="text-center">
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white">{MONTHS[mobileMonth]} {year}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">{stateName}</div>
+                        </div>
+                        <button
+                            type="button"
+                            {...mobileActionProps(() => setMobileMonth((prev) => (prev === 11 ? 0 : prev + 1)))}
+                            className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-200"
+                        >
+                            →
+                        </button>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                        <button type="button" {...mobileActionProps(jumpToToday)} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Heute</button>
+                        <button type="button" {...mobileActionProps(jumpToNextHoliday)} className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">Nächste Ferien</button>
+                        <button type="button" {...mobileActionProps(jumpToFirstGap)} className="rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-xs font-semibold text-red-800 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-100">Lücken</button>
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/80 bg-white/88 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-950/88">
+                    <button
+                        type="button"
+                        onClick={() => setMobileStatsOpen((value) => !value)}
+                        className="flex w-full items-center justify-between rounded-xl px-2 py-1 text-left"
+                    >
+                        <div>
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white">Kennzahlen</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                                {mobileStatsOpen ? 'eingeblendet' : 'eingeklappt'}
+                            </div>
+                        </div>
+                        <span className="text-slate-500 dark:text-slate-400">{mobileStatsOpen ? '−' : '+'}</span>
+                    </button>
+
+                    {mobileStatsOpen && (
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900">
+                                <div className="font-semibold text-slate-700 dark:text-slate-200">Papa</div>
+                                <div className="text-slate-500 dark:text-slate-400">{stats.p1Net}</div>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900">
+                                <div className="font-semibold text-slate-700 dark:text-slate-200">Mama</div>
+                                <div className="text-slate-500 dark:text-slate-400">{stats.p2Net}</div>
+                            </div>
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
+                                <div className="font-semibold">Ferien</div>
+                                <div>{stats.totalNetHolidays}</div>
+                            </div>
+                            <div className={`rounded-xl border px-3 py-2 text-xs ${stats.unattended > 0 ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-100' : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100'}`}>
+                                <div className="font-semibold">{stats.unattended > 0 ? 'Lücken' : 'Status'}</div>
+                                <div>{stats.unattended > 0 ? `${stats.unattended} offen` : 'Alles betreut'}</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-200/80 bg-white/88 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-950/88">
+                    <div className="space-y-2">
+                        {mobileDays.map((status) => {
+                            const labels = [];
+                            if (status.publicHoliday) labels.push({ text: status.publicHoliday, tone: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-100' });
+                            if (status.schoolHoliday) labels.push({ text: 'Schulferien', tone: 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100' });
+                            if (status.p1) labels.push({ text: 'Papa Urlaub', tone: 'text-white', style: { backgroundColor: p1Color } });
+                            if (status.p2) labels.push({ text: 'Mama Urlaub', tone: 'text-white', style: { backgroundColor: p2Color } });
+                            if (status.care) labels.push({ text: 'Betreuung', tone: 'text-white', style: { backgroundColor: careColor } });
+                            if (status.isP1Free && !status.p1) labels.push({ text: 'Papa frei', tone: 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-100', style: { boxShadow: `inset 0 0 0 2px ${p1Color}` } });
+                            if (status.isP2Free && !status.p2) labels.push({ text: 'Mama frei', tone: 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-100', style: { boxShadow: `inset 0 0 0 2px ${p2Color}` } });
+
+                            const unattended = status.schoolHoliday && !status.isWeekend && !status.publicHoliday && !status.p1 && !status.p2 && !status.care && !status.isP1Free && !status.isP2Free;
+
+                            return (
+                                <button
+                                    key={status.dateString}
+                                    type="button"
+                                    onClick={() => handleCellClick(status.dateString)}
+                                    ref={(element) => {
+                                        if (element) {
+                                            mobileDayRefs.current[status.dateString] = element;
+                                        }
+                                    }}
+                                    className={`w-full rounded-2xl border p-3 text-left transition-colors ${unattended ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <div className="font-semibold text-slate-900 dark:text-white">{formatGermanDateLabel(status.date)}</div>
+                                            <div className="text-xs text-slate-500 dark:text-slate-400">{status.dateString}</div>
+                                        </div>
+                                        {unattended && <div className="rounded-full bg-red-600 px-2 py-1 text-[11px] font-bold text-white">Lücke</div>}
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {labels.length > 0 ? labels.map((label, index) => (
+                                            <span
+                                                key={`${status.dateString}-${index}-${label.text}`}
+                                                className={`rounded-full px-2 py-1 text-[11px] font-semibold ${label.tone}`}
+                                                style={label.style}
+                                            >
+                                                {label.text}
+                                            </span>
+                                        )) : (
+                                            <span className="text-xs text-slate-400 dark:text-slate-500">Kein Eintrag</span>
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-full min-h-0 flex-col select-none relative">

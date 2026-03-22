@@ -476,6 +476,7 @@ const HelpPanel = () => (
 );
 
 export const UtilitySidebar = ({
+    isMobile,
     isOpen,
     activeTab,
     setActiveTab,
@@ -499,7 +500,8 @@ export const UtilitySidebar = ({
     p2RecurringRules,
     setP2RecurringRules,
 }) => {
-    const activeLabel = TABS.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
+    const tabs = TABS;
+    const activeLabel = tabs.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
 
     const renderContent = () => {
         switch (activeTab) {
@@ -553,8 +555,9 @@ export const UtilitySidebar = ({
 
             <aside
                 className={`
-                    utility-sidebar fixed inset-y-0 right-0 z-50 flex w-[min(94vw,520px)] flex-col border-l border-slate-200 bg-white/96 shadow-2xl shadow-slate-300/40 transition-transform dark:border-slate-700 dark:bg-slate-950/96 dark:shadow-black/30
-                    ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+                    utility-sidebar fixed z-50 flex flex-col border-slate-200 bg-white/96 shadow-2xl shadow-slate-300/40 transition-transform dark:border-slate-700 dark:bg-slate-950/96 dark:shadow-black/30
+                    ${isMobile ? 'inset-x-0 bottom-0 top-auto h-[78vh] rounded-t-3xl border-t' : 'inset-y-0 right-0 w-[min(94vw,520px)] border-l'}
+                    ${isOpen ? 'translate-x-0 translate-y-0' : isMobile ? 'translate-y-full' : 'translate-x-full'}
                     lg:static lg:z-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:shadow-xl
                     ${isOpen ? 'lg:w-[480px]' : 'lg:w-[64px]'}
                 `}
@@ -570,13 +573,14 @@ export const UtilitySidebar = ({
                         className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                         title={isOpen ? 'Sidebar einklappen' : 'Sidebar ausklappen'}
                     >
-                        {isOpen ? '→' : '←'}
+                        {isMobile ? (isOpen ? '↓' : '↑') : (isOpen ? '→' : '←')}
                     </button>
                 </div>
 
-                <div className="flex min-h-0 flex-1">
+                <div className={`flex min-h-0 flex-1 ${isMobile ? 'flex-col' : ''}`}>
+                    {!isMobile && (
                     <nav className="flex w-16 flex-col items-center gap-2 border-r border-slate-200 bg-slate-50/70 px-2 py-3 dark:border-slate-700 dark:bg-slate-900/70">
-                        {TABS.map(tab => {
+                        {tabs.map(tab => {
                             const active = activeTab === tab.id;
                             return (
                                 <button
@@ -595,6 +599,7 @@ export const UtilitySidebar = ({
                             );
                         })}
                     </nav>
+                    )}
 
                     <div className={`min-h-0 flex-1 overflow-y-auto p-3 ${isOpen ? 'block' : 'hidden lg:hidden'}`}>
                         {renderContent()}
