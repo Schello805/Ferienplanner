@@ -6,6 +6,18 @@ import { UtilitySidebar } from './components/UtilitySidebar'
 import { Toaster } from 'sonner'
 import { GERMAN_STATE_MAP } from './constants/germanStates'
 
+const formatLocalDateInput = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const createDefaultRecurringRule = () => ({
+  frequency: 'weekly',
+  anchorDate: formatLocalDateInput(new Date()),
+});
+
 function App() {
   // Theme State
   const [darkMode, setDarkMode] = useState(() => {
@@ -30,6 +42,14 @@ function App() {
   const [p2DaysOff, setP2DaysOff] = useState(() => {
     const saved = localStorage.getItem('p2DaysOff');
     return saved ? JSON.parse(saved) : [];
+  });
+  const [p1RecurringRule, setP1RecurringRule] = useState(() => {
+    const saved = localStorage.getItem('p1RecurringRule');
+    return saved ? JSON.parse(saved) : createDefaultRecurringRule();
+  });
+  const [p2RecurringRule, setP2RecurringRule] = useState(() => {
+    const saved = localStorage.getItem('p2RecurringRule');
+    return saved ? JSON.parse(saved) : createDefaultRecurringRule();
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -72,6 +92,11 @@ function App() {
   }, [p1DaysOff, p2DaysOff]);
 
   useEffect(() => {
+    localStorage.setItem('p1RecurringRule', JSON.stringify(p1RecurringRule));
+    localStorage.setItem('p2RecurringRule', JSON.stringify(p2RecurringRule));
+  }, [p1RecurringRule, p2RecurringRule]);
+
+  useEffect(() => {
     localStorage.setItem('stateCode', stateCode);
   }, [stateCode]);
 
@@ -103,6 +128,8 @@ function App() {
             stateName={GERMAN_STATE_MAP[stateCode] || 'Bayern'}
             p1DaysOff={p1DaysOff}
             p2DaysOff={p2DaysOff}
+            p1RecurringRule={p1RecurringRule}
+            p2RecurringRule={p2RecurringRule}
             onStatsChange={(stats) => setTotalNetHolidays(stats.totalNetHolidays)}
             onHolidayBreakdownChange={setHolidayBreakdown}
           />
@@ -126,8 +153,12 @@ function App() {
           holidayBreakdown={holidayBreakdown}
           p1DaysOff={p1DaysOff}
           setP1DaysOff={setP1DaysOff}
+          p1RecurringRule={p1RecurringRule}
+          setP1RecurringRule={setP1RecurringRule}
           p2DaysOff={p2DaysOff}
           setP2DaysOff={setP2DaysOff}
+          p2RecurringRule={p2RecurringRule}
+          setP2RecurringRule={setP2RecurringRule}
         />
       </main>
 

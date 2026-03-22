@@ -33,9 +33,79 @@ const formatDateOnly = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+const parseLocalDateInput = (value) => {
+    const match = typeof value === 'string' ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
+    if (!match) return null;
+
+    const [, year, month, day] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    const isValid =
+        date.getFullYear() === Number(year) &&
+        date.getMonth() === Number(month) - 1 &&
+        date.getDate() === Number(day);
+
+    return isValid ? date : null;
+};
+
+const startOfWeek = (date) => {
+    const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = copy.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    copy.setDate(copy.getDate() + diff);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
+};
+
+const getWeekdayOccurrenceInMonth = (date) => Math.floor((date.getDate() - 1) / 7) + 1;
+
+const isRecurringDayMatch = (date, selectedDays = [], rule = { frequency: 'weekly' }) => {
+    if (!selectedDays.includes(date.getDay())) return false;
+
+    const frequency = rule?.frequency || 'weekly';
+    if (frequency === 'weekly') return true;
+
+    const anchorDate = parseLocalDateInput(rule?.anchorDate);
+    if (!anchorDate) return true;
+    if (date < anchorDate) return false;
+
+    if (frequency === 'biweekly') {
+        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+        const weekDiff = Math.round((startOfWeek(date) - startOfWeek(anchorDate)) / msPerWeek);
+        return weekDiff % 2 === 0;
+    }
+
+    if (frequency === 'monthly') {
+        return getWeekdayOccurrenceInMonth(date) === getWeekdayOccurrenceInMonth(anchorDate);
+    }
+
+    return true;
+};
+
+const getRecurringRuleLabel = (rule = { frequency: 'weekly' }) => {
+    if (rule.frequency === 'biweekly') return '14-tägig';
+    if (rule.frequency === 'monthly') return 'monatlich';
+    return 'wöchentlich';
+};
+
 const formatHolidayName = (value) => {
     if (!value) return 'Ferien';
-    return value
+
+    const normalized = value.trim().toLowerCase();
+    const knownNames = {
+        herbstferien: 'Herbstferien',
+        osterferien: 'Osterferien',
+        pfingstferien: 'Pfingstferien',
+        pfingsttage: 'Pfingsttage',
+        sommerferien: 'Sommerferien',
+        weihnachtsferien: 'Weihnachtsferien',
+        winterferien: 'Winterferien',
+    };
+
+    if (knownNames[normalized]) {
+        return knownNames[normalized];
+    }
+
+    return normalized
         .split(/[\s_-]+/)
         .filter(Boolean)
         .map(part => part.charAt(0).toUpperCase() + part.slice(1))
@@ -96,6 +166,8 @@ const CalendarView = ({
     stateName,
     p1DaysOff = [], // Array of day indices (0-6)
     p2DaysOff = [],
+    p1RecurringRule,
+    p2RecurringRule,
     onStatsChange,
     onHolidayBreakdownChange
 }) => {
@@ -275,8 +347,8 @@ const CalendarView = ({
                 // Check Free Days (Recurring)
                 // dayOfWeek is 0 (Sun) to 6 (Sat)
                 // p1DaysOff/p2DaysOff contains these numbers
-                const isP1Free = p1DaysOff.includes(dayOfWeek);
-                const isP2Free = p2DaysOff.includes(dayOfWeek);
+                const isP1Free = isRecurringDayMatch(date, p1DaysOff, p1RecurringRule);
+                const isP2Free = isRecurringDayMatch(date, p2DaysOff, p2RecurringRule);
 
                 // Count Personal Vacation Days (Total)
                 if (hasP1) p1++;
@@ -302,7 +374,7 @@ const CalendarView = ({
         }
 
         return { p1, p2, care, p1Net, p2Net, totalNetHolidays, unattended };
-    }, [vacationsMap, holidays, year, p1DaysOff, p2DaysOff]);
+    }, [vacationsMap, holidays, year, p1DaysOff, p2DaysOff, p1RecurringRule, p2RecurringRule]);
 
     useEffect(() => {
         if (onStatsChange) {
@@ -377,8 +449,8 @@ const CalendarView = ({
                 const hasP1 = vacationUserId === 'p1' || vacationUserId === 'both';
                 const hasP2 = vacationUserId === 'p2' || vacationUserId === 'both';
                 const hasCare = vacationUserId === 'care';
-                const isP1Free = p1DaysOff.includes(dayOfWeek);
-                const isP2Free = p2DaysOff.includes(dayOfWeek);
+                const isP1Free = isRecurringDayMatch(date, p1DaysOff, p1RecurringRule);
+                const isP2Free = isRecurringDayMatch(date, p2DaysOff, p2RecurringRule);
 
                 // We only care about School Holidays that are NOT weekends or public holidays
                 if (isSchoolHoliday && !isWeekend && !isPublicHoliday) {
@@ -392,7 +464,7 @@ const CalendarView = ({
             }
         }
         return statsByMonth;
-    }, [vacationsMap, holidays, year, p1DaysOff, p2DaysOff]);
+    }, [vacationsMap, holidays, year, p1DaysOff, p2DaysOff, p1RecurringRule, p2RecurringRule]);
 
     // Add a saving state to track which cell is currently updating
     const [savingDate, setSavingDate] = useState(null);
@@ -545,8 +617,8 @@ const CalendarView = ({
         const care = vacationUserId === 'care';
 
         // Check Free Days
-        const isP1Free = p1DaysOff.includes(dayOfWeek);
-        const isP2Free = p2DaysOff.includes(dayOfWeek);
+        const isP1Free = isRecurringDayMatch(date, p1DaysOff, p1RecurringRule);
+        const isP2Free = isRecurringDayMatch(date, p2DaysOff, p2RecurringRule);
 
         // Check Selection Range
         let isSelected = false;
@@ -568,6 +640,8 @@ const CalendarView = ({
             care,
             isP1Free,
             isP2Free,
+            p1RecurringLabel: getRecurringRuleLabel(p1RecurringRule),
+            p2RecurringLabel: getRecurringRuleLabel(p2RecurringRule),
             isSelected
         };
     };
@@ -594,8 +668,8 @@ const CalendarView = ({
                         {hoveredDay.p1 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: p1Color}}></div> Papa hat Urlaub</div>}
                         {hoveredDay.p2 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: p2Color}}></div> Mama hat Urlaub</div>}
                         
-                        {hoveredDay.isP1Free && !hoveredDay.p1 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-current" style={{color: p1Color}}></div> Papa frei (Teilzeit)</div>}
-                        {hoveredDay.isP2Free && !hoveredDay.p2 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-current" style={{color: p2Color}}></div> Mama frei (Teilzeit)</div>}
+                        {hoveredDay.isP1Free && !hoveredDay.p1 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-current" style={{color: p1Color}}></div> Papa frei ({hoveredDay.p1RecurringLabel})</div>}
+                        {hoveredDay.isP2Free && !hoveredDay.p2 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-current" style={{color: p2Color}}></div> Mama frei ({hoveredDay.p2RecurringLabel})</div>}
 
                         {hoveredDay.care && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: careColor}}></div> Betreuung (Oma/Opa)</div>}
                         

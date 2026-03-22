@@ -10,6 +10,23 @@ const formatGermanDate = (value) => {
     return `${day}.${month}.${year}`;
 };
 
+const INFO_TEXT = {
+    calendarDays: 'Kal. = Kalendertage inklusive Wochenenden und Feiertagen.',
+    netDays: 'Netto = Tage ohne Wochenenden und gesetzliche Feiertage.',
+};
+
+const RECURRENCE_OPTIONS = [
+    { value: 'weekly', label: 'Wöchentlich' },
+    { value: 'biweekly', label: '14-tägig' },
+    { value: 'monthly', label: 'Monatlich' },
+];
+
+const RECURRENCE_HINTS = {
+    weekly: 'Jeder gewählte Wochentag gilt jede Woche.',
+    biweekly: 'Die gewählten Wochentage gelten jede zweite Woche ab dem Referenzdatum.',
+    monthly: 'Die gewählten Wochentage gelten monatlich in derselben Wochenlage wie das Referenzdatum.',
+};
+
 const WEEKDAYS = [
     { label: 'Mo', value: 1 },
     { label: 'Di', value: 2 },
@@ -83,6 +100,50 @@ const DaySelector = ({ selectedDays, onChange, color }) => (
     </div>
 );
 
+const RecurringRuleEditor = ({ label, color, selectedDays, onChangeDays, rule, onChangeRule }) => (
+    <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+        <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: color }}></div>
+            <span className="settings-label text-sm font-bold text-slate-700 dark:text-gray-200">{label}</span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                <span>Rhythmus</span>
+                <select
+                    value={rule.frequency}
+                    onChange={(e) => onChangeRule({ ...rule, frequency: e.target.value })}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                >
+                    {RECURRENCE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+            </label>
+
+            {rule.frequency !== 'weekly' && (
+                <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <span>Referenzdatum</span>
+                    <input
+                        type="date"
+                        value={rule.anchorDate}
+                        onChange={(e) => onChangeRule({ ...rule, anchorDate: e.target.value })}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    />
+                </label>
+            )}
+        </div>
+
+        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+            {RECURRENCE_HINTS[rule.frequency]}
+        </div>
+
+        <DaySelector selectedDays={selectedDays} onChange={onChangeDays} color={color} />
+    </div>
+);
+
 const SidebarSection = ({ title, subtitle, children }) => (
     <section className="space-y-3 rounded-2xl border border-slate-200/90 bg-white/82 p-4 shadow-sm shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900/78 dark:shadow-black/10">
         <div>
@@ -106,8 +167,12 @@ const SettingsPanel = ({
     setCareColor,
     p1DaysOff,
     setP1DaysOff,
+    p1RecurringRule,
+    setP1RecurringRule,
     p2DaysOff,
-    setP2DaysOff
+    setP2DaysOff,
+    p2RecurringRule,
+    setP2RecurringRule
 }) => {
     const totals = holidayBreakdown.reduce((acc, holiday) => {
         acc.calendarDays += holiday.calendarDays;
@@ -138,40 +203,52 @@ const SettingsPanel = ({
                 <div className="mt-1 text-lg font-bold">{totalNetHolidays}</div>
             </div>
             {holidayBreakdown.length > 0 && (
-                <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-                    <div className="max-h-80 overflow-auto">
-                    <table className="w-full text-xs">
-                        <thead className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                            <tr>
-                                <th className="px-2 py-2 text-left font-semibold">Ferien</th>
-                                <th className="px-2 py-2 text-right font-semibold">Kal.</th>
-                                <th className="px-2 py-2 text-right font-semibold">Netto</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
-                            {holidayBreakdown.map((holiday) => (
-                                <tr key={`${holiday.name}-${holiday.start}-${holiday.end}`}>
-                                    <td className="px-2 py-2 align-top">
-                                        <div className="font-medium text-slate-800 dark:text-slate-100">{holiday.name}</div>
-                                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                                            {formatGermanDate(holiday.start)} bis {formatGermanDate(holiday.end)}
-                                        </div>
-                                    </td>
-                                    <td className="px-2 py-2 text-right font-medium text-slate-700 dark:text-slate-200">{holiday.calendarDays}</td>
-                                    <td className="px-2 py-2 text-right font-medium text-slate-900 dark:text-white">{holiday.netDays}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                        <tfoot className="bg-slate-50 dark:bg-slate-950/80">
-                            <tr>
-                                <td className="px-2 py-2 font-semibold text-slate-800 dark:text-slate-100">Summe</td>
-                                <td className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-200">{totals.calendarDays}</td>
-                                <td className="px-2 py-2 text-right font-semibold text-slate-900 dark:text-white">{totals.netDays}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                <details className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800/80">
+                        <span>Ferientabelle anzeigen</span>
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">eingeklappt</span>
+                    </summary>
+                    <div className="border-t border-slate-200 dark:border-slate-700">
+                        <div className="max-h-80 overflow-auto">
+                            <table className="w-full text-xs">
+                                <thead className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                    <tr>
+                                        <th className="px-2 py-2 text-left font-semibold">Ferien</th>
+                                        <th className="px-2 py-2 text-right font-semibold" title={INFO_TEXT.calendarDays}>Kal.</th>
+                                        <th className="px-2 py-2 text-right font-semibold" title={INFO_TEXT.netDays}>Netto</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
+                                    {holidayBreakdown.map((holiday) => (
+                                        <tr key={`${holiday.name}-${holiday.start}-${holiday.end}`}>
+                                            <td className="px-2 py-2 align-top">
+                                                <div className="font-medium text-slate-800 dark:text-slate-100">{holiday.name}</div>
+                                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                    {formatGermanDate(holiday.start)} bis {formatGermanDate(holiday.end)}
+                                                </div>
+                                            </td>
+                                            <td className="px-2 py-2 text-right font-medium text-slate-700 dark:text-slate-200" title={INFO_TEXT.calendarDays}>{holiday.calendarDays}</td>
+                                            <td className="px-2 py-2 text-right font-medium text-slate-900 dark:text-white" title={INFO_TEXT.netDays}>{holiday.netDays}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="bg-slate-50 dark:bg-slate-950/80">
+                                    <tr>
+                                        <td className="px-2 py-2 font-semibold text-slate-800 dark:text-slate-100">Summe</td>
+                                        <td className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-200" title={INFO_TEXT.calendarDays}>{totals.calendarDays}</td>
+                                        <td className="px-2 py-2 text-right font-semibold text-slate-900 dark:text-white" title={INFO_TEXT.netDays}>{totals.netDays}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div className="border-t border-slate-200 px-3 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                            <span title={INFO_TEXT.calendarDays}>Kal.</span>
+                            {' = Kalendertage, '}
+                            <span title={INFO_TEXT.netDays}>Netto</span>
+                            {' = ohne Wochenenden und gesetzliche Feiertage'}
+                        </div>
                     </div>
-                </div>
+                </details>
             )}
         </SidebarSection>
 
@@ -198,22 +275,24 @@ const SettingsPanel = ({
             </div>
         </SidebarSection>
 
-        <SidebarSection title="Regelmäßige freie Tage" subtitle="Diese Tage gelten als betreut, verbrauchen aber keinen Urlaub.">
+        <SidebarSection title="Regelmäßige freie Tage" subtitle="Diese Tage gelten als betreut, verbrauchen aber keinen Urlaub. Rhythmus und Referenzdatum steuern die Wiederholung.">
             <div className="space-y-5">
-                <div>
-                    <div className="mb-2 flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: p1Color }}></div>
-                        <span className="settings-label text-sm font-bold text-slate-700 dark:text-gray-200">Papa</span>
-                    </div>
-                    <DaySelector selectedDays={p1DaysOff} onChange={setP1DaysOff} color={p1Color} />
-                </div>
-                <div>
-                    <div className="mb-2 flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: p2Color }}></div>
-                        <span className="settings-label text-sm font-bold text-slate-700 dark:text-gray-200">Mama</span>
-                    </div>
-                    <DaySelector selectedDays={p2DaysOff} onChange={setP2DaysOff} color={p2Color} />
-                </div>
+                <RecurringRuleEditor
+                    label="Papa"
+                    color={p1Color}
+                    selectedDays={p1DaysOff}
+                    onChangeDays={setP1DaysOff}
+                    rule={p1RecurringRule}
+                    onChangeRule={setP1RecurringRule}
+                />
+                <RecurringRuleEditor
+                    label="Mama"
+                    color={p2Color}
+                    selectedDays={p2DaysOff}
+                    onChangeDays={setP2DaysOff}
+                    rule={p2RecurringRule}
+                    onChangeRule={setP2RecurringRule}
+                />
             </div>
         </SidebarSection>
 
@@ -285,8 +364,12 @@ export const UtilitySidebar = ({
     setCareColor,
     p1DaysOff,
     setP1DaysOff,
+    p1RecurringRule,
+    setP1RecurringRule,
     p2DaysOff,
     setP2DaysOff,
+    p2RecurringRule,
+    setP2RecurringRule,
 }) => {
     const activeLabel = TABS.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
 
@@ -320,8 +403,12 @@ export const UtilitySidebar = ({
                         setCareColor={setCareColor}
                         p1DaysOff={p1DaysOff}
                         setP1DaysOff={setP1DaysOff}
+                        p1RecurringRule={p1RecurringRule}
+                        setP1RecurringRule={setP1RecurringRule}
                         p2DaysOff={p2DaysOff}
                         setP2DaysOff={setP2DaysOff}
+                        p2RecurringRule={p2RecurringRule}
+                        setP2RecurringRule={setP2RecurringRule}
                     />
                 );
             case 'help':
