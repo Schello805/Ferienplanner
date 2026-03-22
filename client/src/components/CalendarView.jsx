@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { CalendarToolbar } from './CalendarToolbar';
 import { DayCell } from './DayCell';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
 const MONTHS = [
     'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
