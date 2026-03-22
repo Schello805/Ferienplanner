@@ -33,6 +33,15 @@ const formatDateOnly = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+const formatHolidayName = (value) => {
+    if (!value) return 'Ferien';
+    return value
+        .split(/[\s_-]+/)
+        .filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+};
+
 const buildNotice = (meta) => {
     if (!meta) return null;
 
@@ -87,7 +96,8 @@ const CalendarView = ({
     stateName,
     p1DaysOff = [], // Array of day indices (0-6)
     p2DaysOff = [],
-    onStatsChange
+    onStatsChange,
+    onHolidayBreakdownChange
 }) => {
     const currentYear = new Date().getFullYear();
     const [year, setYear] = useState(currentYear);
@@ -299,6 +309,50 @@ const CalendarView = ({
             onStatsChange(stats);
         }
     }, [onStatsChange, stats]);
+
+    const holidayBreakdown = useMemo(() => {
+        return holidays.school.map((holiday) => {
+            const start = parseDateOnly(holiday.start);
+            const end = parseDateOnly(holiday.end);
+            if (!start || !end) {
+                return {
+                    name: formatHolidayName(holiday.name),
+                    start: holiday.start,
+                    end: holiday.end,
+                    calendarDays: 0,
+                    netDays: 0,
+                };
+            }
+
+            let calendarDays = 0;
+            let netDays = 0;
+            for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+                calendarDays++;
+                const dateString = formatDateOnly(d);
+                const localDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+                const dayOfWeek = localDate.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isPublicHoliday = holidays.public.some((item) => item.date === dateString);
+                if (!isWeekend && !isPublicHoliday) {
+                    netDays++;
+                }
+            }
+
+            return {
+                name: formatHolidayName(holiday.name),
+                start: holiday.start,
+                end: holiday.end,
+                calendarDays,
+                netDays,
+            };
+        });
+    }, [holidays.public, holidays.school]);
+
+    useEffect(() => {
+        if (onHolidayBreakdownChange) {
+            onHolidayBreakdownChange(holidayBreakdown);
+        }
+    }, [holidayBreakdown, onHolidayBreakdownChange]);
 
     // Calculate Month Stats (Care coverage per month)
     const monthStats = useMemo(() => {

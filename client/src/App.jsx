@@ -41,6 +41,7 @@ function App() {
   const [sidebarTab, setSidebarTab] = useState('legend');
   const [stateCode, setStateCode] = useState(() => localStorage.getItem('stateCode') || 'BY');
   const [totalNetHolidays, setTotalNetHolidays] = useState(0);
+  const [holidayBreakdown, setHolidayBreakdown] = useState([]);
 
   // Theme Effect
   useEffect(() => {
@@ -103,6 +104,7 @@ function App() {
             p1DaysOff={p1DaysOff}
             p2DaysOff={p2DaysOff}
             onStatsChange={(stats) => setTotalNetHolidays(stats.totalNetHolidays)}
+            onHolidayBreakdownChange={setHolidayBreakdown}
           />
         </div>
 
@@ -121,6 +123,7 @@ function App() {
           stateCode={stateCode}
           setStateCode={setStateCode}
           totalNetHolidays={totalNetHolidays}
+          holidayBreakdown={holidayBreakdown}
           p1DaysOff={p1DaysOff}
           setP1DaysOff={setP1DaysOff}
           p2DaysOff={p2DaysOff}
