@@ -174,6 +174,7 @@ bash deploy/update.sh
 
 Das Update-Skript übernimmt automatisch:
 
+- lokalen Arbeitsbaum auf Repo-Stand zurücksetzen (`git reset --hard`, `git clean -fd`)
 - `git pull --ff-only`
 - Dependency-Install für Backend und Frontend
 - Frontend-Build
@@ -183,7 +184,7 @@ Das Update-Skript übernimmt automatisch:
 
 Wichtig:
 
-- Das Skript bricht ab, wenn das Repo lokale, uncommittete Änderungen enthält
+- Das Skript verwirft lokale Änderungen im Repo bewusst automatisch
 - Die Datenbank bleibt erhalten, weil sie außerhalb des Repos liegt
 
 ### Logs / Debug

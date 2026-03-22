@@ -9,6 +9,7 @@ source "${SCRIPT_DIR}/common.sh"
 require_root
 ensure_prerequisites
 ensure_runtime_layout
+clean_worktree
 update_code
 full_build
 write_systemd_unit

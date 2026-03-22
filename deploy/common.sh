@@ -163,13 +163,25 @@ current_port() {
   printf '%s\n' "${DEFAULT_PORT}"
 }
 
+clean_worktree() {
+  log "Bereinige lokalen Arbeitsbaum"
+  (
+    cd "${REPO_ROOT}"
+
+    if [[ -n "$(git status --porcelain)" ]]; then
+      log "Verwerfe lokale Aenderungen und entferne unversionierte Dateien"
+      git reset --hard HEAD
+      git clean -fd
+    else
+      log "Arbeitsbaum ist bereits sauber"
+    fi
+  )
+}
+
 update_code() {
   log "Aktualisiere Repository"
   (
     cd "${REPO_ROOT}"
-    if [[ -n "$(git status --porcelain)" ]]; then
-      fail "Repository ist nicht sauber. Bitte lokale Aenderungen zuerst committen oder sichern."
-    fi
     git pull --ff-only
   )
 }
