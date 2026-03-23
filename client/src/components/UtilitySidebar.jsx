@@ -12,6 +12,317 @@ const formatGermanDate = (value) => {
     return `${day}.${month}.${year}`;
 };
 
+const AdminToolsPanel = ({ currentUser }) => {
+    const [stats, setStats] = React.useState(null);
+    const [logs, setLogs] = React.useState([]);
+    const [smtpStatus, setSmtpStatus] = React.useState(null);
+    const [smtpDraft, setSmtpDraft] = React.useState(() => ({
+        publicBaseUrl: typeof window !== 'undefined' ? window.location.origin : '',
+        host: '',
+        port: 587,
+        secure: false,
+        user: '',
+        pass: '',
+        fromAddress: '',
+        to: '',
+    }));
+    const [smtpSending, setSmtpSending] = React.useState(false);
+    const [smtpSaving, setSmtpSaving] = React.useState(false);
+
+    const loadAdminData = React.useCallback(async () => {
+        if (!currentUser?.isAdmin) return;
+        try {
+            const [statsRes, logsRes] = await Promise.all([
+                authFetch('/api/admin/stats'),
+                authFetch('/api/admin/logs'),
+            ]);
+
+            const statsData = await statsRes.json();
+            const logsData = await logsRes.json();
+
+            if (!statsRes.ok) throw new Error(statsData.error || 'Admin-Statistiken konnten nicht geladen werden');
+            if (!logsRes.ok) throw new Error(logsData.error || 'Admin-Logs konnten nicht geladen werden');
+
+            setStats(statsData);
+            setLogs(Array.isArray(logsData.entries) ? logsData.entries.slice().reverse() : []);
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Admin-Daten konnten nicht geladen werden');
+        }
+    }, [currentUser]);
+
+    const loadSmtpSettings = React.useCallback(async () => {
+        if (!currentUser?.isAdmin) return;
+        try {
+            const response = await authFetch('/api/admin/smtp');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'SMTP-Daten konnten nicht geladen werden');
+            setSmtpStatus(data);
+
+            if (data?.settings) {
+                setSmtpDraft((current) => ({
+                    ...current,
+                    publicBaseUrl: data.settings.publicBaseUrl || (typeof window !== 'undefined' ? window.location.origin : ''),
+                    host: data.settings.host || '',
+                    port: data.settings.port || 587,
+                    secure: Boolean(data.settings.secure),
+                    user: data.settings.user || '',
+                    fromAddress: data.settings.fromAddress || '',
+                    pass: '',
+                }));
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'SMTP-Daten konnten nicht geladen werden');
+        }
+    }, [currentUser]);
+
+    React.useEffect(() => {
+        loadAdminData();
+        loadSmtpSettings();
+    }, [loadAdminData, loadSmtpSettings]);
+
+    if (!currentUser?.isAdmin) {
+        return null;
+    }
+
+    const saveSmtpSettings = async () => {
+        setSmtpSaving(true);
+        try {
+            const response = await authFetch('/api/admin/smtp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    publicBaseUrl: smtpDraft.publicBaseUrl,
+                    host: smtpDraft.host,
+                    port: smtpDraft.port,
+                    secure: smtpDraft.secure,
+                    user: smtpDraft.user,
+                    pass: smtpDraft.pass,
+                    fromAddress: smtpDraft.fromAddress,
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'SMTP speichern fehlgeschlagen');
+            toast.success('SMTP gespeichert');
+            await loadSmtpSettings();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'SMTP speichern fehlgeschlagen');
+        } finally {
+            setSmtpSaving(false);
+        }
+    };
+
+    const sendTestMail = async () => {
+        setSmtpSending(true);
+        try {
+            const response = await authFetch('/api/admin/smtp/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: smtpDraft.to }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'SMTP Test fehlgeschlagen');
+            toast.success('SMTP Testmail wurde gesendet');
+            await loadAdminData();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'SMTP Test fehlgeschlagen');
+        } finally {
+            setSmtpSending(false);
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <SidebarSection title="Instanz" subtitle="Zahlen zur Datenbank und zum Betrieb dieser Installation.">
+                {!stats ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        Lädt…
+                    </div>
+                ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        {[
+                            ['User', stats.users],
+                            ['Kalender', stats.calendars],
+                            ['Freigaben', stats.memberships],
+                            ['Kinder', stats.children],
+                            ['Freie Tage', stats.childFreeDays],
+                            ['Einträge', stats.vacationEntries],
+                        ].map(([label, value]) => (
+                            <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                                <div className="font-semibold">{label}</div>
+                                <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">{value}</div>
+                            </div>
+                        ))}
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                            <div className="font-semibold">DB Größe</div>
+                            <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">
+                                {typeof stats.dbSizeBytes === 'number' ? `${Math.round(stats.dbSizeBytes / 1024)} KB` : '–'}
+                            </div>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                            <div className="font-semibold">Uptime</div>
+                            <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">{stats.uptimeSeconds}s</div>
+                        </div>
+                    </div>
+                )}
+            </SidebarSection>
+
+            <SidebarSection title="SMTP" subtitle="E-Mail Versand wird über Environment Variablen konfiguriert. Hier kannst du die Werte testen.">
+                <div className="space-y-3">
+                    {smtpStatus && (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                            <div className="font-semibold">Status</div>
+                            <div className="mt-1 grid gap-1">
+                                <div>Konfiguriert: <strong>{smtpStatus.configured ? 'ja' : 'nein'}</strong></div>
+                                <div>Quelle: <strong>{smtpStatus.source || '–'}</strong></div>
+                                <div>APP Secret Key: <strong>{smtpStatus.keyConfigured ? 'ok' : 'fehlt'}</strong></div>
+                                <div>Passwort gespeichert: <strong>{smtpStatus.settings?.passConfigured ? 'ja' : 'nein'}</strong></div>
+                            </div>
+                        </div>
+                    )}
+
+                    <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        Public Base URL
+                        <input
+                            type="text"
+                            value={smtpDraft.publicBaseUrl}
+                            onChange={(event) => setSmtpDraft((current) => ({ ...current, publicBaseUrl: event.target.value }))}
+                            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        />
+                    </label>
+
+                    <div className="grid gap-2">
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            SMTP Host
+                            <input
+                                type="text"
+                                value={smtpDraft.host}
+                                onChange={(event) => setSmtpDraft((current) => ({ ...current, host: event.target.value }))}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            />
+                        </label>
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            Port
+                            <input
+                                type="number"
+                                min={1}
+                                max={65535}
+                                value={smtpDraft.port}
+                                onChange={(event) => setSmtpDraft((current) => ({ ...current, port: Number(event.target.value) }))}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            />
+                        </label>
+                    </div>
+
+                    <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                        <input
+                            type="checkbox"
+                            checked={smtpDraft.secure}
+                            onChange={(event) => setSmtpDraft((current) => ({ ...current, secure: event.target.checked }))}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        Secure (TLS)
+                    </label>
+
+                    <div className="grid gap-2">
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            SMTP User
+                            <input
+                                type="text"
+                                value={smtpDraft.user}
+                                onChange={(event) => setSmtpDraft((current) => ({ ...current, user: event.target.value }))}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            />
+                        </label>
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            SMTP Passwort
+                            <input
+                                type="password"
+                                value={smtpDraft.pass}
+                                onChange={(event) => setSmtpDraft((current) => ({ ...current, pass: event.target.value }))}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                autoComplete="new-password"
+                                placeholder={smtpStatus?.settings?.passConfigured ? '•••••••• (leer lassen zum Beibehalten)' : ''}
+                            />
+                        </label>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            From
+                            <input
+                                type="text"
+                                value={smtpDraft.fromAddress}
+                                onChange={(event) => setSmtpDraft((current) => ({ ...current, fromAddress: event.target.value }))}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            />
+                        </label>
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            Test-Empfänger
+                            <input
+                                type="email"
+                                value={smtpDraft.to}
+                                onChange={(event) => setSmtpDraft((current) => ({ ...current, to: event.target.value }))}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                autoComplete="email"
+                            />
+                        </label>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <button
+                            type="button"
+                            onClick={saveSmtpSettings}
+                            disabled={smtpSaving}
+                            className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
+                        >
+                            {smtpSaving ? 'Speichere…' : 'Speichern'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={sendTestMail}
+                            disabled={smtpSending}
+                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100 dark:hover:bg-emerald-950/50"
+                        >
+                            {smtpSending ? 'Sende…' : 'Testmail senden'}
+                        </button>
+                    </div>
+                </div>
+            </SidebarSection>
+
+            <SidebarSection title="Admin Log" subtitle="Letzte Ereignisse dieser Instanz (In-Memory, nicht persistent).">
+                {logs.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        Noch keine Einträge.
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {logs.slice(0, 40).map((entry, idx) => (
+                            <div key={`${entry.ts}-${idx}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="font-semibold text-slate-900 dark:text-white">{entry.event}</div>
+                                    <div className="text-[10px] text-slate-400">{entry.ts}</div>
+                                </div>
+                                {entry.detail && <div className="mt-1 text-slate-600 dark:text-slate-300">{entry.detail}</div>}
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <button
+                    type="button"
+                    onClick={loadAdminData}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                    Aktualisieren
+                </button>
+            </SidebarSection>
+        </div>
+    );
+};
+
 const InvitationPanel = ({ currentCalendar }) => {
     const [role, setRole] = React.useState('editor');
     const [expiresInDays, setExpiresInDays] = React.useState(14);
@@ -199,6 +510,15 @@ const TABS = [
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.964 0a9 9 0 1 0-11.964 0m11.964 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+        )
+    },
+    {
+        id: 'admin',
+        label: 'Admin',
+        icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4 text-amber-500 dark:text-amber-300">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M12 3l7.5 4.5v6c0 5.25-3.75 8.25-7.5 9-3.75-.75-7.5-3.75-7.5-9v-6L12 3Z" />
             </svg>
         )
     },
@@ -1188,7 +1508,7 @@ export const UtilitySidebar = ({
     onCopyShareLink,
     onEnterShareMode,
 }) => {
-    const tabs = TABS;
+    const tabs = currentUser?.isAdmin ? TABS : TABS.filter((tab) => tab.id !== 'admin');
     const activeLabel = tabs.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
 
     const openSidebar = () => setIsOpen(true);
@@ -1257,6 +1577,8 @@ export const UtilitySidebar = ({
                 );
             case 'profile':
                 return <ProfilePanel currentUser={currentUser} />;
+            case 'admin':
+                return <AdminToolsPanel currentUser={currentUser} />;
             case 'help':
             default:
                 return <HelpPanel />;

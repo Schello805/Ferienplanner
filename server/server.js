@@ -14,12 +14,24 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 export const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'database.sqlite');
+const APP_SECRET_KEY_PATH = process.env.APP_SECRET_KEY_PATH || path.join(path.dirname(DB_PATH), 'app-secret.key');
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
 const AUTH_RATE_LIMIT_MAX_ATTEMPTS = 10;
 const authAttemptStore = new Map();
 
 const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24;
+const HIBP_TIMEOUT_MS = 5000;
+const HIBP_CACHE_TTL_MS = 1000 * 60 * 60;
+
+const SMTP_CACHE_TTL_MS = 1000 * 60 * 5;
+
+let cachedSmtpSettings = null;
+
+const hibpCache = new Map();
+
+const ADMIN_LOG_MAX_ENTRIES = 200;
+const adminLogEntries = [];
 
 const ROLE_ORDER = {
   viewer: 0,
@@ -34,6 +46,22 @@ try {
   process.stderr.write(`DB_PATH=${DB_PATH}\n`);
   process.exit(1);
 }
+
+function ensureAppSecretKeyFile() {
+  if (process.env.APP_SECRET_KEY) return;
+  try {
+    if (fs.existsSync(APP_SECRET_KEY_PATH)) {
+      return;
+    }
+    const key = crypto.randomBytes(32).toString('base64');
+    fs.writeFileSync(APP_SECRET_KEY_PATH, `${key}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+    process.stderr.write(`Generated APP_SECRET_KEY at ${APP_SECRET_KEY_PATH}\n`);
+  } catch (error) {
+    process.stderr.write(`Failed to generate APP_SECRET_KEY file: ${error?.message || error}\n`);
+  }
+}
+
+ensureAppSecretKeyFile();
 
 export const app = express();
 app.use(cors());
@@ -77,7 +105,7 @@ app.post('/api/auth/register', async (req, res) => {
     return;
   }
 
-  const passwordError = validatePassword(password, username);
+  const passwordError = await validatePasswordAsync(password, username);
   if (passwordError) {
     registerAuthFailure(req, String(username));
     return res.status(400).json({ error: passwordError });
@@ -115,6 +143,7 @@ app.post('/api/auth/register', async (req, res) => {
     );
 
     await sendVerificationEmail({ req, to: normalizedEmail, token });
+    pushAdminLog('auth.register', `User registered: ${String(username).trim()}`, { username: String(username).trim(), email: normalizedEmail });
     clearAuthFailures(req, String(username));
     return res.json({ success: true });
   } catch (error) {
@@ -149,6 +178,7 @@ app.post('/api/auth/verify-email', async (req, res) => {
 
     await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [new Date().toISOString(), row.userId]);
     await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
+    pushAdminLog('auth.verify_email', `Email verified for userId=${row.userId}`, { userId: row.userId });
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -195,6 +225,74 @@ function normalizeDateOnly(value) {
   return null;
 }
 
+function isHibpCheckEnabled() {
+  const raw = process.env.HIBP_CHECK;
+  if (!raw) return false;
+  return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
+}
+
+function isHibpFailOpen() {
+  const raw = process.env.HIBP_FAIL_OPEN;
+  if (!raw) return true;
+  return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
+}
+
+async function checkPasswordNotPwned(password) {
+  if (!isHibpCheckEnabled()) return null;
+
+  const sha1 = crypto.createHash('sha1').update(String(password), 'utf8').digest('hex').toUpperCase();
+  const prefix = sha1.slice(0, 5);
+  const suffix = sha1.slice(5);
+
+  const cached = hibpCache.get(prefix);
+  if (cached && (Date.now() - cached.fetchedAt) < HIBP_CACHE_TTL_MS) {
+    if (cached.suffixes.has(suffix)) {
+      return 'Dieses Passwort taucht in bekannten Datenleaks auf. Bitte wähle ein anderes Passwort.';
+    }
+    return null;
+  }
+
+  try {
+    const response = await axios.get(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      timeout: HIBP_TIMEOUT_MS,
+      headers: {
+        'User-Agent': 'Ferienplaner',
+        'Add-Padding': 'true',
+      },
+      responseType: 'text',
+      validateStatus: (status) => status >= 200 && status < 500,
+    });
+
+    if (response.status !== 200 || typeof response.data !== 'string') {
+      if (isHibpFailOpen()) return null;
+      return 'Passwortprüfung momentan nicht verfügbar. Bitte später erneut versuchen.';
+    }
+
+    const suffixes = new Set();
+    for (const line of response.data.split(/\r?\n/)) {
+      const [hashSuffix] = line.split(':');
+      if (hashSuffix && hashSuffix.length === 35) {
+        suffixes.add(hashSuffix.trim().toUpperCase());
+      }
+    }
+
+    hibpCache.set(prefix, { fetchedAt: Date.now(), suffixes });
+    if (suffixes.has(suffix)) {
+      return 'Dieses Passwort taucht in bekannten Datenleaks auf. Bitte wähle ein anderes Passwort.';
+    }
+    return null;
+  } catch (error) {
+    if (isHibpFailOpen()) return null;
+    return 'Passwortprüfung momentan nicht verfügbar. Bitte später erneut versuchen.';
+  }
+}
+
+async function validatePasswordAsync(password, username) {
+  const localError = validatePassword(password, username);
+  if (localError) return localError;
+  return await checkPasswordNotPwned(password);
+}
+
 function parseDateOnly(value) {
   const normalized = normalizeDateOnly(value);
   if (!normalized) {
@@ -218,6 +316,18 @@ function openDb() {
       process.stderr.write(`DB_PATH=${DB_PATH}\n`);
     }
   });
+}
+
+function pushAdminLog(event, detail = '', meta = null) {
+  adminLogEntries.push({
+    ts: new Date().toISOString(),
+    event: String(event),
+    detail: String(detail || ''),
+    meta,
+  });
+  if (adminLogEntries.length > ADMIN_LOG_MAX_ENTRIES) {
+    adminLogEntries.splice(0, adminLogEntries.length - ADMIN_LOG_MAX_ENTRIES);
+  }
 }
 
 function dbGet(db, sql, params = []) {
@@ -295,6 +405,23 @@ async function initializeDatabase() {
         createdAt TEXT,
         expiresAt TEXT,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS smtp_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        publicBaseUrl TEXT,
+        host TEXT,
+        port INTEGER,
+        secure INTEGER NOT NULL DEFAULT 0,
+        user TEXT,
+        passEnc TEXT,
+        passIv TEXT,
+        passTag TEXT,
+        fromAddress TEXT,
+        updatedAt TEXT
       )`
     );
 
@@ -460,8 +587,8 @@ function generateSessionToken() {
 function validatePassword(password, username = '') {
   const normalizedUsername = String(username || '').trim().toLowerCase();
 
-  if (typeof password !== 'string' || password.length < 10) {
-    return 'Passwort muss mindestens 10 Zeichen lang sein.';
+  if (typeof password !== 'string' || password.length < 8) {
+    return 'Passwort muss mindestens 8 Zeichen lang sein.';
   }
   if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
     return 'Passwort muss mindestens einen Buchstaben und eine Zahl enthalten.';
@@ -550,42 +677,156 @@ function getPublicBaseUrl(req) {
   return `http://localhost:${PORT}`;
 }
 
-function getMailerTransport() {
+function getAppSecretKeyBytes() {
+  let secret = process.env.APP_SECRET_KEY;
+  if (!secret) {
+    try {
+      if (fs.existsSync(APP_SECRET_KEY_PATH)) {
+        secret = String(fs.readFileSync(APP_SECRET_KEY_PATH, 'utf8')).trim();
+      }
+    } catch {
+      secret = null;
+    }
+  }
+  if (!secret) return null;
+  return crypto.createHash('sha256').update(String(secret), 'utf8').digest();
+}
+
+function encryptSecret(plaintext) {
+  const key = getAppSecretKeyBytes();
+  if (!key) {
+    throw new Error('APP_SECRET_KEY not configured');
+  }
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const enc = Buffer.concat([cipher.update(String(plaintext), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    enc: enc.toString('base64'),
+    iv: iv.toString('base64'),
+    tag: tag.toString('base64'),
+  };
+}
+
+function decryptSecret({ enc, iv, tag }) {
+  const key = getAppSecretKeyBytes();
+  if (!key) {
+    throw new Error('APP_SECRET_KEY not configured');
+  }
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64'));
+  decipher.setAuthTag(Buffer.from(tag, 'base64'));
+  const dec = Buffer.concat([
+    decipher.update(Buffer.from(enc, 'base64')),
+    decipher.final(),
+  ]);
+  return dec.toString('utf8');
+}
+
+async function loadSmtpSettingsFromDb() {
+  const db = openDb();
+  try {
+    const row = await dbGet(db, 'SELECT * FROM smtp_settings WHERE id = 1');
+    if (!row) return null;
+    return row;
+  } finally {
+    db.close();
+  }
+}
+
+async function getEffectiveSmtpSettings() {
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465;
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
-  if (!host || !user || !pass) {
+  if (host && user && pass) {
+    return {
+      source: 'env',
+      publicBaseUrl: process.env.PUBLIC_BASE_URL || null,
+      host,
+      port,
+      secure,
+      user,
+      pass,
+      fromAddress: from,
+    };
+  }
+
+  if (cachedSmtpSettings && (Date.now() - cachedSmtpSettings.fetchedAt) < SMTP_CACHE_TTL_MS) {
+    return cachedSmtpSettings.value;
+  }
+
+  const row = await loadSmtpSettingsFromDb();
+  if (!row || !row.host || !row.user || !row.passEnc || !row.passIv || !row.passTag) {
+    cachedSmtpSettings = { fetchedAt: Date.now(), value: null };
     return null;
   }
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-  });
+  try {
+    const decryptedPass = decryptSecret({ enc: row.passEnc, iv: row.passIv, tag: row.passTag });
+    const value = {
+      source: 'db',
+      publicBaseUrl: row.publicBaseUrl || null,
+      host: row.host,
+      port: row.port ? Number(row.port) : 587,
+      secure: Boolean(row.secure),
+      user: row.user,
+      pass: decryptedPass,
+      fromAddress: row.fromAddress || row.user,
+    };
+    cachedSmtpSettings = { fetchedAt: Date.now(), value };
+    return value;
+  } catch {
+    cachedSmtpSettings = { fetchedAt: Date.now(), value: null };
+    return null;
+  }
+}
+
+function getMailerTransport() {
+  throw new Error('getMailerTransport is deprecated');
 }
 
 async function sendVerificationEmail({ req, to, token }) {
-  const transport = getMailerTransport();
-  const baseUrl = getPublicBaseUrl(req);
+  const smtp = await getEffectiveSmtpSettings();
+  const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req);
   const verifyUrl = `${baseUrl}/?verifyEmail=${token}`;
 
-  if (!transport) {
+  if (!smtp) {
     process.stderr.write('SMTP not configured; cannot send verification email.\n');
     process.stderr.write(`Verification link for ${to}: ${verifyUrl}\n`);
     return;
   }
 
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const transport = nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    auth: { user: smtp.user, pass: smtp.pass },
+  });
+
   await transport.sendMail({
-    from,
+    from: smtp.fromAddress,
     to,
     subject: 'Ferienplaner: E-Mail bestätigen',
     text: `Bitte bestätige deine E-Mail-Adresse über diesen Link:\n\n${verifyUrl}\n\nDer Link ist 24 Stunden gültig.`,
+  });
+}
+
+async function sendSmtpTestMail({ host, port, secure, user, pass, from, to, baseUrl }) {
+  const transport = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+
+  await transport.sendMail({
+    from,
+    to,
+    subject: 'Ferienplaner: SMTP Test',
+    text: `SMTP Test erfolgreich.\n\nBase URL: ${baseUrl || ''}\n`,
   });
 }
 
@@ -822,7 +1063,7 @@ app.post('/api/auth/bootstrap', async (req, res) => {
     return;
   }
 
-  const passwordError = validatePassword(password, username);
+  const passwordError = await validatePasswordAsync(password, username);
   if (passwordError) {
     registerAuthFailure(req, username);
     return res.status(400).json({ error: passwordError });
@@ -854,6 +1095,7 @@ app.post('/api/auth/bootstrap', async (req, res) => {
 
     const session = await createSessionForUser(result.lastID);
     clearAuthFailures(req, username);
+    pushAdminLog('auth.bootstrap', `Bootstrap admin created: ${String(username).trim()}`, { username: String(username).trim(), userId: result.lastID });
     return res.json({
       success: true,
       token: session.token,
@@ -943,7 +1185,7 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'username and password are required' });
   }
 
-  const passwordError = validatePassword(password, username);
+  const passwordError = await validatePasswordAsync(password, username);
   if (passwordError) {
     return res.status(400).json({ error: passwordError });
   }
@@ -959,6 +1201,7 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
       [String(username).trim(), hash, salt, isAdmin ? 1 : 0, now, now]
     );
     await ensureUserCalendarContext(result.lastID);
+    pushAdminLog('admin.create_user', `Admin created user: ${String(username).trim()}`, { username: String(username).trim(), userId: result.lastID, isAdmin: Boolean(isAdmin) });
     res.json({ success: true, id: result.lastID });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -973,7 +1216,7 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'currentPassword and newPassword are required' });
   }
 
-  const passwordError = validatePassword(newPassword, req.auth.user.username);
+  const passwordError = await validatePasswordAsync(newPassword, req.auth.user.username);
   if (passwordError) {
     return res.status(400).json({ error: passwordError });
   }
@@ -1013,6 +1256,201 @@ app.use('/api', (req, res, next) => {
     return next();
   }
   return requireAuth(req, res, next);
+});
+
+app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
+  const db = openDb();
+  try {
+    const [
+      userCount,
+      calendarCount,
+      membershipCount,
+      childCount,
+      freeDayCount,
+      entryCount,
+    ] = await Promise.all([
+      dbGet(db, 'SELECT COUNT(*) AS count FROM users'),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM calendars'),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM calendar_memberships'),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM children'),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM child_free_days'),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM vacation_entries'),
+    ]);
+
+    let dbSizeBytes = null;
+    try {
+      dbSizeBytes = fs.statSync(DB_PATH).size;
+    } catch {
+      dbSizeBytes = null;
+    }
+
+    return res.json({
+      users: Number(userCount?.count || 0),
+      calendars: Number(calendarCount?.count || 0),
+      memberships: Number(membershipCount?.count || 0),
+      children: Number(childCount?.count || 0),
+      childFreeDays: Number(freeDayCount?.count || 0),
+      vacationEntries: Number(entryCount?.count || 0),
+      dbSizeBytes,
+      uptimeSeconds: Math.floor(process.uptime()),
+      serverVersion: process.env.npm_package_version || null,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.get('/api/admin/logs', requireAuth, requireAdmin, (req, res) => {
+  res.json({ entries: adminLogEntries.slice(-ADMIN_LOG_MAX_ENTRIES) });
+});
+
+app.post('/api/admin/smtp/test', requireAuth, requireAdmin, async (req, res) => {
+  const { to } = req.body || {};
+  if (!to) {
+    return res.status(400).json({ error: 'to is required' });
+  }
+
+  try {
+    const smtp = await getEffectiveSmtpSettings();
+    if (!smtp) {
+      return res.status(400).json({ error: 'SMTP not configured' });
+    }
+    await sendSmtpTestMail({
+      host: smtp.host,
+      port: smtp.port,
+      secure: smtp.secure,
+      user: smtp.user,
+      pass: smtp.pass,
+      from: smtp.fromAddress,
+      to: String(to),
+      baseUrl: smtp.publicBaseUrl || '',
+    });
+    pushAdminLog('admin.smtp_test', `SMTP test sent to ${String(to)}`, { host: smtp.host, to: String(to) });
+    return res.json({ success: true });
+  } catch (error) {
+    pushAdminLog('admin.smtp_test_failed', `SMTP test failed: ${error.message}`, { to: String(to) });
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/smtp', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const keyConfigured = Boolean(getAppSecretKeyBytes());
+    const row = await loadSmtpSettingsFromDb();
+    const envConfigured = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+    const effective = await getEffectiveSmtpSettings();
+
+    return res.json({
+      keyConfigured,
+      envConfigured,
+      configured: Boolean(effective),
+      source: effective?.source || null,
+      settings: row ? {
+        publicBaseUrl: row.publicBaseUrl || '',
+        host: row.host || '',
+        port: row.port || 587,
+        secure: Boolean(row.secure),
+        user: row.user || '',
+        fromAddress: row.fromAddress || '',
+        passConfigured: Boolean(row.passEnc),
+        updatedAt: row.updatedAt || null,
+      } : {
+        publicBaseUrl: '',
+        host: '',
+        port: 587,
+        secure: false,
+        user: '',
+        fromAddress: '',
+        passConfigured: false,
+        updatedAt: null,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/smtp', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const key = getAppSecretKeyBytes();
+    if (!key) {
+      return res.status(400).json({ error: 'APP_SECRET_KEY not configured' });
+    }
+
+    const {
+      publicBaseUrl = '',
+      host = '',
+      port = 587,
+      secure = false,
+      user = '',
+      pass = '',
+      fromAddress = '',
+    } = req.body || {};
+
+    if (!host || !user) {
+      return res.status(400).json({ error: 'host and user are required' });
+    }
+
+    const numericPort = Number(port);
+    if (!Number.isFinite(numericPort) || numericPort <= 0 || numericPort > 65535) {
+      return res.status(400).json({ error: 'Invalid port' });
+    }
+
+    const now = new Date().toISOString();
+    const db = openDb();
+    try {
+      let current = await dbGet(db, 'SELECT passEnc, passIv, passTag FROM smtp_settings WHERE id = 1');
+      let passEnc = current?.passEnc || null;
+      let passIv = current?.passIv || null;
+      let passTag = current?.passTag || null;
+
+      if (pass && typeof pass === 'string') {
+        const enc = encryptSecret(pass);
+        passEnc = enc.enc;
+        passIv = enc.iv;
+        passTag = enc.tag;
+      }
+
+      await dbRun(
+        db,
+        `INSERT INTO smtp_settings (id, publicBaseUrl, host, port, secure, user, passEnc, passIv, passTag, fromAddress, updatedAt)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+          publicBaseUrl = excluded.publicBaseUrl,
+          host = excluded.host,
+          port = excluded.port,
+          secure = excluded.secure,
+          user = excluded.user,
+          passEnc = excluded.passEnc,
+          passIv = excluded.passIv,
+          passTag = excluded.passTag,
+          fromAddress = excluded.fromAddress,
+          updatedAt = excluded.updatedAt`,
+        [
+          String(publicBaseUrl || '').trim(),
+          String(host).trim(),
+          numericPort,
+          secure ? 1 : 0,
+          String(user).trim(),
+          passEnc,
+          passIv,
+          passTag,
+          String(fromAddress || '').trim(),
+          now,
+        ]
+      );
+
+      cachedSmtpSettings = null;
+      pushAdminLog('admin.smtp_update', 'SMTP settings updated', { host: String(host).trim(), user: String(user).trim() });
+      return res.json({ success: true });
+    } finally {
+      db.close();
+    }
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/api/children', (req, res) => {
@@ -1123,6 +1561,7 @@ app.post('/api/invitations', requireCalendarRole('owner'), async (req, res) => {
 
     const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || `http://localhost:${PORT}`;
     const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/?invite=${token}`;
+    pushAdminLog('calendar.invite_create', `Invite created for calendarId=${calendarId} role=${normalizedRole}`, { calendarId, role: normalizedRole, expiresAt });
     return res.json({ success: true, token, inviteUrl, role: normalizedRole, expiresAt });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -1190,6 +1629,8 @@ app.post('/api/invitations/accept', async (req, res) => {
       'UPDATE calendar_invitations SET usedAt = ?, usedByUserId = ? WHERE id = ?',
       [new Date().toISOString(), userId, invite.id]
     );
+
+    pushAdminLog('calendar.invite_accept', `Invite accepted calendarId=${invite.calendarId} userId=${userId} role=${membershipRole}`, { calendarId: invite.calendarId, userId, role: membershipRole });
 
     return res.json({ success: true, calendarId: invite.calendarId, role: membershipRole });
   } catch (error) {

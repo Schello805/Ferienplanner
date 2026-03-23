@@ -70,7 +70,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
             <div className="rounded-2xl border border-violet-200/80 bg-violet-50/80 px-3 py-2 text-xs text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/30 dark:text-violet-100">
               <div className="font-semibold">Erster Start</div>
               <div className="mt-1 opacity-80">
-                Nach dem Setup wird automatisch dein Hauptkalender angelegt. Verwende ein Passwort mit mindestens 10 Zeichen, Buchstaben und Zahlen.
+                Nach dem Setup wird automatisch dein Hauptkalender angelegt. Verwende ein Passwort mit mindestens 8 Zeichen, Buchstaben und Zahlen.
               </div>
             </div>
           )}
