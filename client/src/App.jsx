@@ -537,8 +537,8 @@ function App() {
       </main>
 
       {isMobile && !shareMode && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/96 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.18)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/96">
-          <div className="mx-auto grid max-w-xl grid-cols-6 gap-2">
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/96 px-[max(env(safe-area-inset-left),0.5rem)] pr-[max(env(safe-area-inset-right),0.5rem)] pb-[calc(env(safe-area-inset-bottom)+0.6rem)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.18)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/96">
+          <div className="mx-auto grid w-full max-w-xl grid-cols-6 gap-1.5">
             {mobileNavItems.map((item) => {
               const active = activeMobileNav === item.id;
               return (
@@ -553,7 +553,7 @@ function App() {
                     setSidebarTab(item.id);
                     setSidebarOpen(true);
                   }}
-                  className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold transition-colors ${active ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 dark:text-slate-400'}`}
+                  className={`flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1.5 py-2 text-[10px] font-semibold transition-colors ${active ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 dark:text-slate-400'}`}
                 >
                   {item.icon}
                   <span>{item.label}</span>
