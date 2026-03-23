@@ -12,8 +12,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'database.sqlite');
+export const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'database.sqlite');
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
+const AUTH_RATE_LIMIT_MAX_ATTEMPTS = 10;
+const authAttemptStore = new Map();
 
 try {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -23,12 +26,35 @@ try {
   process.exit(1);
 }
 
-const app = express();
+export const app = express();
 app.use(cors());
 app.use(express.json());
+app.disable('x-powered-by');
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (process.env.NODE_ENV !== 'development') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
+app.use('/api', async (req, res, next) => {
+  try {
+    await dbReady;
+    next();
+  } catch (error) {
+    res.status(500).json({ error: `Database initialization failed: ${error.message}` });
+  }
+});
 
 const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
-if (fs.existsSync(CLIENT_DIST)) {
+if (fs.existsSync(CLIENT_DIST) && process.env.NODE_ENV !== 'test') {
   app.use(express.static(CLIENT_DIST));
 }
 
@@ -117,6 +143,160 @@ function dbRun(db, sql, params = []) {
   });
 }
 
+async function initializeDatabase() {
+  const db = openDb();
+  try {
+    await dbRun(db, 'PRAGMA foreign_keys = ON');
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        passwordHash TEXT NOT NULL,
+        passwordSalt TEXT NOT NULL,
+        isAdmin INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT,
+        updatedAt TEXT
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        userId INTEGER NOT NULL,
+        createdAt TEXT,
+        expiresAt TEXT,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS vacations (
+        date TEXT PRIMARY KEY,
+        userId TEXT,
+        createdAt TEXT,
+        updatedAt TEXT
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS vacation_entries (
+        calendarId INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        userId TEXT,
+        createdAt TEXT,
+        updatedAt TEXT,
+        PRIMARY KEY (calendarId, date)
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS calendars (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        ownerUserId INTEGER NOT NULL,
+        createdAt TEXT,
+        updatedAt TEXT,
+        FOREIGN KEY (ownerUserId) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS calendar_memberships (
+        calendarId INTEGER NOT NULL,
+        userId INTEGER NOT NULL,
+        role TEXT NOT NULL DEFAULT 'owner',
+        createdAt TEXT,
+        PRIMARY KEY (calendarId, userId),
+        FOREIGN KEY (calendarId) REFERENCES calendars(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS children (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        calendarId INTEGER,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'school',
+        color TEXT,
+        usesSchoolHolidays INTEGER NOT NULL DEFAULT 1,
+        createdAt TEXT,
+        updatedAt TEXT
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS child_free_days (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        calendarId INTEGER,
+        childId INTEGER NOT NULL,
+        startDate TEXT NOT NULL,
+        endDate TEXT NOT NULL,
+        label TEXT,
+        createdAt TEXT,
+        updatedAt TEXT,
+        FOREIGN KEY (childId) REFERENCES children(id) ON DELETE CASCADE
+      )`
+    );
+
+    const vacationColumns = new Set((await dbAll(db, 'PRAGMA table_info(vacations)')).map((row) => row.name));
+    if (!vacationColumns.has('calendarId')) {
+      await dbRun(db, 'ALTER TABLE vacations ADD COLUMN calendarId INTEGER');
+    }
+    if (!vacationColumns.has('createdAt')) {
+      await dbRun(db, 'ALTER TABLE vacations ADD COLUMN createdAt TEXT');
+    }
+    if (!vacationColumns.has('updatedAt')) {
+      await dbRun(db, 'ALTER TABLE vacations ADD COLUMN updatedAt TEXT');
+    }
+
+    const childColumns = new Set((await dbAll(db, 'PRAGMA table_info(children)')).map((row) => row.name));
+    if (!childColumns.has('calendarId')) {
+      await dbRun(db, 'ALTER TABLE children ADD COLUMN calendarId INTEGER');
+    }
+
+    const freeDayColumns = new Set((await dbAll(db, 'PRAGMA table_info(child_free_days)')).map((row) => row.name));
+    if (!freeDayColumns.has('calendarId')) {
+      await dbRun(db, 'ALTER TABLE child_free_days ADD COLUMN calendarId INTEGER');
+    }
+
+    const userColumns = new Set((await dbAll(db, 'PRAGMA table_info(users)')).map((row) => row.name));
+    if (!userColumns.has('isAdmin')) {
+      await dbRun(db, 'ALTER TABLE users ADD COLUMN isAdmin INTEGER NOT NULL DEFAULT 0');
+    }
+
+    const vacationEntryCount = await dbGet(db, 'SELECT COUNT(*) AS count FROM vacation_entries');
+    if (Number(vacationEntryCount?.count || 0) === 0) {
+      const legacyRows = await dbAll(
+        db,
+        'SELECT date, userId, createdAt, updatedAt, calendarId FROM vacations'
+      );
+
+      for (const row of legacyRows) {
+        await dbRun(
+          db,
+          `INSERT OR IGNORE INTO vacation_entries (calendarId, date, userId, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?)`,
+          [row.calendarId || 0, row.date, row.userId, row.createdAt || null, row.updatedAt || null]
+        );
+      }
+    }
+  } finally {
+    db.close();
+  }
+}
+
+const dbReady = initializeDatabase();
+
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
   return { salt, hash };
@@ -131,6 +311,74 @@ function verifyPassword(password, salt, expectedHash) {
 
 function generateSessionToken() {
   return crypto.randomBytes(32).toString('base64url');
+}
+
+function validatePassword(password, username = '') {
+  const normalizedUsername = String(username || '').trim().toLowerCase();
+
+  if (typeof password !== 'string' || password.length < 10) {
+    return 'Passwort muss mindestens 10 Zeichen lang sein.';
+  }
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return 'Passwort muss mindestens einen Buchstaben und eine Zahl enthalten.';
+  }
+  if (normalizedUsername && password.toLowerCase().includes(normalizedUsername)) {
+    return 'Passwort darf den Benutzernamen nicht enthalten.';
+  }
+  return null;
+}
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function getRateLimitKey(req, username = '') {
+  return `${getClientIp(req)}:${String(username || '').trim().toLowerCase()}`;
+}
+
+function pruneAuthAttempts(now = Date.now()) {
+  for (const [key, value] of authAttemptStore.entries()) {
+    if ((now - value.firstAttemptAt) > AUTH_RATE_LIMIT_WINDOW_MS) {
+      authAttemptStore.delete(key);
+    }
+  }
+}
+
+function registerAuthFailure(req, username = '') {
+  const now = Date.now();
+  pruneAuthAttempts(now);
+  const key = getRateLimitKey(req, username);
+  const current = authAttemptStore.get(key);
+  if (!current || (now - current.firstAttemptAt) > AUTH_RATE_LIMIT_WINDOW_MS) {
+    authAttemptStore.set(key, { attempts: 1, firstAttemptAt: now });
+    return;
+  }
+  current.attempts += 1;
+  authAttemptStore.set(key, current);
+}
+
+function clearAuthFailures(req, username = '') {
+  authAttemptStore.delete(getRateLimitKey(req, username));
+}
+
+function ensureAuthNotRateLimited(req, res, username = '') {
+  const now = Date.now();
+  pruneAuthAttempts(now);
+  const current = authAttemptStore.get(getRateLimitKey(req, username));
+  if (!current || current.attempts < AUTH_RATE_LIMIT_MAX_ATTEMPTS) {
+    return false;
+  }
+
+  const retryAfterMs = Math.max(0, AUTH_RATE_LIMIT_WINDOW_MS - (now - current.firstAttemptAt));
+  res.setHeader('Retry-After', String(Math.ceil(retryAfterMs / 1000)));
+  res.status(429).json({
+    error: 'Zu viele Anmeldeversuche. Bitte spaeter erneut versuchen.',
+  });
+  return true;
 }
 
 function getBearerToken(req) {
@@ -157,6 +405,7 @@ async function createSessionForUser(userId) {
   const createdAt = new Date(now).toISOString();
 
   try {
+    await dbRun(db, 'DELETE FROM sessions WHERE expiresAt <= ?', [new Date().toISOString()]);
     await dbRun(
       db,
       `INSERT INTO sessions (token, userId, createdAt, expiresAt)
@@ -164,6 +413,69 @@ async function createSessionForUser(userId) {
       [token, userId, createdAt, expiresAt]
     );
     return { token, expiresAt };
+  } finally {
+    db.close();
+  }
+}
+
+async function ensureUserCalendarContext(userId) {
+  const db = openDb();
+  try {
+    let membership = await dbGet(
+      db,
+      `SELECT calendars.id, calendars.name
+       FROM calendar_memberships
+       JOIN calendars ON calendars.id = calendar_memberships.calendarId
+       WHERE calendar_memberships.userId = ?
+       ORDER BY calendar_memberships.role = 'owner' DESC, calendars.id ASC
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (!membership) {
+      const createdAt = new Date().toISOString();
+      const calendarResult = await dbRun(
+        db,
+        `INSERT INTO calendars (name, ownerUserId, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?)`,
+        ['Mein Kalender', userId, createdAt, createdAt]
+      );
+      await dbRun(
+        db,
+        `INSERT INTO calendar_memberships (calendarId, userId, role, createdAt)
+         VALUES (?, ?, 'owner', ?)`,
+        [calendarResult.lastID, userId, createdAt]
+      );
+      membership = { id: calendarResult.lastID, name: 'Mein Kalender' };
+    }
+
+    const userCountRow = await dbGet(db, 'SELECT COUNT(*) AS count FROM users');
+    const userCount = Number(userCountRow?.count || 0);
+
+    if (userCount === 1) {
+      await dbRun(
+        db,
+        'UPDATE vacations SET calendarId = ? WHERE calendarId IS NULL',
+        [membership.id]
+      );
+      await dbRun(
+        db,
+        'UPDATE vacation_entries SET calendarId = ? WHERE calendarId = 0',
+        [membership.id]
+      );
+      await dbRun(
+        db,
+        'UPDATE children SET calendarId = ? WHERE calendarId IS NULL',
+        [membership.id]
+      );
+      await dbRun(
+        db,
+        'UPDATE child_free_days SET calendarId = ? WHERE calendarId IS NULL',
+        [membership.id]
+      );
+    }
+
+    return membership;
   } finally {
     db.close();
   }
@@ -183,7 +495,7 @@ async function getAuthState(req) {
     await dbRun(db, 'DELETE FROM sessions WHERE expiresAt <= ?', [new Date().toISOString()]);
     const row = await dbGet(
       db,
-      `SELECT sessions.token, users.id, users.username
+      `SELECT sessions.token, users.id, users.username, users.isAdmin
        FROM sessions
        JOIN users ON users.id = sessions.userId
        WHERE sessions.token = ? AND sessions.expiresAt > ?`,
@@ -201,7 +513,9 @@ async function getAuthState(req) {
       user: {
         id: row.id,
         username: row.username,
+        isAdmin: Boolean(row.isAdmin),
       },
+      calendar: await ensureUserCalendarContext(row.id),
     };
   } finally {
     db.close();
@@ -224,100 +538,14 @@ async function requireAuth(req, res, next) {
   }
 }
 
+function requireAdmin(req, res, next) {
+  if (!req.auth?.user?.isAdmin) {
+    return res.status(403).json({ error: 'Admin privileges required' });
+  }
+  return next();
+}
 
-// Initialize DB
-const dbInit = openDb();
-dbInit.serialize(() => {
-  dbInit.run('PRAGMA foreign_keys = ON');
-  dbInit.run(`
-    CREATE TABLE IF NOT EXISTS vacations (
-      date TEXT PRIMARY KEY,
-      userId TEXT,
-      createdAt TEXT,
-      updatedAt TEXT
-    )
-  `);
 
-  dbInit.run(`
-    CREATE TABLE IF NOT EXISTS children (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL DEFAULT 'school',
-      color TEXT,
-      usesSchoolHolidays INTEGER NOT NULL DEFAULT 1,
-      createdAt TEXT,
-      updatedAt TEXT
-    )
-  `);
-
-  dbInit.run(`
-    CREATE TABLE IF NOT EXISTS child_free_days (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      childId INTEGER NOT NULL,
-      startDate TEXT NOT NULL,
-      endDate TEXT NOT NULL,
-      label TEXT,
-      createdAt TEXT,
-      updatedAt TEXT,
-      FOREIGN KEY (childId) REFERENCES children(id) ON DELETE CASCADE
-    )
-  `);
-
-  dbInit.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      passwordHash TEXT NOT NULL,
-      passwordSalt TEXT NOT NULL,
-      createdAt TEXT,
-      updatedAt TEXT
-    )
-  `);
-
-  dbInit.run(`
-    CREATE TABLE IF NOT EXISTS sessions (
-      token TEXT PRIMARY KEY,
-      userId INTEGER NOT NULL,
-      createdAt TEXT,
-      expiresAt TEXT,
-      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
-  dbInit.all(`PRAGMA table_info(vacations)`, [], (err, rows) => {
-    if (err) {
-      dbInit.close();
-      return;
-    }
-
-    const existing = new Set(rows.map(r => r.name));
-    const migrations = [];
-    if (!existing.has('createdAt')) {
-      migrations.push(`ALTER TABLE vacations ADD COLUMN createdAt TEXT`);
-    }
-    if (!existing.has('updatedAt')) {
-      migrations.push(`ALTER TABLE vacations ADD COLUMN updatedAt TEXT`);
-    }
-
-    if (migrations.length === 0) {
-      dbInit.close();
-      return;
-    }
-
-    let remaining = migrations.length;
-    migrations.forEach((sql) => {
-      dbInit.run(sql, (migrationErr) => {
-        if (migrationErr) {
-          process.stderr.write(`SQLite migration failed: ${migrationErr?.message || migrationErr}\n`);
-        }
-        remaining -= 1;
-        if (remaining === 0) {
-          dbInit.close();
-        }
-      });
-    });
-  });
-});
 
 app.get('/health', (req, res) => {
   res.json({ ok: true });
@@ -330,6 +558,7 @@ app.get('/api/auth/status', async (req, res) => {
       setupRequired: authState.setupRequired,
       authenticated: authState.authenticated,
       user: authState.user,
+      calendar: authState.calendar || null,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -341,9 +570,19 @@ app.post('/api/auth/bootstrap', async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: 'username and password are required' });
   }
+  if (ensureAuthNotRateLimited(req, res, username)) {
+    return;
+  }
+
+  const passwordError = validatePassword(password, username);
+  if (passwordError) {
+    registerAuthFailure(req, username);
+    return res.status(400).json({ error: passwordError });
+  }
 
   const existingUsers = await getUserCount();
   if (existingUsers > 0) {
+    registerAuthFailure(req, username);
     return res.status(409).json({ error: 'Setup already completed' });
   }
 
@@ -354,20 +593,23 @@ app.post('/api/auth/bootstrap', async (req, res) => {
     const { salt, hash } = hashPassword(password);
     const result = await dbRun(
       db,
-      `INSERT INTO users (username, passwordHash, passwordSalt, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO users (username, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
+       VALUES (?, ?, ?, 1, ?, ?)`,
       [String(username).trim(), hash, salt, now, now]
     );
     db.close();
 
     const session = await createSessionForUser(result.lastID);
+    clearAuthFailures(req, username);
     return res.json({
       success: true,
       token: session.token,
-      user: { id: result.lastID, username: String(username).trim() },
+      user: { id: result.lastID, username: String(username).trim(), isAdmin: true },
+      calendar: await ensureUserCalendarContext(result.lastID),
     });
   } catch (error) {
     db.close();
+    registerAuthFailure(req, username);
     return res.status(500).json({ error: error.message });
   }
 });
@@ -377,28 +619,35 @@ app.post('/api/auth/login', async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: 'username and password are required' });
   }
+  if (ensureAuthNotRateLimited(req, res, username)) {
+    return;
+  }
 
   const db = openDb();
   try {
     const user = await dbGet(
       db,
-      'SELECT id, username, passwordHash, passwordSalt FROM users WHERE username = ?',
+      'SELECT id, username, passwordHash, passwordSalt, isAdmin FROM users WHERE username = ?',
       [String(username).trim()]
     );
     db.close();
 
     if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+      registerAuthFailure(req, username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const session = await createSessionForUser(user.id);
+    clearAuthFailures(req, username);
     return res.json({
       success: true,
       token: session.token,
-      user: { id: user.id, username: user.username },
+      user: { id: user.id, username: user.username, isAdmin: Boolean(user.isAdmin) },
+      calendar: await ensureUserCalendarContext(user.id),
     });
   } catch (error) {
     db.close();
+    registerAuthFailure(req, username);
     return res.status(500).json({ error: error.message });
   }
 });
@@ -415,6 +664,92 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
+  const db = openDb();
+  try {
+    const rows = await dbAll(db, 'SELECT id, username, isAdmin, createdAt FROM users ORDER BY username ASC');
+    res.json(rows.map((row) => ({
+      ...row,
+      isAdmin: Boolean(row.isAdmin),
+    })));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
+  const { username, password, isAdmin = false } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password are required' });
+  }
+
+  const passwordError = validatePassword(password, username);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
+  }
+
+  const db = openDb();
+  try {
+    const now = new Date().toISOString();
+    const { salt, hash } = hashPassword(password);
+    const result = await dbRun(
+      db,
+      `INSERT INTO users (username, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [String(username).trim(), hash, salt, isAdmin ? 1 : 0, now, now]
+    );
+    await ensureUserCalendarContext(result.lastID);
+    res.json({ success: true, id: result.lastID });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/auth/change-password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'currentPassword and newPassword are required' });
+  }
+
+  const passwordError = validatePassword(newPassword, req.auth.user.username);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
+  }
+
+  const db = openDb();
+  try {
+    const user = await dbGet(
+      db,
+      'SELECT id, passwordHash, passwordSalt FROM users WHERE id = ?',
+      [req.auth.user.id]
+    );
+    if (!user || !verifyPassword(currentPassword, user.passwordSalt, user.passwordHash)) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const { salt, hash } = hashPassword(newPassword);
+    await dbRun(
+      db,
+      'UPDATE users SET passwordHash = ?, passwordSalt = ?, updatedAt = ? WHERE id = ?',
+      [hash, salt, new Date().toISOString(), req.auth.user.id]
+    );
+    await dbRun(
+      db,
+      'DELETE FROM sessions WHERE userId = ? AND token != ?',
+      [req.auth.user.id, req.auth.token]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
 app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/auth/')) {
     return next();
@@ -423,12 +758,14 @@ app.use('/api', (req, res, next) => {
 });
 
 app.get('/api/children', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const db = openDb();
   db.all(
     `SELECT id, name, type, color, usesSchoolHolidays
      FROM children
+     WHERE calendarId = ?
      ORDER BY id ASC`,
-    [],
+    [calendarId],
     (err, rows) => {
       db.close();
       if (err) return res.status(500).json({ error: err.message });
@@ -441,6 +778,7 @@ app.get('/api/children', (req, res) => {
 });
 
 app.post('/api/children', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const { id, name, type = 'school', color = null, usesSchoolHolidays = true } = req.body;
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Name required' });
@@ -454,8 +792,8 @@ app.post('/api/children', (req, res) => {
     db.run(
       `UPDATE children
        SET name = ?, type = ?, color = ?, usesSchoolHolidays = ?, updatedAt = ?
-       WHERE id = ?`,
-      [name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, now, id],
+       WHERE id = ? AND calendarId = ?`,
+      [name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, now, id, calendarId],
       function onUpdate(err) {
         db.close();
         if (err) return res.status(500).json({ error: err.message });
@@ -466,9 +804,9 @@ app.post('/api/children', (req, res) => {
   }
 
   db.run(
-    `INSERT INTO children (name, type, color, usesSchoolHolidays, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, now, now],
+      `INSERT INTO children (calendarId, name, type, color, usesSchoolHolidays, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [calendarId, name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, now, now],
     function onInsert(err) {
       db.close();
       if (err) return res.status(500).json({ error: err.message });
@@ -478,6 +816,7 @@ app.post('/api/children', (req, res) => {
 });
 
 app.delete('/api/children/:id', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const childId = Number(req.params.id);
   if (!Number.isInteger(childId) || childId <= 0) {
     return res.status(400).json({ error: 'Invalid child id' });
@@ -486,8 +825,8 @@ app.delete('/api/children/:id', (req, res) => {
   const db = openDb();
   db.serialize(() => {
     db.run('BEGIN TRANSACTION');
-    db.run('DELETE FROM child_free_days WHERE childId = ?', [childId]);
-    db.run('DELETE FROM children WHERE id = ?', [childId], (err) => {
+    db.run('DELETE FROM child_free_days WHERE childId = ? AND calendarId = ?', [childId, calendarId]);
+    db.run('DELETE FROM children WHERE id = ? AND calendarId = ?', [childId, calendarId], (err) => {
       if (err) {
         db.run('ROLLBACK');
         db.close();
@@ -502,6 +841,7 @@ app.delete('/api/children/:id', (req, res) => {
 });
 
 app.get('/api/child-free-days', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const childId = req.query.childId ? Number(req.query.childId) : null;
   const year = req.query.year ? Number(req.query.year) : null;
   const db = openDb();
@@ -521,6 +861,8 @@ app.get('/api/child-free-days', (req, res) => {
     params.push(yearStart, yearEnd);
   }
 
+  conditions.unshift('calendarId = ?');
+  params.unshift(calendarId);
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   db.all(
     `SELECT id, childId, startDate, endDate, label
@@ -537,6 +879,7 @@ app.get('/api/child-free-days', (req, res) => {
 });
 
 app.post('/api/child-free-days', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const { id, childId, startDate, endDate, label = '' } = req.body;
   const normalizedStart = normalizeDateOnly(startDate);
   const normalizedEnd = normalizeDateOnly(endDate);
@@ -559,8 +902,8 @@ app.post('/api/child-free-days', (req, res) => {
     db.run(
       `UPDATE child_free_days
        SET childId = ?, startDate = ?, endDate = ?, label = ?, updatedAt = ?
-       WHERE id = ?`,
-      [numericChildId, normalizedStart, normalizedEnd, label.trim(), now, id],
+       WHERE id = ? AND calendarId = ?`,
+      [numericChildId, normalizedStart, normalizedEnd, label.trim(), now, id, calendarId],
       function onUpdate(err) {
         db.close();
         if (err) return res.status(500).json({ error: err.message });
@@ -571,9 +914,9 @@ app.post('/api/child-free-days', (req, res) => {
   }
 
   db.run(
-    `INSERT INTO child_free_days (childId, startDate, endDate, label, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [numericChildId, normalizedStart, normalizedEnd, label.trim(), now, now],
+      `INSERT INTO child_free_days (calendarId, childId, startDate, endDate, label, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [calendarId, numericChildId, normalizedStart, normalizedEnd, label.trim(), now, now],
     function onInsert(err) {
       db.close();
       if (err) return res.status(500).json({ error: err.message });
@@ -583,13 +926,14 @@ app.post('/api/child-free-days', (req, res) => {
 });
 
 app.delete('/api/child-free-days/:id', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const freeDayId = Number(req.params.id);
   if (!Number.isInteger(freeDayId) || freeDayId <= 0) {
     return res.status(400).json({ error: 'Invalid free day id' });
   }
 
   const db = openDb();
-  db.run('DELETE FROM child_free_days WHERE id = ?', [freeDayId], (err) => {
+  db.run('DELETE FROM child_free_days WHERE id = ? AND calendarId = ?', [freeDayId, calendarId], (err) => {
     db.close();
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
@@ -598,8 +942,9 @@ app.delete('/api/child-free-days/:id', (req, res) => {
 
 // GET /api/vacations
 app.get('/api/vacations', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const db = openDb();
-  db.all('SELECT date, userId FROM vacations', [], (err, rows) => {
+  db.all('SELECT date, userId FROM vacation_entries WHERE calendarId = ?', [calendarId], (err, rows) => {
     db.close();
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
@@ -608,6 +953,7 @@ app.get('/api/vacations', (req, res) => {
 
 // POST /api/vacations (Single day toggle/set)
 app.post('/api/vacations', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const { date, userId } = req.body;
   if (!date) return res.status(400).json({ error: 'Date required' });
 
@@ -616,7 +962,7 @@ app.post('/api/vacations', (req, res) => {
 
   if (userId === null) {
     // Delete
-    db.run('DELETE FROM vacations WHERE date = ?', [date], (err) => {
+    db.run('DELETE FROM vacation_entries WHERE date = ? AND calendarId = ?', [date, calendarId], (err) => {
       db.close();
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true });
@@ -624,9 +970,9 @@ app.post('/api/vacations', (req, res) => {
   } else {
     // Upsert
     db.run(
-      `INSERT INTO vacations (date, userId, createdAt, updatedAt) VALUES (?, ?, ?, ?)
-       ON CONFLICT(date) DO UPDATE SET userId = excluded.userId, updatedAt = excluded.updatedAt`,
-      [date, userId, now, now],
+      `INSERT INTO vacation_entries (date, userId, createdAt, updatedAt, calendarId) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(calendarId, date) DO UPDATE SET userId = excluded.userId, updatedAt = excluded.updatedAt`,
+      [date, userId, now, now, calendarId],
       (err) => {
         db.close();
         if (err) return res.status(500).json({ error: err.message });
@@ -638,6 +984,7 @@ app.post('/api/vacations', (req, res) => {
 
 // POST /api/vacations/range (Range set)
 app.post('/api/vacations/range', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
   const { startDate, endDate, userId } = req.body;
   if (!startDate || !endDate || !userId) {
     return res.status(400).json({ error: 'startDate, endDate, and userId are required' });
@@ -657,14 +1004,14 @@ app.post('/api/vacations/range', (req, res) => {
     db.run('BEGIN TRANSACTION');
 
     const stmt = db.prepare(`
-      INSERT INTO vacations (date, userId, createdAt, updatedAt) VALUES (?, ?, ?, ?)
-      ON CONFLICT(date) DO UPDATE SET userId = excluded.userId, updatedAt = excluded.updatedAt
+      INSERT INTO vacation_entries (date, userId, createdAt, updatedAt, calendarId) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(calendarId, date) DO UPDATE SET userId = excluded.userId, updatedAt = excluded.updatedAt
     `);
 
     // Loop from start to end
     for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
         const dateStr = normalizeDateOnly(d);
-        stmt.run(dateStr, userId, now, now);
+        stmt.run(dateStr, userId, now, now, calendarId);
     }
 
     stmt.finalize((err) => {
@@ -826,14 +1173,23 @@ app.get('/api/holidays', async (req, res) => {
     });
 });
 
-if (fs.existsSync(CLIENT_DIST)) {
+if (fs.existsSync(CLIENT_DIST) && process.env.NODE_ENV !== 'test') {
   app.get(/^\/(?!api\/).*/, (req, res) => {
     res.sendFile(path.join(CLIENT_DIST, 'index.html'));
   });
 }
 
-app.listen(PORT, () => {
-  // Intentionally no console.log comments added
-  process.stdout.write(`Backend listening on http://localhost:${PORT}\n`);
-  process.stdout.write(`SQLite DB: ${DB_PATH}\n`);
-});
+export function startServer(port = PORT) {
+  const server = app.listen(port, () => {
+    const address = server.address();
+    const actualPort =
+      typeof address === 'object' && address && 'port' in address ? address.port : port;
+    process.stdout.write(`Backend listening on http://localhost:${actualPort}\n`);
+    process.stdout.write(`SQLite DB: ${DB_PATH}\n`);
+  });
+  return server;
+}
+
+if (process.env.NODE_ENV !== 'test' && process.argv[1] === fileURLToPath(import.meta.url)) {
+  startServer(PORT);
+}

@@ -1,4 +1,4 @@
-export const Header = ({ darkMode, setDarkMode, stateName, currentUser, onLogout, shareMode, onToggleShareMode, onCopyShareLink }) => {
+export const Header = ({ darkMode, setDarkMode, stateName, currentUser, currentCalendar, onLogout, shareMode, onToggleShareMode, onCopyShareLink }) => {
     return (
         <header className="mb-2 flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white/92 px-3 py-2 shadow-sm shadow-slate-200/60 transition-colors dark:border-slate-700 dark:bg-slate-950/92 dark:shadow-black/20">
             <div className="flex items-center gap-3">
@@ -10,10 +10,15 @@ export const Header = ({ darkMode, setDarkMode, stateName, currentUser, onLogout
                         Ferienplaner
                     </h1>
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{shareMode ? 'Kompakte Freigabeansicht' : 'Jahresübersicht'}</p>
+                        <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{shareMode ? 'Kompakte Ansichtsfreigabe' : 'Jahresübersicht'}</p>
                         <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-100">
                             {stateName}
                         </span>
+                        {currentCalendar?.name && (
+                            <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-800 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-100">
+                                {currentCalendar.name}
+                            </span>
+                        )}
                         {shareMode && (
                             <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100">
                                 Read-only
@@ -44,7 +49,7 @@ export const Header = ({ darkMode, setDarkMode, stateName, currentUser, onLogout
                 <button
                     onClick={onCopyShareLink}
                     className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                    title="Freigabelink kopieren"
+                    title="Ansichtslink kopieren"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="w-5 h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9m0 0-3-3m3 3-3 3M15 4.5h1.125A2.625 2.625 0 0 1 18.75 7.125v9.75A2.625 2.625 0 0 1 16.125 19.5H15m-6 0H7.875A2.625 2.625 0 0 1 5.25 16.875v-9.75A2.625 2.625 0 0 1 7.875 4.5H9" />
@@ -54,7 +59,7 @@ export const Header = ({ darkMode, setDarkMode, stateName, currentUser, onLogout
                 <button
                     onClick={onToggleShareMode}
                     className={`rounded-lg border p-2 transition-colors ${shareMode ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100 dark:hover:bg-emerald-900/50' : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}`}
-                    title={shareMode ? 'Freigabeansicht beenden' : 'Freigabeansicht aktivieren'}
+                    title={shareMode ? 'Ansichtsfreigabe beenden' : 'Ansichtsfreigabe aktivieren'}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="w-5 h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 8.25h2.25A2.25 2.25 0 0 1 20.25 10.5v7.5A2.25 2.25 0 0 1 18 20.25H6A2.25 2.25 0 0 1 3.75 18v-7.5A2.25 2.25 0 0 1 6 8.25h2.25m7.5 0V6A2.25 2.25 0 0 0 13.5 3.75h-3A2.25 2.25 0 0 0 8.25 6v2.25m7.5 0h-7.5" />

@@ -1188,7 +1188,7 @@ const CalendarView = ({
 
             {shareMode && (
                 <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300 print:hidden">
-                    Diese Ansicht ist schreibgeschützt und für die Weitergabe optimiert. Urlaub, Betreuung und Einstellungen lassen sich nur in der normalen Arbeitsansicht ändern.
+                    Diese Ansicht ist schreibgeschützt und für kompakte Weitergabe optimiert. Sie ersetzt keine Benutzerfreigabe: Änderungen bleiben nur in der normalen Arbeitsansicht mit gültigem Login möglich.
                 </div>
             )}
 

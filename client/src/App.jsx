@@ -135,6 +135,7 @@ function App() {
   const [authReady, setAuthReady] = useState(false);
   const [setupRequired, setSetupRequired] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentCalendar, setCurrentCalendar] = useState(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 1024 : false
@@ -213,10 +214,12 @@ function App() {
       }
       setSetupRequired(Boolean(data.setupRequired));
       setCurrentUser(data.authenticated ? data.user : null);
+      setCurrentCalendar(data.authenticated ? data.calendar : null);
     } catch (error) {
       console.error('Failed to load auth status', error);
       clearStoredAuthToken();
       setCurrentUser(null);
+      setCurrentCalendar(null);
     } finally {
       setAuthReady(true);
     }
@@ -230,6 +233,7 @@ function App() {
     const handleUnauthorized = async () => {
       clearStoredAuthToken();
       setCurrentUser(null);
+      setCurrentCalendar(null);
       setChildren([]);
       setChildFreeDays([]);
       await refreshAuthStatus();
@@ -296,6 +300,7 @@ function App() {
 
       setStoredAuthToken(data.token);
       setCurrentUser(data.user);
+      setCurrentCalendar(data.calendar || null);
       setSetupRequired(false);
       toast.success(setupRequired ? 'Benutzer angelegt' : 'Angemeldet');
     } catch (error) {
@@ -314,6 +319,7 @@ function App() {
     } finally {
       clearStoredAuthToken();
       setCurrentUser(null);
+      setCurrentCalendar(null);
       setChildren([]);
       setChildFreeDays([]);
       await refreshAuthStatus();
@@ -446,6 +452,7 @@ function App() {
         setDarkMode={setDarkMode}
         stateName={GERMAN_STATE_MAP[stateCode] || 'Bayern'}
         currentUser={currentUser}
+        currentCalendar={currentCalendar}
         onLogout={handleLogout}
         shareMode={shareMode}
         onToggleShareMode={toggleShareMode}
@@ -455,8 +462,8 @@ function App() {
       {shareMode && (
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-sky-200/80 bg-sky-50/90 px-3 py-2 text-sm text-sky-900 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-100">
           <div>
-            <div className="font-semibold">Freigabeansicht aktiv</div>
-            <div className="text-xs opacity-80">Kompakt, schreibgeschützt und bereit zum Teilen.</div>
+            <div className="font-semibold">Ansichtsmodus aktiv</div>
+            <div className="text-xs opacity-80">Kompakt und schreibgeschützt. Externe Nutzer brauchen weiterhin ein Konto für diese Installation.</div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -464,14 +471,14 @@ function App() {
               onClick={copyShareLink}
               className="rounded-xl border border-sky-300 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-slate-950 dark:text-sky-100 dark:hover:bg-sky-950/40"
             >
-              Link kopieren
+              Ansichtslink kopieren
             </button>
             <button
               type="button"
               onClick={() => setShareMode(false)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
             >
-              Freigabe beenden
+              Modus beenden
             </button>
           </div>
         </div>
@@ -518,6 +525,8 @@ function App() {
             setCareColor={setCareColor}
             stateCode={stateCode}
             setStateCode={setStateCode}
+            currentUser={currentUser}
+            currentCalendar={currentCalendar}
             apiOnline={apiOnline}
             holidayTableOpen={holidayTableOpen}
             setHolidayTableOpen={setHolidayTableOpen}
