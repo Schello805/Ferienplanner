@@ -2,10 +2,8 @@ export const Header = ({ darkMode, setDarkMode, stateName, currentUser, onLogout
     return (
         <header className="mb-2 flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white/92 px-3 py-2 shadow-sm shadow-slate-200/60 transition-colors dark:border-slate-700 dark:bg-slate-950/92 dark:shadow-black/20">
             <div className="flex items-center gap-3">
-                <div className="rounded-xl border border-white/70 bg-gradient-to-br from-sky-500 via-sky-500 to-indigo-500 p-2 shadow-lg shadow-sky-200/80 ring-1 ring-sky-100 dark:border-white/10 dark:shadow-sky-950/40 dark:ring-sky-900/30">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-white">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                    </svg>
+                <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/80 ring-1 ring-white dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:ring-slate-800">
+                    <img src="/app-icon.png" alt="Ferienplaner Logo" className="h-9 w-9 rounded-lg object-cover" />
                 </div>
                 <div className="min-w-0">
                     <h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white tracking-tight">
