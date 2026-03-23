@@ -35,12 +35,33 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Benoetigter Befehl fehlt: $1"
 }
 
+node_major_version() {
+  local raw major
+  raw="$(node --version 2>/dev/null || true)"
+  raw="${raw#v}"
+  major="${raw%%.*}"
+  if [[ -z "${major}" || ! "${major}" =~ ^[0-9]+$ ]]; then
+    fail "Konnte Node-Version nicht ermitteln (node --version: ${raw:-leer})."
+  fi
+  printf '%s\n' "${major}"
+}
+
+ensure_supported_node() {
+  local major
+  major="$(node_major_version)"
+  if (( major < 18 )); then
+    fail "Node.js Version zu alt: v${major}.x erkannt. Bitte Node.js >= 18 installieren (empfohlen: 18 LTS)."
+  fi
+}
+
 ensure_prerequisites() {
   require_command git
   require_command npm
   require_command node
   require_command systemctl
   require_command curl
+
+  ensure_supported_node
 
   [[ -d "${SERVER_DIR}" ]] || fail "Server-Verzeichnis nicht gefunden: ${SERVER_DIR}"
   [[ -d "${CLIENT_DIR}" ]] || fail "Client-Verzeichnis nicht gefunden: ${CLIENT_DIR}"

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const CalendarLegend = ({ p1Color, p2Color, careColor, setP1Color, setP2Color, setCareColor }) => {
+export const CalendarLegend = ({ p1Color, p2Color, careColor, setP1Color, setP2Color, setCareColor, children = [] }) => {
     return (
         <div className="calendar-legend flex flex-wrap gap-3 rounded-2xl border border-gray-200 bg-white/90 p-3 text-xs text-gray-700 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900/90 dark:text-gray-200">
             <div className="flex items-center gap-2">
@@ -60,6 +60,21 @@ export const CalendarLegend = ({ p1Color, p2Color, careColor, setP1Color, setP2C
                 </div>
                 <span>Beide</span>
             </div>
+
+            {Array.isArray(children) && children.length > 0 && (
+                <div className="w-px h-4 bg-gray-300 dark:bg-slate-600 mx-1"></div>
+            )}
+
+            {Array.isArray(children) && children.map((child) => (
+                <div key={child.id ?? child.name} className="flex items-center gap-2">
+                    <div
+                        className="w-3 h-3 rounded-full shadow-sm"
+                        style={{ backgroundColor: child.color || '#f59e0b' }}
+                        title={child.name}
+                    ></div>
+                    <span className="font-medium">{child.name}</span>
+                </div>
+            ))}
         </div>
     );
 };
