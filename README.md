@@ -212,3 +212,9 @@ Wenn du lokal entwickelst:
 ## Lizenz
 
 Dieses Projekt ist unter der MIT Lizenz veröffentlicht. Siehe [LICENSE](LICENSE) für Details.
+
+<img width="1648" height="726" alt="Bildschirmfoto 2026-03-23 um 20 18 46" src="https://github.com/user-attachments/assets/4954a2da-dd1b-4059-9a6f-f7174b3c43c1" />
+
+<img width="1644" height="729" alt="Bildschirmfoto 2026-03-23 um 20 19 02" src="https://github.com/user-attachments/assets/115a4513-3a72-4e0b-9885-14f1ace35254" />
+
+
