@@ -1,10 +1,23 @@
+import React from 'react';
+import { ChangelogModal } from './ChangelogModal.jsx';
+
 export const Footer = () => {
+    const [changelogOpen, setChangelogOpen] = React.useState(false);
+    const version = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
+
     return (
         <footer className="mt-2 hidden border-t border-gray-100 py-2 text-center text-[11px] text-gray-400 dark:border-slate-800 dark:text-gray-600 md:block print:hidden">
             <p>&copy; {new Date().getFullYear()} Familien-Ferienplaner. Alle Rechte vorbehalten.</p>
             <div className="mt-0.5 flex items-center justify-center gap-3">
                 <p>Optimiert für die Jahresübersicht.</p>
-                <p>Revision {typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0'}</p>
+                <button
+                    type="button"
+                    onClick={() => setChangelogOpen(true)}
+                    className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
+                    title="Changelog anzeigen"
+                >
+                    Revision {version}
+                </button>
                 <a
                     href="https://github.com/Schello805/Ferienplanner"
                     target="_blank"
@@ -18,6 +31,8 @@ export const Footer = () => {
                     <span>GitHub</span>
                 </a>
             </div>
+
+            <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} version={version} />
         </footer>
     );
 };

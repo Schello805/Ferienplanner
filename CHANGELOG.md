@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Admin: SMTP-Konfiguration direkt in der App speichern (verschlüsselt) + Testmail
+- Registrierung: Verifikationsmails nutzen gespeicherte SMTP-Konfiguration
+- Passwortregel: Mindestlänge von 10 auf 8 Zeichen reduziert
+- Profil: E-Mail-Adresse ändern mit Bestätigungslink
+
 ## 0.1.0
 
 - Open Signup (Registrierung) mit E-Mail-Verifikation (SMTP über Environment Variablen)
