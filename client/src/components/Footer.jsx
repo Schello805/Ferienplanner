@@ -4,6 +4,7 @@ export const Footer = () => {
             <p>&copy; {new Date().getFullYear()} Familien-Ferienplaner. Alle Rechte vorbehalten.</p>
             <div className="mt-0.5 flex items-center justify-center gap-3">
                 <p>Optimiert für die Jahresübersicht.</p>
+                <p>Revision {typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0'}</p>
                 <a
                     href="https://github.com/Schello805/Ferienplanner"
                     target="_blank"

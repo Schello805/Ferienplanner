@@ -7,6 +7,7 @@ import sqlite3 from 'sqlite3';
 import Holidays from 'date-holidays';
 import axios from 'axios';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,8 @@ const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
 const AUTH_RATE_LIMIT_MAX_ATTEMPTS = 10;
 const authAttemptStore = new Map();
+
+const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24;
 
 const ROLE_ORDER = {
   viewer: 0,
@@ -56,6 +59,101 @@ app.use('/api', async (req, res, next) => {
     next();
   } catch (error) {
     res.status(500).json({ error: `Database initialization failed: ${error.message}` });
+  }
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  const { username, email, password } = req.body;
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: 'username, email and password are required' });
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  if (!isValidEmail(normalizedEmail)) {
+    return res.status(400).json({ error: 'Invalid email' });
+  }
+
+  if (ensureAuthNotRateLimited(req, res, String(username))) {
+    return;
+  }
+
+  const passwordError = validatePassword(password, username);
+  if (passwordError) {
+    registerAuthFailure(req, String(username));
+    return res.status(400).json({ error: passwordError });
+  }
+
+  const db = openDb();
+  const now = new Date().toISOString();
+  try {
+    const existing = await dbGet(
+      db,
+      'SELECT id FROM users WHERE username = ? OR lower(email) = lower(?)',
+      [String(username).trim(), normalizedEmail]
+    );
+    if (existing) {
+      registerAuthFailure(req, String(username));
+      return res.status(409).json({ error: 'User already exists' });
+    }
+
+    const { salt, hash } = hashPassword(password);
+    const result = await dbRun(
+      db,
+      `INSERT INTO users (username, email, emailVerified, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
+       VALUES (?, ?, 0, ?, ?, 0, ?, ?)`,
+      [String(username).trim(), normalizedEmail, hash, salt, now, now]
+    );
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS).toISOString();
+
+    await dbRun(
+      db,
+      'INSERT INTO email_verifications (tokenHash, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)',
+      [tokenHash, result.lastID, now, expiresAt]
+    );
+
+    await sendVerificationEmail({ req, to: normalizedEmail, token });
+    clearAuthFailures(req, String(username));
+    return res.json({ success: true });
+  } catch (error) {
+    registerAuthFailure(req, String(username));
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/auth/verify-email', async (req, res) => {
+  const { token } = req.body;
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'token is required' });
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const db = openDb();
+  try {
+    const row = await dbGet(
+      db,
+      'SELECT userId, expiresAt FROM email_verifications WHERE tokenHash = ?',
+      [tokenHash]
+    );
+    if (!row) {
+      return res.status(404).json({ error: 'Verification not found' });
+    }
+    if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) {
+      await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
+      return res.status(410).json({ error: 'Verification expired' });
+    }
+
+    await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [new Date().toISOString(), row.userId]);
+    await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
   }
 });
 
@@ -159,6 +257,8 @@ async function initializeDatabase() {
       `CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
+        email TEXT,
+        emailVerified INTEGER NOT NULL DEFAULT 0,
         passwordHash TEXT NOT NULL,
         passwordSalt TEXT NOT NULL,
         isAdmin INTEGER NOT NULL DEFAULT 0,
@@ -167,10 +267,30 @@ async function initializeDatabase() {
       )`
     );
 
+    const userColumns = await dbAll(db, 'PRAGMA table_info(users)');
+    const userColumnNames = new Set(userColumns.map((row) => row.name));
+    if (!userColumnNames.has('email')) {
+      await dbRun(db, 'ALTER TABLE users ADD COLUMN email TEXT');
+    }
+    if (!userColumnNames.has('emailVerified')) {
+      await dbRun(db, 'ALTER TABLE users ADD COLUMN emailVerified INTEGER NOT NULL DEFAULT 0');
+    }
+
     await dbRun(
       db,
       `CREATE TABLE IF NOT EXISTS sessions (
         token TEXT PRIMARY KEY,
+        userId INTEGER NOT NULL,
+        createdAt TEXT,
+        expiresAt TEXT,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS email_verifications (
+        tokenHash TEXT PRIMARY KEY,
         userId INTEGER NOT NULL,
         createdAt TEXT,
         expiresAt TEXT,
@@ -293,8 +413,8 @@ async function initializeDatabase() {
       await dbRun(db, 'ALTER TABLE child_free_days ADD COLUMN calendarId INTEGER');
     }
 
-    const userColumns = new Set((await dbAll(db, 'PRAGMA table_info(users)')).map((row) => row.name));
-    if (!userColumns.has('isAdmin')) {
+    const userColumnsSet = new Set((await dbAll(db, 'PRAGMA table_info(users)')).map((row) => row.name));
+    if (!userColumnsSet.has('isAdmin')) {
       await dbRun(db, 'ALTER TABLE users ADD COLUMN isAdmin INTEGER NOT NULL DEFAULT 0');
     }
 
@@ -409,6 +529,64 @@ function getBearerToken(req) {
   const authHeader = req.headers.authorization || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   return match ? match[1] : null;
+}
+
+function normalizeEmail(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(email) {
+  if (!email) return false;
+  if (email.length > 254) return false;
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+}
+
+function getPublicBaseUrl(req) {
+  const configured = process.env.PUBLIC_BASE_URL;
+  if (configured) return String(configured).replace(/\/$/, '');
+  const origin = req.get('origin');
+  if (origin) return String(origin).replace(/\/$/, '');
+  return `http://localhost:${PORT}`;
+}
+
+function getMailerTransport() {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465;
+
+  if (!host || !user || !pass) {
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+}
+
+async function sendVerificationEmail({ req, to, token }) {
+  const transport = getMailerTransport();
+  const baseUrl = getPublicBaseUrl(req);
+  const verifyUrl = `${baseUrl}/?verifyEmail=${token}`;
+
+  if (!transport) {
+    process.stderr.write('SMTP not configured; cannot send verification email.\n');
+    process.stderr.write(`Verification link for ${to}: ${verifyUrl}\n`);
+    return;
+  }
+
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  await transport.sendMail({
+    from,
+    to,
+    subject: 'Ferienplaner: E-Mail bestätigen',
+    text: `Bitte bestätige deine E-Mail-Adresse über diesen Link:\n\n${verifyUrl}\n\nDer Link ist 24 Stunden gültig.`,
+  });
 }
 
 async function getUserCount() {
@@ -636,7 +814,7 @@ app.get('/api/auth/status', async (req, res) => {
 });
 
 app.post('/api/auth/bootstrap', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, email } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'username and password are required' });
   }
@@ -661,11 +839,16 @@ app.post('/api/auth/bootstrap', async (req, res) => {
 
   try {
     const { salt, hash } = hashPassword(password);
+    const normalizedEmail = normalizeEmail(email);
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+      registerAuthFailure(req, username);
+      return res.status(400).json({ error: 'Invalid email' });
+    }
     const result = await dbRun(
       db,
-      `INSERT INTO users (username, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
-       VALUES (?, ?, ?, 1, ?, ?)`,
-      [String(username).trim(), hash, salt, now, now]
+      `INSERT INTO users (username, email, emailVerified, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
+       VALUES (?, ?, 1, ?, ?, 1, ?, ?)`,
+      [String(username).trim(), normalizedEmail || null, hash, salt, now, now]
     );
     db.close();
 
@@ -697,7 +880,7 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const user = await dbGet(
       db,
-      'SELECT id, username, passwordHash, passwordSalt, isAdmin FROM users WHERE username = ?',
+      'SELECT id, username, emailVerified, passwordHash, passwordSalt, isAdmin FROM users WHERE username = ?',
       [String(username).trim()]
     );
     db.close();
@@ -705,6 +888,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
       registerAuthFailure(req, username);
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (!Boolean(user.isAdmin) && !Boolean(user.emailVerified)) {
+      registerAuthFailure(req, username);
+      return res.status(403).json({ error: 'Email not verified' });
     }
 
     const session = await createSessionForUser(user.id);
@@ -766,8 +954,8 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
     const { salt, hash } = hashPassword(password);
     const result = await dbRun(
       db,
-      `INSERT INTO users (username, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (username, emailVerified, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
+       VALUES (?, 1, ?, ?, ?, ?, ?)`,
       [String(username).trim(), hash, salt, isAdmin ? 1 : 0, now, now]
     );
     await ensureUserCalendarContext(result.lastID);

@@ -237,6 +237,38 @@ function App() {
   }, [refreshAuthStatus]);
 
   useEffect(() => {
+    const verifyEmail = async () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('verifyEmail') || '';
+      if (!token) return;
+
+      try {
+        const response = await authFetch('/api/auth/verify-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || `E-Mail Verifikation fehlgeschlagen (${response.status})`);
+        }
+        toast.success('E-Mail bestätigt. Du kannst dich jetzt anmelden.');
+      } catch (error) {
+        console.error('Failed to verify email', error);
+        toast.error(error.message || 'E-Mail konnte nicht bestätigt werden');
+      } finally {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('verifyEmail');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        await refreshAuthStatus();
+      }
+    };
+
+    verifyEmail();
+  }, [refreshAuthStatus]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const token = params.get('invite') || '';
@@ -339,25 +371,35 @@ function App() {
     }
   }, [currentUser, loadFamilyData]);
 
-  const handleAuthSubmit = async ({ username, password }) => {
+  const handleAuthSubmit = async ({ mode, username, email, password }) => {
     setAuthSubmitting(true);
     try {
-      const path = setupRequired ? '/api/auth/bootstrap' : '/api/auth/login';
+      const effectiveMode = setupRequired ? 'setup' : (mode || 'login');
+      const path = effectiveMode === 'setup'
+        ? '/api/auth/bootstrap'
+        : effectiveMode === 'register'
+          ? '/api/auth/register'
+          : '/api/auth/login';
       const response = await authFetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, email }),
       });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Anmeldung fehlgeschlagen');
       }
 
+      if (effectiveMode === 'register') {
+        toast.success('Registriert. Bitte E-Mail bestätigen.');
+        return;
+      }
+
       setStoredAuthToken(data.token);
       setCurrentUser(data.user);
       setCurrentCalendar(data.calendar || null);
       setSetupRequired(false);
-      toast.success(setupRequired ? 'Benutzer angelegt' : 'Angemeldet');
+      toast.success(effectiveMode === 'setup' ? 'Benutzer angelegt' : 'Angemeldet');
 
       if (pendingInviteToken) {
         toast.message('Einladung wird angenommen …');

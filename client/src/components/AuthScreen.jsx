@@ -1,10 +1,14 @@
 import { useState } from 'react';
 
 export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
+  const [mode, setMode] = useState(setupRequired ? 'setup' : 'login');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState('');
+
+  const effectiveMode = setupRequired ? 'setup' : mode;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -15,13 +19,20 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
       return;
     }
 
-    if (setupRequired && password !== confirmPassword) {
+    if ((effectiveMode === 'setup' || effectiveMode === 'register') && password !== confirmPassword) {
       setLocalError('Die Passwörter stimmen nicht überein.');
       return;
     }
 
+    if (effectiveMode === 'register' && !email.trim()) {
+      setLocalError('Bitte E-Mail-Adresse angeben.');
+      return;
+    }
+
     await onSubmit({
+      mode: effectiveMode,
       username: username.trim(),
+      email: email.trim(),
       password,
     });
   };
@@ -44,7 +55,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {setupRequired
               ? 'Ersten Benutzer anlegen und diese Installation absichern.'
-              : 'Mit deinem Benutzerkonto anmelden.'}
+              : effectiveMode === 'register' ? 'Neues Benutzerkonto erstellen.' : 'Mit deinem Benutzerkonto anmelden.'}
           </p>
         </div>
 
@@ -61,6 +72,24 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
               <div className="mt-1 opacity-80">
                 Nach dem Setup wird automatisch dein Hauptkalender angelegt. Verwende ein Passwort mit mindestens 10 Zeichen, Buchstaben und Zahlen.
               </div>
+            </div>
+          )}
+          {!setupRequired && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${effectiveMode === 'login' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+              >
+                Anmelden
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('register')}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${effectiveMode === 'register' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+              >
+                Registrieren
+              </button>
             </div>
           )}
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
@@ -80,6 +109,19 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
             />
           </label>
 
+          {effectiveMode === 'register' && (
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">E-Mail</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                autoComplete="email"
+              />
+            </label>
+          )}
+
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">Passwort</span>
             <input
@@ -87,11 +129,11 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-              autoComplete={setupRequired ? 'new-password' : 'current-password'}
+              autoComplete={effectiveMode === 'login' ? 'current-password' : 'new-password'}
             />
           </label>
 
-          {setupRequired && (
+          {(effectiveMode === 'setup' || effectiveMode === 'register') && (
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">Passwort wiederholen</span>
               <input
@@ -115,7 +157,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
             disabled={loading}
             className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
           >
-            {loading ? 'Bitte warten…' : setupRequired ? 'Benutzer anlegen' : 'Anmelden'}
+            {loading ? 'Bitte warten…' : effectiveMode === 'setup' ? 'Benutzer anlegen' : effectiveMode === 'register' ? 'Registrieren' : 'Anmelden'}
           </button>
         </form>
       </div>
