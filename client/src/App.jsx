@@ -73,6 +73,13 @@ const loadRecurringRules = (rulesKey, daysKey, singleRuleKey) => {
 function App() {
   const currentYear = new Date().getFullYear();
 
+  const [pendingInviteToken, setPendingInviteToken] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.search);
+    return params.get('invite') || '';
+  });
+  const [inviteAccepting, setInviteAccepting] = useState(false);
+
   const [shareMode, setShareMode] = useState(() => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).get('view') === 'share';
@@ -230,6 +237,15 @@ function App() {
   }, [refreshAuthStatus]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('invite') || '';
+    if (token && token !== pendingInviteToken) {
+      setPendingInviteToken(token);
+    }
+  }, [pendingInviteToken]);
+
+  useEffect(() => {
     const handleUnauthorized = async () => {
       clearStoredAuthToken();
       setCurrentUser(null);
@@ -279,6 +295,45 @@ function App() {
   }, [refreshAuthStatus]);
 
   useEffect(() => {
+    const acceptInvite = async () => {
+      if (!pendingInviteToken || !currentUser || inviteAccepting) return;
+
+      setInviteAccepting(true);
+      try {
+        const response = await authFetch('/api/invitations/accept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: pendingInviteToken }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Invite konnte nicht angenommen werden (${response.status})`);
+        }
+
+        toast.success('Einladung angenommen');
+        setPendingInviteToken('');
+
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('invite');
+          window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        }
+
+        await refreshAuthStatus();
+        await loadFamilyData();
+      } catch (error) {
+        console.error('Failed to accept invitation', error);
+        toast.error(error.message || 'Einladung konnte nicht angenommen werden');
+      } finally {
+        setInviteAccepting(false);
+      }
+    };
+
+    acceptInvite();
+  }, [pendingInviteToken, currentUser, inviteAccepting, refreshAuthStatus, loadFamilyData]);
+
+  useEffect(() => {
     if (currentUser) {
       loadFamilyData();
     }
@@ -303,6 +358,10 @@ function App() {
       setCurrentCalendar(data.calendar || null);
       setSetupRequired(false);
       toast.success(setupRequired ? 'Benutzer angelegt' : 'Angemeldet');
+
+      if (pendingInviteToken) {
+        toast.message('Einladung wird angenommen …');
+      }
     } catch (error) {
       console.error(error);
       toast.error(error.message || 'Anmeldung fehlgeschlagen');

@@ -18,6 +18,12 @@ const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
 const AUTH_RATE_LIMIT_MAX_ATTEMPTS = 10;
 const authAttemptStore = new Map();
 
+const ROLE_ORDER = {
+  viewer: 0,
+  editor: 1,
+  owner: 2,
+};
+
 try {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 } catch (e) {
@@ -216,6 +222,24 @@ async function initializeDatabase() {
         PRIMARY KEY (calendarId, userId),
         FOREIGN KEY (calendarId) REFERENCES calendars(id) ON DELETE CASCADE,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS calendar_invitations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        calendarId INTEGER NOT NULL,
+        invitedByUserId INTEGER NOT NULL,
+        role TEXT NOT NULL DEFAULT 'viewer',
+        tokenHash TEXT NOT NULL UNIQUE,
+        createdAt TEXT,
+        expiresAt TEXT,
+        usedAt TEXT,
+        usedByUserId INTEGER,
+        FOREIGN KEY (calendarId) REFERENCES calendars(id) ON DELETE CASCADE,
+        FOREIGN KEY (invitedByUserId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (usedByUserId) REFERENCES users(id) ON DELETE SET NULL
       )`
     );
 
@@ -423,7 +447,7 @@ async function ensureUserCalendarContext(userId) {
   try {
     let membership = await dbGet(
       db,
-      `SELECT calendars.id, calendars.name
+      `SELECT calendars.id, calendars.name, calendar_memberships.role
        FROM calendar_memberships
        JOIN calendars ON calendars.id = calendar_memberships.calendarId
        WHERE calendar_memberships.userId = ?
@@ -446,7 +470,7 @@ async function ensureUserCalendarContext(userId) {
          VALUES (?, ?, 'owner', ?)`,
         [calendarResult.lastID, userId, createdAt]
       );
-      membership = { id: calendarResult.lastID, name: 'Mein Kalender' };
+      membership = { id: calendarResult.lastID, name: 'Mein Kalender', role: 'owner' };
     }
 
     const userCountRow = await dbGet(db, 'SELECT COUNT(*) AS count FROM users');
@@ -475,10 +499,56 @@ async function ensureUserCalendarContext(userId) {
       );
     }
 
-    return membership;
+    return {
+      id: membership.id,
+      name: membership.name,
+      role: membership.role || 'owner',
+    };
   } finally {
     db.close();
   }
+}
+
+async function getCalendarMembership(userId, calendarId) {
+  const db = openDb();
+  try {
+    const row = await dbGet(
+      db,
+      'SELECT role FROM calendar_memberships WHERE userId = ? AND calendarId = ?',
+      [userId, calendarId]
+    );
+    if (!row) return null;
+    return { role: row.role };
+  } finally {
+    db.close();
+  }
+}
+
+function requireCalendarRole(minRole) {
+  const minRank = ROLE_ORDER[minRole] ?? ROLE_ORDER.viewer;
+  return async (req, res, next) => {
+    try {
+      const userId = req.auth?.user?.id;
+      const calendarId = req.auth?.calendar?.id;
+      if (!userId || !calendarId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const role = req.auth?.calendar?.role;
+      if (role && (ROLE_ORDER[role] ?? -1) >= minRank) {
+        return next();
+      }
+
+      const membership = await getCalendarMembership(userId, calendarId);
+      const effectiveRole = membership?.role || role || 'viewer';
+      if ((ROLE_ORDER[effectiveRole] ?? -1) < minRank) {
+        return res.status(403).json({ error: 'Insufficient calendar permissions' });
+      }
+      return next();
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  };
 }
 
 async function getAuthState(req) {
@@ -777,7 +847,7 @@ app.get('/api/children', (req, res) => {
   );
 });
 
-app.post('/api/children', (req, res) => {
+app.post('/api/children', requireCalendarRole('editor'), (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const { id, name, type = 'school', color = null, usesSchoolHolidays = true } = req.body;
   if (!name || typeof name !== 'string' || !name.trim()) {
@@ -815,7 +885,7 @@ app.post('/api/children', (req, res) => {
   );
 });
 
-app.delete('/api/children/:id', (req, res) => {
+app.delete('/api/children/:id', requireCalendarRole('editor'), (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const childId = Number(req.params.id);
   if (!Number.isInteger(childId) || childId <= 0) {
@@ -838,6 +908,107 @@ app.delete('/api/children/:id', (req, res) => {
       });
     });
   });
+});
+
+app.post('/api/invitations', requireCalendarRole('owner'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  const userId = req.auth?.user?.id;
+  const { role = 'viewer', expiresInDays = 14 } = req.body || {};
+
+  const normalizedRole = ['viewer', 'editor'].includes(role) ? role : 'viewer';
+  const numericExpires = Number(expiresInDays);
+  const expiresDays = Number.isFinite(numericExpires) ? Math.max(1, Math.min(90, Math.floor(numericExpires))) : 14;
+
+  const token = crypto.randomBytes(32).toString('base64url');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const createdAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const db = openDb();
+  try {
+    await dbRun(
+      db,
+      `INSERT INTO calendar_invitations (calendarId, invitedByUserId, role, tokenHash, createdAt, expiresAt)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [calendarId, userId, normalizedRole, tokenHash, createdAt, expiresAt]
+    );
+
+    const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || `http://localhost:${PORT}`;
+    const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/?invite=${token}`;
+    return res.json({ success: true, token, inviteUrl, role: normalizedRole, expiresAt });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/invitations/accept', async (req, res) => {
+  const userId = req.auth?.user?.id;
+  const { token } = req.body || {};
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'token is required' });
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const db = openDb();
+  try {
+    const invite = await dbGet(
+      db,
+      `SELECT id, calendarId, role, expiresAt, usedAt
+       FROM calendar_invitations
+       WHERE tokenHash = ?`,
+      [tokenHash]
+    );
+
+    if (!invite) {
+      return res.status(404).json({ error: 'Invitation not found' });
+    }
+    if (invite.usedAt) {
+      return res.status(409).json({ error: 'Invitation already used' });
+    }
+    if (invite.expiresAt && new Date(invite.expiresAt).getTime() < Date.now()) {
+      return res.status(410).json({ error: 'Invitation expired' });
+    }
+
+    const invitationRole = ['viewer', 'editor'].includes(invite.role) ? invite.role : 'viewer';
+
+    const existing = await dbGet(
+      db,
+      'SELECT role FROM calendar_memberships WHERE calendarId = ? AND userId = ?',
+      [invite.calendarId, userId]
+    );
+
+    if (existing?.role === 'owner') {
+      await dbRun(
+        db,
+        'UPDATE calendar_invitations SET usedAt = ?, usedByUserId = ? WHERE id = ?',
+        [new Date().toISOString(), userId, invite.id]
+      );
+      return res.json({ success: true, calendarId: invite.calendarId, role: existing.role });
+    }
+
+    const membershipRole = existing ? invitationRole : invitationRole;
+    await dbRun(
+      db,
+      `INSERT INTO calendar_memberships (calendarId, userId, role, createdAt)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(calendarId, userId) DO UPDATE SET role = excluded.role`,
+      [invite.calendarId, userId, membershipRole, new Date().toISOString()]
+    );
+
+    await dbRun(
+      db,
+      'UPDATE calendar_invitations SET usedAt = ?, usedByUserId = ? WHERE id = ?',
+      [new Date().toISOString(), userId, invite.id]
+    );
+
+    return res.json({ success: true, calendarId: invite.calendarId, role: membershipRole });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
 });
 
 app.get('/api/child-free-days', (req, res) => {
@@ -878,7 +1049,7 @@ app.get('/api/child-free-days', (req, res) => {
   );
 });
 
-app.post('/api/child-free-days', (req, res) => {
+app.post('/api/child-free-days', requireCalendarRole('editor'), (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const { id, childId, startDate, endDate, label = '' } = req.body;
   const normalizedStart = normalizeDateOnly(startDate);
@@ -925,7 +1096,7 @@ app.post('/api/child-free-days', (req, res) => {
   );
 });
 
-app.delete('/api/child-free-days/:id', (req, res) => {
+app.delete('/api/child-free-days/:id', requireCalendarRole('editor'), (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const freeDayId = Number(req.params.id);
   if (!Number.isInteger(freeDayId) || freeDayId <= 0) {
@@ -952,7 +1123,7 @@ app.get('/api/vacations', (req, res) => {
 });
 
 // POST /api/vacations (Single day toggle/set)
-app.post('/api/vacations', (req, res) => {
+app.post('/api/vacations', requireCalendarRole('editor'), (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const { date, userId } = req.body;
   if (!date) return res.status(400).json({ error: 'Date required' });
@@ -983,7 +1154,7 @@ app.post('/api/vacations', (req, res) => {
 });
 
 // POST /api/vacations/range (Range set)
-app.post('/api/vacations/range', (req, res) => {
+app.post('/api/vacations/range', requireCalendarRole('editor'), (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const { startDate, endDate, userId } = req.body;
   if (!startDate || !endDate || !userId) {

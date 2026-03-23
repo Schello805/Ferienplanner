@@ -12,6 +12,101 @@ const formatGermanDate = (value) => {
     return `${day}.${month}.${year}`;
 };
 
+const InvitationPanel = ({ currentCalendar }) => {
+    const [role, setRole] = React.useState('editor');
+    const [expiresInDays, setExpiresInDays] = React.useState(14);
+    const [inviteUrl, setInviteUrl] = React.useState('');
+    const [loading, setLoading] = React.useState(false);
+
+    if (!currentCalendar || currentCalendar.role !== 'owner') {
+        return null;
+    }
+
+    const createInvitation = async () => {
+        setLoading(true);
+        try {
+            const response = await authFetch('/api/invitations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, expiresInDays }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Einladung konnte nicht erstellt werden');
+            setInviteUrl(data.inviteUrl || '');
+            toast.success('Einladungslink erstellt');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Einladung konnte nicht erstellt werden');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const copyInviteUrl = async () => {
+        if (!inviteUrl) return;
+        try {
+            await navigator.clipboard.writeText(inviteUrl);
+            toast.success('Einladungslink kopiert');
+        } catch (error) {
+            console.error(error);
+            toast.error('Einladungslink konnte nicht kopiert werden');
+        }
+    };
+
+    return (
+        <SidebarSection title="Einladung" subtitle="Erstelle einen Link, damit andere Konten diesem Kalender beitreten können.">
+            <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        Rolle
+                        <select
+                            value={role}
+                            onChange={(event) => setRole(event.target.value)}
+                            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        >
+                            <option value="viewer">Nur ansehen</option>
+                            <option value="editor">Bearbeiten</option>
+                        </select>
+                    </label>
+                    <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        Gültig (Tage)
+                        <input
+                            type="number"
+                            min={1}
+                            max={90}
+                            value={expiresInDays}
+                            onChange={(event) => setExpiresInDays(Number(event.target.value))}
+                            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        />
+                    </label>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={createInvitation}
+                    disabled={loading}
+                    className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100 dark:hover:bg-emerald-950/50"
+                >
+                    {loading ? 'Erstelle …' : 'Einladungslink erstellen'}
+                </button>
+
+                {inviteUrl && (
+                    <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                        <div className="break-all font-mono">{inviteUrl}</div>
+                        <button
+                            type="button"
+                            onClick={copyInviteUrl}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                        >
+                            Link kopieren
+                        </button>
+                    </div>
+                )}
+            </div>
+        </SidebarSection>
+    );
+};
+
 const INFO_TEXT = {
     calendarDays: 'Kal. = Kalendertage inklusive Wochenenden und Feiertagen.',
     netDays: 'Netto = Tage ohne Wochenenden und gesetzliche Feiertage.',
@@ -86,6 +181,24 @@ const TABS = [
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm10.5 1.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM3.75 20.25a6.75 6.75 0 0 1 10.5-5.622m1.654 5.31a8.966 8.966 0 0 0 4.846 1.312c.173 0 .344-.005.514-.015a8.966 8.966 0 0 0-2.827-6.145 8.966 8.966 0 0 0-6.255-2.59c-.76 0-1.499.094-2.205.271" />
+            </svg>
+        )
+    },
+    {
+        id: 'share',
+        label: 'Teilen',
+        icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.066 2.186 2.25 2.25 0 0 0-3.066-2.186Zm0-12.814a2.25 2.25 0 1 0 3.066-2.186 2.25 2.25 0 0 0-3.066 2.186Z" />
+            </svg>
+        )
+    },
+    {
+        id: 'profile',
+        label: 'Profil',
+        icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.964 0a9 9 0 1 0-11.964 0m11.964 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
         )
     },
@@ -742,8 +855,6 @@ const GeneralSettingsPanel = ({
     totalNetHolidays,
     holidayBreakdown,
     children,
-    onCopyShareLink,
-    onEnterShareMode,
 }) => {
     const totals = holidayBreakdown.reduce((acc, holiday) => {
         acc.calendarDays += holiday.calendarDays;
@@ -880,6 +991,16 @@ const GeneralSettingsPanel = ({
             )}
         </SidebarSection>
 
+        <UserManagementPanel currentUser={currentUser} />
+        <div className="settings-info-box rounded-2xl bg-blue-50 p-4 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+            Die Einstellungen werden automatisch gespeichert. Neue Nutzer legst du hier als Admin an, damit sie sich auf dieser Installation anmelden können.
+        </div>
+    </div>
+    );
+};
+
+const SharePanel = ({ currentCalendar, onCopyShareLink, onEnterShareMode }) => (
+    <div className="space-y-4">
         <SidebarSection title="Ansichtslink" subtitle="Erzeuge eine reduzierte, schreibgeschützte Ansicht für dein aktuelles Konto.">
             <div className="grid gap-2 sm:grid-cols-2">
                 <button
@@ -900,18 +1021,23 @@ const GeneralSettingsPanel = ({
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
                 Der Link wechselt nur in eine kompakte, schreibgeschützte Ansicht. Externe Empfänger benötigen weiterhin ein gültiges Benutzerkonto für diese Installation.
             </div>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
-                Für echtes gemeinsames Arbeiten mit anderen Konten braucht die App später separate Einladungen und Kalender-Freigaben.
+        </SidebarSection>
+
+        <InvitationPanel currentCalendar={currentCalendar} />
+    </div>
+);
+
+const ProfilePanel = ({ currentUser }) => (
+    <div className="space-y-4">
+        <SidebarSection title="Profil" subtitle="Konto-Informationen und persönliche Einstellungen.">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100">
+                <div className="font-semibold">{currentUser?.username || 'Unbekannt'}</div>
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Angemeldetes Konto</div>
             </div>
         </SidebarSection>
         <PasswordPanel />
-        <UserManagementPanel currentUser={currentUser} />
-        <div className="settings-info-box rounded-2xl bg-blue-50 p-4 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
-            Die Einstellungen werden automatisch gespeichert. Neue Nutzer legst du hier als Admin an, damit sie sich auf dieser Installation anmelden können.
-        </div>
     </div>
-    );
-};
+);
 
 const ParentSettingsPanel = ({
     p1Color,
@@ -1096,8 +1222,6 @@ export const UtilitySidebar = ({
                         totalNetHolidays={totalNetHolidays}
                         holidayBreakdown={holidayBreakdown}
                         children={children}
-                        onCopyShareLink={onCopyShareLink}
-                        onEnterShareMode={onEnterShareMode}
                     />
                 );
             case 'parents':
@@ -1123,6 +1247,16 @@ export const UtilitySidebar = ({
                         onRefreshFamilyData={onRefreshFamilyData}
                     />
                 );
+            case 'share':
+                return (
+                    <SharePanel
+                        currentCalendar={currentCalendar}
+                        onCopyShareLink={onCopyShareLink}
+                        onEnterShareMode={onEnterShareMode}
+                    />
+                );
+            case 'profile':
+                return <ProfilePanel currentUser={currentUser} />;
             case 'help':
             default:
                 return <HelpPanel />;
