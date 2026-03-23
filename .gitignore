@@ -27,6 +27,10 @@ yarn-error.log*
 *.sqlite
 *.db
 server/data/database.sqlite
+server/data/app-secret.key
+
+# Local server data (contains secrets / local DB)
+server/data/
 
 # IDEs
 .vscode/

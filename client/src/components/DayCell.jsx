@@ -66,7 +66,7 @@ export const DayCell = ({
     }
 
     // 5. Conflict Check (Unattended)
-    const isUnattended = status.schoolHoliday && !status.isWeekend && !status.publicHoliday && 
+    const isUnattended = status.requiresCare && !status.isWeekend && !status.publicHoliday && 
                          !status.p1 && !status.p2 && !status.care && 
                          !status.isP1Free && !status.isP2Free;
     
@@ -82,6 +82,8 @@ export const DayCell = ({
 
     const isSaving = savingDate === status.dateString;
     const weekday = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][status.date.getDay()];
+    const childMarkers = (status.childrenNeedingCare || []).slice(0, 3);
+    const extraChildrenCount = Math.max((status.childrenNeedingCare || []).length - childMarkers.length, 0);
 
     return (
         <div
@@ -124,6 +126,24 @@ export const DayCell = ({
             <span className="day-cell-weekday absolute top-0.5 right-1 text-[8px] opacity-40 font-mono pointer-events-none text-slate-900 dark:text-white">
                 {weekday}
             </span>
+
+            {childMarkers.length > 0 && (
+                <div className="absolute bottom-0.5 left-0.5 flex items-center gap-0.5 pointer-events-none z-10">
+                    {childMarkers.map((child) => (
+                        <span
+                            key={`${status.dateString}-child-${child.childId}`}
+                            className="h-1.5 w-1.5 rounded-full ring-1 ring-white/70 dark:ring-slate-950/80"
+                            style={{ backgroundColor: child.childColor || '#f59e0b' }}
+                            title={child.childName}
+                        />
+                    ))}
+                    {extraChildrenCount > 0 && (
+                        <span className="rounded-full bg-slate-900/80 px-1 text-[7px] font-bold leading-3 text-white dark:bg-white/80 dark:text-slate-900">
+                            +{extraChildrenCount}
+                        </span>
+                    )}
+                </div>
+            )}
 
             {/* Loading Spinner */}
             {isSaving && (

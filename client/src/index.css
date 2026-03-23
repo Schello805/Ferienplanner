@@ -1,10 +1,15 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
@@ -58,6 +63,26 @@ body {
 :root.dark .backdrop-blur.bg-white\/90 {
   background-color: rgba(15, 23, 42, 0.9) !important; /* slate-900/90 */
   border-color: #1e293b !important;
+}
+
+:root.dark .calendar-toolbar > div {
+  background-color: rgba(2, 6, 23, 0.9) !important; /* slate-950/90 */
+  border-color: #334155 !important; /* slate-700 */
+}
+
+:root.dark .utility-sidebar {
+  background-color: rgba(2, 6, 23, 0.96) !important; /* slate-950 */
+  border-color: #334155 !important;
+}
+
+:root.dark .utility-sidebar nav {
+  background-color: rgba(15, 23, 42, 0.82) !important; /* slate-900 */
+  border-color: #334155 !important;
+}
+
+:root.dark .utility-sidebar section {
+  background-color: rgba(15, 23, 42, 0.78) !important; /* slate-900 */
+  border-color: #334155 !important;
 }
 
 /* Calendar Grid Headers */
@@ -387,8 +412,7 @@ html.dark .settings-modal-heading {
   .fixed,
   .calendar-toolbar,
   .calendar-legend,
-  .print-header,
-  .print-footer,
+  .utility-sidebar,
   form {
     display: none !important;
   }
@@ -411,6 +435,20 @@ html.dark .settings-modal-heading {
     background: none !important;
     box-shadow: none !important;
     margin: 0 !important;
+  }
+
+  .print-header,
+  .print-summary,
+  .print-footer {
+    display: flex !important;
+  }
+
+  .print-summary {
+    display: grid !important;
+  }
+
+  .print-footer {
+    margin-top: 4mm !important;
   }
 
   /* Reset Min Widths using specific class */
@@ -464,7 +502,7 @@ html.dark .settings-modal-heading {
     break-inside: avoid;
     border-bottom: 1px solid #ccc !important;
     page-break-inside: avoid;
-    height: 18px !important;
+    height: 16px !important;
     overflow: hidden !important;
   }
 
@@ -476,15 +514,15 @@ html.dark .settings-modal-heading {
 
   /* Override Height Utilities for Print */
   .h-8, .sm\:h-10, .h-6, .sm\:h-7 {
-    height: 18px !important;
-    min-height: 18px !important; 
+    height: 16px !important;
+    min-height: 16px !important; 
   }
 
   /* Day Cell content */
   .calendar-row > div:not(.calendar-day-column) > div {
     border: 1px solid #eee !important;
     height: 100% !important;
-    min-height: 18px !important;
+    min-height: 16px !important;
   }
   
   /* Weekday Indicator */
@@ -506,7 +544,7 @@ html.dark .settings-modal-heading {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    line-height: 18px !important;
+    line-height: 16px !important;
     display: block !important;
   }
 

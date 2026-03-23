@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { authFetch } from '../lib/api';
 
 export const VacationRangeInput = ({ 
     startDate, 
@@ -36,7 +35,7 @@ export const VacationRangeInput = ({
             if (onSubmitRange) {
                 await onSubmitRange({ startDate, endDate, userId });
             } else {
-                const res = await fetch(`${API_URL}/api/vacations/range`, {
+                const res = await authFetch('/api/vacations/range', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ startDate, endDate, userId })
@@ -56,14 +55,14 @@ export const VacationRangeInput = ({
     };
 
     return (
-        <form onSubmit={handleSubmit} className="vacation-input-form flex flex-wrap items-end gap-3 bg-white dark:bg-slate-900 p-2 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm transition-colors no-print">
+        <form onSubmit={handleSubmit} className="vacation-input-form flex flex-wrap items-end gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm transition-colors no-print">
             <div className="flex flex-col gap-0.5">
                 <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Von</label>
                 <input 
                     type="date" 
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="px-2 py-1.5 rounded border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:ring-1 focus:ring-primary outline-none"
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                     required
                 />
             </div>
@@ -74,18 +73,18 @@ export const VacationRangeInput = ({
                     type="date" 
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="px-2 py-1.5 rounded border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:ring-1 focus:ring-primary outline-none"
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                     required
                 />
             </div>
 
             <div className="flex flex-col gap-0.5">
                     <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Wer</label>
-                    <div className="wer-toggle-container flex bg-gray-100 dark:bg-slate-800 rounded p-0.5 border border-gray-200 dark:border-slate-700">
+                    <div className="wer-toggle-container flex rounded-xl border border-gray-200 bg-gray-100 p-0.5 dark:border-slate-700 dark:bg-slate-800">
                     <button
                         type="button"
                         onClick={() => setUserId('p1')}
-                        className={`px-2 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${userId === 'p1' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                        className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all ${userId === 'p1' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                         title="Papa"
                     >
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p1Color }}></div>
@@ -94,7 +93,7 @@ export const VacationRangeInput = ({
                     <button
                         type="button"
                         onClick={() => setUserId('p2')}
-                        className={`px-2 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${userId === 'p2' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                        className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all ${userId === 'p2' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                         title="Mama"
                     >
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p2Color }}></div>
@@ -103,7 +102,7 @@ export const VacationRangeInput = ({
                     <button
                         type="button"
                         onClick={() => setUserId('both')}
-                        className={`px-2 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${userId === 'both' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                        className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all ${userId === 'both' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                         title="Beide"
                     >
                         <div className="flex -space-x-0.5">
@@ -115,7 +114,7 @@ export const VacationRangeInput = ({
                     <button
                         type="button"
                         onClick={() => setUserId('care')}
-                        className={`px-2 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${userId === 'care' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                        className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all ${userId === 'care' ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                         title="Betreuung (Oma/Opa/Hort)"
                     >
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: careColor }}></div>
@@ -127,7 +126,7 @@ export const VacationRangeInput = ({
             <button 
                 type="submit" 
                 disabled={loading}
-                className="px-4 py-1.5 bg-slate-900 dark:bg-primary text-white text-xs font-bold rounded hover:bg-slate-800 dark:hover:bg-sky-600 disabled:opacity-50 transition-colors h-[30px]"
+                className="h-[32px] rounded-xl bg-slate-900 px-4 py-1.5 text-xs font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:bg-primary dark:hover:bg-sky-600"
             >
                 {loading ? 'Speichern…' : 'Eintragen'}
             </button>
