@@ -1347,17 +1347,91 @@ const SharePanel = ({ currentCalendar, onCopyShareLink, onEnterShareMode }) => (
     </div>
 );
 
-const ProfilePanel = ({ currentUser }) => (
-    <div className="space-y-4">
-        <SidebarSection title="Profil" subtitle="Konto-Informationen und persönliche Einstellungen.">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100">
-                <div className="font-semibold">{currentUser?.username || 'Unbekannt'}</div>
-                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Angemeldetes Konto</div>
-            </div>
-        </SidebarSection>
-        <PasswordPanel />
-    </div>
-);
+const ProfilePanel = ({ currentUser }) => {
+    const [newEmail, setNewEmail] = React.useState('');
+    const [password, setPassword] = React.useState('');
+    const [saving, setSaving] = React.useState(false);
+
+    const requestEmailChange = async (event) => {
+        event.preventDefault();
+        if (!newEmail.trim() || !password) {
+            toast.error('Bitte neue E-Mail und Passwort angeben');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const response = await authFetch('/api/auth/change-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password, newEmail: newEmail.trim() }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'E-Mail konnte nicht geändert werden');
+            setNewEmail('');
+            setPassword('');
+            toast.success('Bestätigungs-E-Mail wurde an die neue Adresse gesendet');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'E-Mail konnte nicht geändert werden');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <SidebarSection title="Profil" subtitle="Konto-Informationen und persönliche Einstellungen.">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100">
+                    <div className="font-semibold">{currentUser?.username || 'Unbekannt'}</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Angemeldetes Konto</div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                            <div className="font-semibold">E-Mail</div>
+                            <div className="mt-1 break-all text-sm font-bold text-slate-900 dark:text-white">
+                                {currentUser?.email || '—'}
+                            </div>
+                        </div>
+                        <div className={`rounded-xl border px-3 py-2 text-xs ${currentUser?.emailVerified ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100'}`}>
+                            <div className="font-semibold">Verifikation</div>
+                            <div className="mt-1 text-sm font-bold">{currentUser?.emailVerified ? 'Bestätigt' : 'Offen'}</div>
+                        </div>
+                    </div>
+                </div>
+            </SidebarSection>
+
+            <SidebarSection title="E-Mail ändern" subtitle="Die neue Adresse wird erst nach Klick auf den Bestätigungslink übernommen.">
+                <form onSubmit={requestEmailChange} className="space-y-3">
+                    <input
+                        type="email"
+                        value={newEmail}
+                        onChange={(event) => setNewEmail(event.target.value)}
+                        placeholder="Neue E-Mail-Adresse"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        autoComplete="email"
+                    />
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder="Passwort bestätigen"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        autoComplete="current-password"
+                    />
+                    <button
+                        type="submit"
+                        disabled={saving}
+                        className="w-full rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
+                    >
+                        {saving ? 'Sende…' : 'Bestätigungs-Mail senden'}
+                    </button>
+                </form>
+            </SidebarSection>
+
+            <PasswordPanel />
+        </div>
+    );
+};
 
 const ParentSettingsPanel = ({
     p1Color,

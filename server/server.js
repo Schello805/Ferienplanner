@@ -138,7 +138,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     await dbRun(
       db,
-      'INSERT INTO email_verifications (tokenHash, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)',
+      "INSERT INTO email_verifications (tokenHash, userId, type, newEmail, createdAt, expiresAt) VALUES (?, ?, 'register', NULL, ?, ?)",
       [tokenHash, result.lastID, now, expiresAt]
     );
 
@@ -165,7 +165,7 @@ app.post('/api/auth/verify-email', async (req, res) => {
   try {
     const row = await dbGet(
       db,
-      'SELECT userId, expiresAt FROM email_verifications WHERE tokenHash = ?',
+      'SELECT userId, expiresAt, type, newEmail FROM email_verifications WHERE tokenHash = ?',
       [tokenHash]
     );
     if (!row) {
@@ -176,7 +176,36 @@ app.post('/api/auth/verify-email', async (req, res) => {
       return res.status(410).json({ error: 'Verification expired' });
     }
 
-    await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [new Date().toISOString(), row.userId]);
+    const now = new Date().toISOString();
+    const verificationType = row.type || 'register';
+
+    if (verificationType === 'change_email') {
+      const normalizedNewEmail = normalizeEmail(row.newEmail);
+      if (!normalizedNewEmail || !isValidEmail(normalizedNewEmail)) {
+        await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
+        return res.status(400).json({ error: 'Invalid email' });
+      }
+
+      const existing = await dbGet(
+        db,
+        'SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?',
+        [normalizedNewEmail, row.userId]
+      );
+      if (existing) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+
+      await dbRun(
+        db,
+        'UPDATE users SET email = ?, emailVerified = 1, updatedAt = ? WHERE id = ?',
+        [normalizedNewEmail, now, row.userId]
+      );
+      await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
+      pushAdminLog('auth.change_email_verified', `Email changed for userId=${row.userId}`, { userId: row.userId });
+      return res.json({ success: true });
+    }
+
+    await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [now, row.userId]);
     await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
     pushAdminLog('auth.verify_email', `Email verified for userId=${row.userId}`, { userId: row.userId });
     return res.json({ success: true });
@@ -402,11 +431,21 @@ async function initializeDatabase() {
       `CREATE TABLE IF NOT EXISTS email_verifications (
         tokenHash TEXT PRIMARY KEY,
         userId INTEGER NOT NULL,
+        type TEXT NOT NULL DEFAULT 'register',
+        newEmail TEXT,
         createdAt TEXT,
         expiresAt TEXT,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       )`
     );
+
+    const verificationColumns = new Set((await dbAll(db, 'PRAGMA table_info(email_verifications)')).map((row) => row.name));
+    if (!verificationColumns.has('type')) {
+      await dbRun(db, "ALTER TABLE email_verifications ADD COLUMN type TEXT NOT NULL DEFAULT 'register'");
+    }
+    if (!verificationColumns.has('newEmail')) {
+      await dbRun(db, 'ALTER TABLE email_verifications ADD COLUMN newEmail TEXT');
+    }
 
     await dbRun(
       db,
@@ -984,7 +1023,7 @@ async function getAuthState(req) {
     await dbRun(db, 'DELETE FROM sessions WHERE expiresAt <= ?', [new Date().toISOString()]);
     const row = await dbGet(
       db,
-      `SELECT sessions.token, users.id, users.username, users.isAdmin
+      `SELECT sessions.token, users.id, users.username, users.email, users.emailVerified, users.isAdmin
        FROM sessions
        JOIN users ON users.id = sessions.userId
        WHERE sessions.token = ? AND sessions.expiresAt > ?`,
@@ -1002,6 +1041,8 @@ async function getAuthState(req) {
       user: {
         id: row.id,
         username: row.username,
+        email: row.email || '',
+        emailVerified: Boolean(row.emailVerified),
         isAdmin: Boolean(row.isAdmin),
       },
       calendar: await ensureUserCalendarContext(row.id),
@@ -1099,7 +1140,7 @@ app.post('/api/auth/bootstrap', async (req, res) => {
     return res.json({
       success: true,
       token: session.token,
-      user: { id: result.lastID, username: String(username).trim(), isAdmin: true },
+      user: { id: result.lastID, username: String(username).trim(), email: normalizedEmail || '', emailVerified: true, isAdmin: true },
       calendar: await ensureUserCalendarContext(result.lastID),
     });
   } catch (error) {
@@ -1142,7 +1183,7 @@ app.post('/api/auth/login', async (req, res) => {
     return res.json({
       success: true,
       token: session.token,
-      user: { id: user.id, username: user.username, isAdmin: Boolean(user.isAdmin) },
+      user: { id: user.id, username: user.username, email: user.email || '', emailVerified: Boolean(user.emailVerified), isAdmin: Boolean(user.isAdmin) },
       calendar: await ensureUserCalendarContext(user.id),
     });
   } catch (error) {
@@ -1246,6 +1287,59 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/auth/change-email', requireAuth, async (req, res) => {
+  const { password, newEmail } = req.body || {};
+  if (!password || !newEmail) {
+    return res.status(400).json({ error: 'password and newEmail are required' });
+  }
+
+  const normalizedEmail = normalizeEmail(newEmail);
+  if (!isValidEmail(normalizedEmail)) {
+    return res.status(400).json({ error: 'Invalid email' });
+  }
+
+  const db = openDb();
+  try {
+    const user = await dbGet(
+      db,
+      'SELECT id, passwordHash, passwordSalt FROM users WHERE id = ?',
+      [req.auth.user.id]
+    );
+
+    if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+      return res.status(401).json({ error: 'Password is incorrect' });
+    }
+
+    const existing = await dbGet(
+      db,
+      'SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?',
+      [normalizedEmail, user.id]
+    );
+    if (existing) {
+      return res.status(409).json({ error: 'Email already in use' });
+    }
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS).toISOString();
+
+    await dbRun(
+      db,
+      "INSERT INTO email_verifications (tokenHash, userId, type, newEmail, createdAt, expiresAt) VALUES (?, ?, 'change_email', ?, ?, ?)",
+      [tokenHash, user.id, normalizedEmail, now, expiresAt]
+    );
+
+    await sendVerificationEmail({ req, to: normalizedEmail, token });
+    pushAdminLog('auth.change_email_requested', `Email change requested userId=${user.id}`, { userId: user.id });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   } finally {
     db.close();
   }
