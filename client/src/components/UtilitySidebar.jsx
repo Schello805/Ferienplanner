@@ -16,6 +16,7 @@ const AdminToolsPanel = ({ currentUser }) => {
     const [stats, setStats] = React.useState(null);
     const [logs, setLogs] = React.useState([]);
     const [smtpStatus, setSmtpStatus] = React.useState(null);
+    const [diagnosticsExporting, setDiagnosticsExporting] = React.useState(false);
     const [smtpDraft, setSmtpDraft] = React.useState(() => ({
         publicBaseUrl: typeof window !== 'undefined' ? window.location.origin : '',
         host: '',
@@ -85,6 +86,35 @@ const AdminToolsPanel = ({ currentUser }) => {
     if (!isUserAdmin(currentUser)) {
         return null;
     }
+
+    const exportDiagnostics = async () => {
+        setDiagnosticsExporting(true);
+        try {
+            const response = await authFetch('/api/admin/diagnostics');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Diagnostics Export fehlgeschlagen');
+
+            const payload = JSON.stringify(data, null, 2);
+            const blob = new Blob([payload], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `mein-ferienplaner-diagnostics-${ts}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+
+            toast.success('Diagnostics Export wurde heruntergeladen');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Diagnostics Export fehlgeschlagen');
+        } finally {
+            setDiagnosticsExporting(false);
+        }
+    };
 
     const saveSmtpSettings = async () => {
         setSmtpSaving(true);
@@ -185,6 +215,17 @@ const AdminToolsPanel = ({ currentUser }) => {
                         </div>
                     </div>
                 )}
+            </SidebarSection>
+
+            <SidebarSection title="Diagnostics" subtitle="Export für Fehleranalyse (ohne Secrets/Tokens).">
+                <button
+                    type="button"
+                    onClick={exportDiagnostics}
+                    disabled={diagnosticsExporting}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                    {diagnosticsExporting ? 'Exportiere…' : 'Diagnostics exportieren'}
+                </button>
             </SidebarSection>
 
             <SidebarSection title="SMTP" subtitle="E-Mail Versand wird über Environment Variablen konfiguriert. Hier kannst du die Werte testen.">

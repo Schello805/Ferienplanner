@@ -1425,6 +1425,90 @@ app.get('/api/admin/logs', requireAuth, requireAdmin, (req, res) => {
   res.json({ entries: adminLogEntries.slice(-ADMIN_LOG_MAX_ENTRIES) });
 });
 
+app.get('/api/admin/diagnostics', requireAuth, requireAdmin, async (req, res) => {
+  const db = openDb();
+  try {
+    const nowIso = new Date().toISOString();
+    const shortToken = (value) => {
+      if (!value) return null;
+      const str = String(value);
+      if (str.length <= 10) return str;
+      return `${str.slice(0, 6)}…${str.slice(-4)}`;
+    };
+
+    const [
+      users,
+      calendars,
+      memberships,
+      children,
+      childFreeDays,
+      vacationEntries,
+      invitations,
+      verifications,
+      sessions,
+    ] = await Promise.all([
+      dbAll(db, 'SELECT id, username, email, emailVerified, isAdmin, createdAt, updatedAt FROM users ORDER BY id ASC LIMIT 200'),
+      dbAll(db, 'SELECT id, name, ownerUserId, createdAt, updatedAt FROM calendars ORDER BY id ASC LIMIT 200'),
+      dbAll(db, 'SELECT calendarId, userId, role, createdAt FROM calendar_memberships ORDER BY calendarId ASC, userId ASC LIMIT 500'),
+      dbAll(db, 'SELECT id, calendarId, name, type, color, usesSchoolHolidays, createdAt, updatedAt FROM children ORDER BY id ASC LIMIT 500'),
+      dbAll(db, 'SELECT id, calendarId, childId, startDate, endDate, label, createdAt, updatedAt FROM child_free_days ORDER BY id ASC LIMIT 500'),
+      dbAll(db, 'SELECT calendarId, date, userId, createdAt, updatedAt FROM vacation_entries ORDER BY updatedAt DESC, date DESC LIMIT 1000'),
+      dbAll(db, 'SELECT id, calendarId, invitedByUserId, role, tokenHash, createdAt, expiresAt, usedAt, usedByUserId FROM calendar_invitations ORDER BY createdAt DESC LIMIT 200'),
+      dbAll(db, 'SELECT tokenHash, userId, type, newEmail, createdAt, expiresAt FROM email_verifications ORDER BY createdAt DESC LIMIT 200'),
+      dbAll(db, 'SELECT token, userId, createdAt, expiresAt FROM sessions WHERE expiresAt > ? ORDER BY createdAt DESC LIMIT 200', [nowIso]),
+    ]);
+
+    let dbSizeBytes = null;
+    try {
+      dbSizeBytes = fs.statSync(DB_PATH).size;
+    } catch {
+      dbSizeBytes = null;
+    }
+
+    return res.json({
+      generatedAt: nowIso,
+      uptimeSeconds: Math.floor(process.uptime()),
+      serverVersion: process.env.npm_package_version || null,
+      dbSizeBytes,
+      counts: {
+        users: users.length,
+        calendars: calendars.length,
+        memberships: memberships.length,
+        children: children.length,
+        childFreeDays: childFreeDays.length,
+        vacationEntries: vacationEntries.length,
+        invitations: invitations.length,
+        emailVerifications: verifications.length,
+        activeSessions: sessions.length,
+      },
+      data: {
+        users,
+        calendars,
+        memberships,
+        children,
+        childFreeDays,
+        vacationEntries,
+        invitations: invitations.map((row) => ({
+          ...row,
+          tokenHash: shortToken(row.tokenHash),
+        })),
+        emailVerifications: verifications.map((row) => ({
+          ...row,
+          tokenHash: shortToken(row.tokenHash),
+        })),
+        sessions: sessions.map((row) => ({
+          ...row,
+          token: shortToken(row.token),
+        })),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
 app.post('/api/admin/smtp/test', requireAuth, requireAdmin, async (req, res) => {
   const { to } = req.body || {};
   if (!to) {
