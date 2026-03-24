@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage.jsx';
+import { SetupWizard } from './components/SetupWizard.jsx';
 import App from './App.jsx';
 
 const CalendarSlugRoute = () => {
@@ -21,6 +22,7 @@ export const RootApp = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/setup" element={<SetupWizard />} />
         <Route path="/app" element={<App />} />
         <Route path="/k/:slug" element={<CalendarSlugRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />

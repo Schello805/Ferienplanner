@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import CalendarView from './components/CalendarView'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
@@ -24,6 +24,7 @@ const normalizeUser = (user) => {
 };
 
 const CALENDAR_SLUG_STORAGE_KEY = 'ferienplanerTargetSlug';
+const SETUP_DRAFT_KEY = 'ferienplanerSetupDraft';
 
 const createDefaultRecurringRule = () => ({
   frequency: 'weekly',
@@ -254,6 +255,67 @@ function App() {
     refreshAuthStatus();
   }, [refreshAuthStatus]);
 
+  const applyingSetupDraftRef = useRef(false);
+
+  const applySetupDraftIfPresent = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    if (!currentUser) return;
+    if (applyingSetupDraftRef.current) return;
+
+    const raw = localStorage.getItem(SETUP_DRAFT_KEY);
+    if (!raw) return;
+
+    let draft = null;
+    try {
+      draft = JSON.parse(raw);
+    } catch {
+      localStorage.removeItem(SETUP_DRAFT_KEY);
+      return;
+    }
+    if (!draft) {
+      localStorage.removeItem(SETUP_DRAFT_KEY);
+      return;
+    }
+
+    applyingSetupDraftRef.current = true;
+    try {
+      if (draft.stateCode) {
+        setStateCode(String(draft.stateCode).toUpperCase());
+      }
+      if (draft.colors?.p1Color) setP1Color(String(draft.colors.p1Color));
+      if (draft.colors?.p2Color) setP2Color(String(draft.colors.p2Color));
+      if (draft.colors?.careColor) setCareColor(String(draft.colors.careColor));
+
+      const child = draft.child || null;
+      if (children.length === 0 && child?.name && typeof child.name === 'string' && child.name.trim()) {
+        const response = await authFetch('/api/children', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: child.name.trim(),
+            type: child.type || 'school',
+            color: child.color || null,
+            usesSchoolHolidays: child.usesSchoolHolidays !== false,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Onboarding: Kind konnte nicht angelegt werden');
+        }
+      }
+
+      localStorage.removeItem(SETUP_DRAFT_KEY);
+      toast.success('Einrichtung übernommen');
+      await refreshAuthStatus();
+      await loadFamilyData();
+    } catch (error) {
+      console.error('Failed to apply setup draft', error);
+      toast.error(error.message || 'Einrichtung konnte nicht übernommen werden');
+    } finally {
+      applyingSetupDraftRef.current = false;
+    }
+  }, [children.length, currentUser, loadFamilyData, refreshAuthStatus, setCareColor, setP1Color, setP2Color, setStateCode]);
+
   useEffect(() => {
     const verifyEmail = async () => {
       if (typeof window === 'undefined') return;
@@ -388,6 +450,10 @@ function App() {
       loadFamilyData();
     }
   }, [currentUser, loadFamilyData]);
+
+  useEffect(() => {
+    applySetupDraftIfPresent();
+  }, [applySetupDraftIfPresent]);
 
   const handleAuthSubmit = async ({ mode, username, email, password }) => {
     setAuthSubmitting(true);
