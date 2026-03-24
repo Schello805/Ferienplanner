@@ -1163,7 +1163,7 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const user = await dbGet(
       db,
-      'SELECT id, username, emailVerified, passwordHash, passwordSalt, isAdmin FROM users WHERE username = ?',
+      'SELECT id, username, email, emailVerified, passwordHash, passwordSalt, isAdmin FROM users WHERE username = ?',
       [String(username).trim()]
     );
     db.close();
