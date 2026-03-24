@@ -17,6 +17,12 @@ const AdminToolsPanel = ({ currentUser }) => {
     const [logs, setLogs] = React.useState([]);
     const [smtpStatus, setSmtpStatus] = React.useState(null);
     const [diagnosticsExporting, setDiagnosticsExporting] = React.useState(false);
+    const [browseResource, setBrowseResource] = React.useState('users');
+    const [browseQuery, setBrowseQuery] = React.useState('');
+    const [browseLimit, setBrowseLimit] = React.useState(50);
+    const [browseLoading, setBrowseLoading] = React.useState(false);
+    const [browseError, setBrowseError] = React.useState(null);
+    const [browseRows, setBrowseRows] = React.useState([]);
     const [smtpDraft, setSmtpDraft] = React.useState(() => ({
         publicBaseUrl: typeof window !== 'undefined' ? window.location.origin : '',
         host: '',
@@ -113,6 +119,28 @@ const AdminToolsPanel = ({ currentUser }) => {
             toast.error(error.message || 'Diagnostics Export fehlgeschlagen');
         } finally {
             setDiagnosticsExporting(false);
+        }
+    };
+
+    const loadBrowseRows = async () => {
+        setBrowseLoading(true);
+        setBrowseError(null);
+        try {
+            const params = new URLSearchParams({
+                resource: browseResource,
+                query: browseQuery,
+                limit: String(browseLimit),
+            });
+            const response = await authFetch(`/api/admin/browse?${params.toString()}`);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Daten konnten nicht geladen werden');
+            setBrowseRows(Array.isArray(data.rows) ? data.rows : []);
+        } catch (error) {
+            console.error(error);
+            setBrowseRows([]);
+            setBrowseError(error.message || 'Daten konnten nicht geladen werden');
+        } finally {
+            setBrowseLoading(false);
         }
     };
 
@@ -226,6 +254,91 @@ const AdminToolsPanel = ({ currentUser }) => {
                 >
                     {diagnosticsExporting ? 'Exportiere…' : 'Diagnostics exportieren'}
                 </button>
+            </SidebarSection>
+
+            <SidebarSection title="Datenbank" subtitle="Read-only Ansicht (Admin).">
+                <div className="space-y-3">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            Tabelle
+                            <select
+                                value={browseResource}
+                                onChange={(event) => setBrowseResource(event.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            >
+                                <option value="users">users</option>
+                                <option value="calendars">calendars</option>
+                                <option value="vacation_entries">vacation_entries</option>
+                            </select>
+                        </label>
+
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300 sm:col-span-2">
+                            Suche (id/Name/Datum)
+                            <input
+                                type="text"
+                                value={browseQuery}
+                                onChange={(event) => setBrowseQuery(event.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                placeholder="z.B. 1 oder max oder 2026-08"
+                            />
+                        </label>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-3">
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            Limit
+                            <select
+                                value={browseLimit}
+                                onChange={(event) => setBrowseLimit(Number(event.target.value))}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            >
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                                <option value={200}>200</option>
+                            </select>
+                        </label>
+
+                        <div className="sm:col-span-2">
+                            <button
+                                type="button"
+                                onClick={loadBrowseRows}
+                                disabled={browseLoading}
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                            >
+                                {browseLoading ? 'Lade…' : 'Laden'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {browseError && (
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">
+                            {browseError}
+                        </div>
+                    )}
+
+                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-64 overflow-auto bg-white dark:bg-slate-950">
+                            <table className="min-w-full text-left text-xs">
+                                <tbody>
+                                    {browseRows.length === 0 ? (
+                                        <tr>
+                                            <td className="px-3 py-3 text-slate-500 dark:text-slate-400">Keine Daten.</td>
+                                        </tr>
+                                    ) : (
+                                        browseRows.map((row, idx) => (
+                                            <tr key={idx} className={idx % 2 === 0 ? 'bg-slate-50/60 dark:bg-slate-900/40' : ''}>
+                                                <td className="px-3 py-2">
+                                                    <pre className="whitespace-pre-wrap break-words text-[11px] leading-snug text-slate-800 dark:text-slate-100">{JSON.stringify(row, null, 2)}</pre>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </SidebarSection>
 
             <SidebarSection title="SMTP" subtitle="E-Mail Versand wird über Environment Variablen konfiguriert. Hier kannst du die Werte testen.">

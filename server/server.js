@@ -1509,6 +1509,78 @@ app.get('/api/admin/diagnostics', requireAuth, requireAdmin, async (req, res) =>
   }
 });
 
+app.get('/api/admin/browse', requireAuth, requireAdmin, async (req, res) => {
+  const db = openDb();
+  try {
+    const resource = String(req.query.resource || 'users');
+    const query = String(req.query.query || '').trim();
+    const limitRaw = Number(req.query.limit || 50);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.floor(limitRaw), 1), 200) : 50;
+
+    if (!['users', 'calendars', 'vacation_entries'].includes(resource)) {
+      return res.status(400).json({ error: 'Invalid resource' });
+    }
+
+    let sql = '';
+    let params = [];
+
+    if (resource === 'users') {
+      sql = 'SELECT id, username, email, emailVerified, isAdmin, createdAt, updatedAt FROM users';
+      if (query) {
+        const id = Number(query);
+        if (Number.isFinite(id)) {
+          sql += ' WHERE id = ?';
+          params = [id];
+        } else {
+          sql += ' WHERE username LIKE ? OR email LIKE ?';
+          params = [`%${query}%`, `%${query}%`];
+        }
+      }
+      sql += ' ORDER BY id DESC LIMIT ?';
+      params.push(limit);
+    }
+
+    if (resource === 'calendars') {
+      sql = 'SELECT id, name, ownerUserId, createdAt, updatedAt FROM calendars';
+      if (query) {
+        const id = Number(query);
+        if (Number.isFinite(id)) {
+          sql += ' WHERE id = ? OR ownerUserId = ?';
+          params = [id, id];
+        } else {
+          sql += ' WHERE name LIKE ?';
+          params = [`%${query}%`];
+        }
+      }
+      sql += ' ORDER BY id DESC LIMIT ?';
+      params.push(limit);
+    }
+
+    if (resource === 'vacation_entries') {
+      sql = 'SELECT calendarId, date, userId, createdAt, updatedAt FROM vacation_entries';
+      if (query) {
+        const maybeNumber = Number(query);
+        if (Number.isFinite(maybeNumber)) {
+          sql += ' WHERE calendarId = ?';
+          params = [maybeNumber];
+        } else {
+          sql += ' WHERE date LIKE ? OR userId LIKE ?';
+          params = [`%${query}%`, `%${query}%`];
+        }
+      }
+      sql += ' ORDER BY updatedAt DESC, date DESC LIMIT ?';
+      params.push(limit);
+    }
+
+    const rows = await dbAll(db, sql, params);
+    return res.json({ resource, query, limit, rows });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
 app.post('/api/admin/smtp/test', requireAuth, requireAdmin, async (req, res) => {
   const { to } = req.body || {};
   if (!to) {
