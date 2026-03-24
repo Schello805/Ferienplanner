@@ -42,9 +42,15 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
       <div className="w-full max-w-md rounded-3xl border border-slate-200/90 bg-white/95 p-6 shadow-xl shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-950/92 dark:shadow-black/20">
         <div className="mb-5">
           <div className="mb-4 flex items-center gap-3">
-            <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/80 ring-1 ring-white dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:ring-slate-800">
+            <a
+              href="https://mein-ferienplaner.de/"
+              target="_blank"
+              rel="noreferrer"
+              className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/80 ring-1 ring-white transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:ring-slate-800 dark:hover:bg-slate-800"
+              title="mein-ferienplaner.de öffnen"
+            >
               <img src="/app-icon.png" alt="Mein Ferienplaner Logo" className="h-14 w-14 rounded-xl object-cover" />
-            </div>
+            </a>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Mein Ferienplaner</h1>
               <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
