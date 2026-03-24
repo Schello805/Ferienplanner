@@ -1,6 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage.jsx';
 import { SetupWizard } from './components/SetupWizard.jsx';
+import { ImprintPage } from './components/ImprintPage.jsx';
+import { PrivacyPage } from './components/PrivacyPage.jsx';
+import { CookiePage } from './components/CookiePage.jsx';
 import App from './App.jsx';
 
 const CalendarSlugRoute = () => {
@@ -23,6 +26,9 @@ export const RootApp = () => {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/setup" element={<SetupWizard />} />
+        <Route path="/impressum" element={<ImprintPage />} />
+        <Route path="/datenschutz" element={<PrivacyPage />} />
+        <Route path="/cookies" element={<CookiePage />} />
         <Route path="/app" element={<App />} />
         <Route path="/k/:slug" element={<CalendarSlugRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />

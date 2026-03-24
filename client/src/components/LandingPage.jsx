@@ -76,6 +76,17 @@ export const LandingPage = () => {
             </div>
           </div>
         </div>
+
+        <footer className="mt-10 border-t border-slate-200 pt-6 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>&copy; {new Date().getFullYear()} Mein Ferienplaner</div>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              <Link to="/impressum" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Impressum</Link>
+              <Link to="/datenschutz" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Datenschutzerklärung</Link>
+              <Link to="/cookies" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Cookiehinweis</Link>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );
