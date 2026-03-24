@@ -591,7 +591,7 @@ function App() {
         </div>
       )}
 
-      <main className={`flex min-h-0 flex-1 gap-3 ${isMobile && !shareMode ? 'pb-24' : ''}`}>
+      <main className={`flex min-h-0 flex-1 gap-3 ${isMobile && !shareMode ? 'pb-28' : ''}`}>
         <div className="min-h-0 flex-1">
           <CalendarView
             year={viewYear}
@@ -658,7 +658,7 @@ function App() {
       </main>
 
       {isMobile && !shareMode && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/96 px-[max(env(safe-area-inset-left),0.5rem)] pr-[max(env(safe-area-inset-right),0.5rem)] pb-[calc(env(safe-area-inset-bottom)+0.6rem)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.18)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/96">
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/96 px-[max(env(safe-area-inset-left),0.5rem)] pr-[max(env(safe-area-inset-right),0.5rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.18)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/96">
           <div className="mx-auto grid w-full max-w-xl grid-cols-6 gap-1.5">
             {mobileNavItems.map((item) => {
               const active = activeMobileNav === item.id;
@@ -702,8 +702,8 @@ function App() {
             className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm"
             onClick={() => setMoreMenuOpen(false)}
           />
-          <div className="fixed inset-x-0 bottom-0 z-[60] rounded-t-3xl border-t border-slate-200 bg-white/98 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-14px_40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/98">
-            <div className="mx-auto max-w-xl">
+          <div className="fixed inset-x-0 bottom-0 z-[60] flex max-h-[75svh] flex-col rounded-t-3xl border-t border-slate-200 bg-white/98 px-3 pt-3 shadow-[0_-14px_40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/98">
+            <div className="mx-auto flex w-full max-w-xl flex-1 flex-col">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-bold text-slate-900 dark:text-white">Mehr</div>
                 <button
@@ -715,7 +715,7 @@ function App() {
                 </button>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-3 grid flex-1 grid-cols-2 gap-2 overflow-y-auto pb-3 [-webkit-overflow-scrolling:touch]">
                 {[
                   { id: 'general', label: 'Allgemein' },
                   { id: 'parents', label: 'Eltern' },
@@ -756,6 +756,16 @@ function App() {
                   className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-left text-sm font-semibold text-rose-900 transition-colors hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100 dark:hover:bg-rose-950/50"
                 >
                   Abmelden
+                </button>
+              </div>
+
+              <div className="sticky bottom-0 border-t border-slate-200 bg-white/98 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 dark:border-slate-700 dark:bg-slate-950/98">
+                <button
+                  type="button"
+                  onClick={() => setMoreMenuOpen(false)}
+                  className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                >
+                  Schließen
                 </button>
               </div>
             </div>
