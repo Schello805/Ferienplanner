@@ -494,7 +494,10 @@ function App() {
     },
   ];
 
-  const activeMobileNav = !isMobile || !sidebarOpen ? (moreMenuOpen ? 'more' : 'calendar') : sidebarTab;
+  const primaryMobileTabIds = new Set(['legend', 'children', 'share', 'profile']);
+  const activeMobileNav = !isMobile || !sidebarOpen
+    ? (moreMenuOpen ? 'more' : 'calendar')
+    : (primaryMobileTabIds.has(sidebarTab) ? sidebarTab : 'more');
   const version = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
   const isAdmin = Boolean(currentUser?.isAdmin ?? currentUser?.is_admin ?? currentUser?.admin);
 
@@ -673,7 +676,11 @@ function App() {
                       return;
                     }
                     if (item.id === 'more') {
-                      setSidebarOpen(false);
+                      if (sidebarOpen) {
+                        setSidebarOpen(false);
+                        setMoreMenuOpen(false);
+                        return;
+                      }
                       setMoreMenuOpen((current) => !current);
                       return;
                     }
