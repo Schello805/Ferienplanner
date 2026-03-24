@@ -1175,6 +1175,12 @@ const GeneralSettingsPanel = ({
     totalNetHolidays,
     holidayBreakdown,
     children,
+    darkMode,
+    setDarkMode,
+    shareMode,
+    onToggleShareMode,
+    onCopyShareLink,
+    onLogout,
 }) => {
     const totals = holidayBreakdown.reduce((acc, holiday) => {
         acc.calendarDays += holiday.calendarDays;
@@ -1309,6 +1315,46 @@ const GeneralSettingsPanel = ({
                     </div>
                 </details>
             )}
+        </SidebarSection>
+
+        <SidebarSection title="Aktionen" subtitle="Schnellzugriff auf häufig genutzte Funktionen.">
+            <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                    type="button"
+                    onClick={onCopyShareLink}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                    Ansichtslink kopieren
+                </button>
+                <button
+                    type="button"
+                    onClick={onToggleShareMode}
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${shareMode ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100 dark:hover:bg-emerald-900/50' : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}`}
+                >
+                    {shareMode ? 'Freigabe beenden' : 'Freigabe starten'}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                    Drucken
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setDarkMode(!darkMode)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                    {darkMode ? 'Licht an' : 'Licht aus'}
+                </button>
+            </div>
+            <button
+                type="button"
+                onClick={onLogout}
+                className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900 transition-colors hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100 dark:hover:bg-rose-950/50"
+            >
+                Abmelden
+            </button>
         </SidebarSection>
 
         <UserManagementPanel currentUser={currentUser} />
@@ -1581,11 +1627,14 @@ export const UtilitySidebar = ({
     setP2RecurringRules,
     onCopyShareLink,
     onEnterShareMode,
+    darkMode,
+    setDarkMode,
+    shareMode,
+    onToggleShareMode,
+    onLogout,
 }) => {
     const tabs = currentUser?.isAdmin ? TABS : TABS.filter((tab) => tab.id !== 'admin');
     const activeLabel = tabs.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
-
-    const openSidebar = () => setIsOpen(true);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -1616,6 +1665,12 @@ export const UtilitySidebar = ({
                         totalNetHolidays={totalNetHolidays}
                         holidayBreakdown={holidayBreakdown}
                         children={children}
+                        darkMode={darkMode}
+                        setDarkMode={setDarkMode}
+                        shareMode={shareMode}
+                        onToggleShareMode={onToggleShareMode}
+                        onCopyShareLink={onCopyShareLink}
+                        onLogout={onLogout}
                     />
                 );
             case 'parents':
@@ -1661,17 +1716,6 @@ export const UtilitySidebar = ({
 
     return (
         <>
-            {!isOpen && (
-                <button
-                    type="button"
-                    onClick={openSidebar}
-                    className="fixed bottom-28 right-3 z-30 rounded-2xl border border-slate-200 bg-white/95 px-4 py-2 text-xs font-semibold text-slate-700 shadow-lg shadow-slate-300/40 backdrop-blur transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/90 dark:text-slate-200 dark:shadow-black/30 dark:hover:bg-slate-900 lg:hidden"
-                    title="Sidebar öffnen"
-                >
-                    Werkzeuge
-                </button>
-            )}
-
             <div
                 className={`fixed inset-0 z-20 bg-slate-950/45 backdrop-blur-sm transition-opacity lg:hidden ${isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
                 onClick={onClose}

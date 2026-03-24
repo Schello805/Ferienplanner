@@ -556,10 +556,7 @@ function App() {
         stateName={GERMAN_STATE_MAP[stateCode] || 'Bayern'}
         currentUser={currentUser}
         currentCalendar={currentCalendar}
-        onLogout={handleLogout}
         shareMode={shareMode}
-        onToggleShareMode={toggleShareMode}
-        onCopyShareLink={copyShareLink}
       />
 
       {shareMode && (
@@ -621,10 +618,10 @@ function App() {
             setActiveTab={setSidebarTab}
             onClose={() => setSidebarOpen(false)}
             p1Color={p1Color}
-            p2Color={p2Color}
-            careColor={careColor}
             setP1Color={setP1Color}
+            p2Color={p2Color}
             setP2Color={setP2Color}
+            careColor={careColor}
             setCareColor={setCareColor}
             stateCode={stateCode}
             setStateCode={setStateCode}
@@ -644,6 +641,11 @@ function App() {
             setP2RecurringRules={setP2RecurringRules}
             onCopyShareLink={copyShareLink}
             onEnterShareMode={() => setShareMode(true)}
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            shareMode={shareMode}
+            onToggleShareMode={toggleShareMode}
+            onLogout={handleLogout}
           />
         )}
       </main>
