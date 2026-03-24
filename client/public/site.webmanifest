@@ -1,7 +1,7 @@
 {
-  "name": "Ferienplaner",
+  "name": "Mein Ferienplaner",
   "short_name": "Ferienplaner",
-  "description": "Familienkalender für Ferien, Urlaub und Betreuung.",
+  "description": "Jahresübersicht für Ferien, Urlaub und Betreuung.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",

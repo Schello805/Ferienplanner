@@ -354,7 +354,7 @@ const CalendarView = ({
     useEffect(() => {
         setLoading(true);
         fetchData();
-        document.title = `Ferienplaner ${year} - ${stateName}`;
+        document.title = `Mein Ferienplaner ${year} - ${stateName}`;
     }, [fetchData, stateName, year]);
 
     useEffect(() => {
@@ -1074,7 +1074,7 @@ const CalendarView = ({
             {/* Print Header (Visible only in print) */}
             <div className="print-header mb-4 hidden items-center justify-between border-b-2 border-slate-800 pb-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Ferienplaner {year}</h1>
+                    <h1 className="text-2xl font-bold text-slate-900">Mein Ferienplaner {year}</h1>
                     <div className="text-sm text-slate-600">{stateName}</div>
                 </div>
                 <div className="text-sm text-slate-500">Stand: {new Date().toLocaleDateString('de-DE')}</div>

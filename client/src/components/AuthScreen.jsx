@@ -43,10 +43,10 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
         <div className="mb-5">
           <div className="mb-4 flex items-center gap-3">
             <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/80 ring-1 ring-white dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:ring-slate-800">
-              <img src="/app-icon.png" alt="Ferienplaner Logo" className="h-14 w-14 rounded-xl object-cover" />
+              <img src="/app-icon.png" alt="Mein Ferienplaner Logo" className="h-14 w-14 rounded-xl object-cover" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Ferienplaner</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Mein Ferienplaner</h1>
               <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                 Familienkalender als Web-App
               </p>
