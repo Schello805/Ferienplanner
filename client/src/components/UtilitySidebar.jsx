@@ -1180,7 +1180,6 @@ const GeneralSettingsPanel = ({
     shareMode,
     onToggleShareMode,
     onCopyShareLink,
-    onLogout,
 }) => {
     const totals = holidayBreakdown.reduce((acc, holiday) => {
         acc.calendarDays += holiday.calendarDays;
@@ -1322,14 +1321,14 @@ const GeneralSettingsPanel = ({
                 <button
                     type="button"
                     onClick={onCopyShareLink}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 md:hidden"
                 >
                     Ansichtslink kopieren
                 </button>
                 <button
                     type="button"
                     onClick={onToggleShareMode}
-                    className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${shareMode ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100 dark:hover:bg-emerald-900/50' : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}`}
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors md:hidden ${shareMode ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100 dark:hover:bg-emerald-900/50' : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}`}
                 >
                     {shareMode ? 'Freigabe beenden' : 'Freigabe starten'}
                 </button>
@@ -1341,13 +1340,6 @@ const GeneralSettingsPanel = ({
                     Drucken
                 </button>
             </div>
-            <button
-                type="button"
-                onClick={onLogout}
-                className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900 transition-colors hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100 dark:hover:bg-rose-950/50"
-            >
-                Abmelden
-            </button>
         </SidebarSection>
 
         <UserManagementPanel currentUser={currentUser} />
@@ -1386,7 +1378,7 @@ const SharePanel = ({ currentCalendar, onCopyShareLink, onEnterShareMode }) => (
     </div>
 );
 
-const ProfilePanel = ({ currentUser }) => {
+const ProfilePanel = ({ currentUser, onLogout }) => {
     const [newEmail, setNewEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
     const [saving, setSaving] = React.useState(false);
@@ -1468,6 +1460,16 @@ const ProfilePanel = ({ currentUser }) => {
             </SidebarSection>
 
             <PasswordPanel />
+
+            <SidebarSection title="Sitzung" subtitle="Dein Konto verwalten.">
+                <button
+                    type="button"
+                    onClick={onLogout}
+                    className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900 transition-colors hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100 dark:hover:bg-rose-950/50"
+                >
+                    Abmelden
+                </button>
+            </SidebarSection>
         </div>
     );
 };
@@ -1660,7 +1662,6 @@ export const UtilitySidebar = ({
                         shareMode={shareMode}
                         onToggleShareMode={onToggleShareMode}
                         onCopyShareLink={onCopyShareLink}
-                        onLogout={onLogout}
                     />
                 );
             case 'parents':
@@ -1695,7 +1696,7 @@ export const UtilitySidebar = ({
                     />
                 );
             case 'profile':
-                return <ProfilePanel currentUser={currentUser} />;
+                return <ProfilePanel currentUser={currentUser} onLogout={onLogout} />;
             case 'admin':
                 return <AdminToolsPanel currentUser={currentUser} />;
             case 'help':
