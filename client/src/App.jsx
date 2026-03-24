@@ -147,6 +147,8 @@ function App() {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 1024 : false
   );
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   // Theme Effect
   useEffect(() => {
@@ -439,30 +441,11 @@ function App() {
       )
     },
     {
-      id: 'general',
-      label: 'Allgemein',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2.25" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-      )
-    },
-    {
       id: 'legend',
       label: 'Legende',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15" />
-        </svg>
-      )
-    },
-    {
-      id: 'parents',
-      label: 'Eltern',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75a17.93 17.93 0 0 1-7.5-1.632Z" />
         </svg>
       )
     },
@@ -476,18 +459,36 @@ function App() {
       )
     },
     {
-      id: 'help',
-      label: 'Hilfe',
+      id: 'share',
+      label: 'Teilen',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 17.25h.008v.008H12v-.008Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9m0 0-3-3m3 3-3 3M15 4.5h1.125A2.625 2.625 0 0 1 18.75 7.125v9.75A2.625 2.625 0 0 1 16.125 19.5H15m-6 0H7.875A2.625 2.625 0 0 1 5.25 16.875v-9.75A2.625 2.625 0 0 1 7.875 4.5H9" />
+        </svg>
+      )
+    },
+    {
+      id: 'profile',
+      label: 'Profil',
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75a17.93 17.93 0 0 1-7.5-1.632Z" />
+        </svg>
+      )
+    },
+    {
+      id: 'more',
+      label: 'Mehr',
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12h.008v.008H6.75V12Zm5.25 0h.008v.008H12V12Zm5.25 0h.008v.008h-.008V12Z" />
         </svg>
       )
     },
   ];
 
-  const activeMobileNav = !isMobile || !sidebarOpen ? 'calendar' : sidebarTab;
+  const activeMobileNav = !isMobile || !sidebarOpen ? (moreMenuOpen ? 'more' : 'calendar') : sidebarTab;
+  const version = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
 
   const buildShareUrl = () => {
     if (typeof window === 'undefined') return '';
@@ -657,11 +658,22 @@ function App() {
                   type="button"
                   onClick={() => {
                     if (item.id === 'calendar') {
+                      setMoreMenuOpen(false);
+                      setSidebarOpen(false);
+                      return;
+                    }
+                    if (item.id === 'more') {
+                      setSidebarOpen(false);
+                      setMoreMenuOpen((current) => !current);
+                      return;
+                    }
+                    if (sidebarOpen && sidebarTab === item.id) {
                       setSidebarOpen(false);
                       return;
                     }
                     setSidebarTab(item.id);
                     setSidebarOpen(true);
+                    setMoreMenuOpen(false);
                   }}
                   className={`flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1.5 py-2 text-[10px] font-semibold transition-colors ${active ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 dark:text-slate-400'}`}
                 >
@@ -673,6 +685,75 @@ function App() {
           </div>
         </nav>
       )}
+
+      {isMobile && !shareMode && moreMenuOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm"
+            onClick={() => setMoreMenuOpen(false)}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-[60] rounded-t-3xl border-t border-slate-200 bg-white/98 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-14px_40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/98">
+            <div className="mx-auto max-w-xl">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-bold text-slate-900 dark:text-white">Mehr</div>
+                <button
+                  type="button"
+                  onClick={() => setMoreMenuOpen(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  Schließen
+                </button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {[
+                  { id: 'general', label: 'Allgemein' },
+                  { id: 'parents', label: 'Eltern' },
+                  { id: 'help', label: 'Hilfe' },
+                  ...(currentUser?.isAdmin ? [{ id: 'admin', label: 'Admin' }] : []),
+                ].map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => {
+                      setSidebarTab(entry.id);
+                      setSidebarOpen(true);
+                      setMoreMenuOpen(false);
+                    }}
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                  >
+                    {entry.label}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChangelogOpen(true);
+                    setMoreMenuOpen(false);
+                  }}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  Changelog
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-left text-sm font-semibold text-rose-900 transition-colors hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100 dark:hover:bg-rose-950/50"
+                >
+                  Abmelden
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} version={version} />
 
       {!shareMode && <Footer />}
     </div>
