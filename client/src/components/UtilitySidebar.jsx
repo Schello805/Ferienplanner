@@ -1665,7 +1665,7 @@ export const UtilitySidebar = ({
                 <button
                     type="button"
                     onClick={openSidebar}
-                    className="fixed bottom-28 right-3 z-50 rounded-2xl border border-slate-200 bg-white/95 px-4 py-2 text-xs font-semibold text-slate-700 shadow-lg shadow-slate-300/40 backdrop-blur transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/90 dark:text-slate-200 dark:shadow-black/30 dark:hover:bg-slate-900 lg:hidden"
+                    className="fixed bottom-28 right-3 z-30 rounded-2xl border border-slate-200 bg-white/95 px-4 py-2 text-xs font-semibold text-slate-700 shadow-lg shadow-slate-300/40 backdrop-blur transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/90 dark:text-slate-200 dark:shadow-black/30 dark:hover:bg-slate-900 lg:hidden"
                     title="Sidebar öffnen"
                 >
                     Werkzeuge
@@ -1673,14 +1673,14 @@ export const UtilitySidebar = ({
             )}
 
             <div
-                className={`fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm transition-opacity lg:hidden ${isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+                className={`fixed inset-0 z-20 bg-slate-950/45 backdrop-blur-sm transition-opacity lg:hidden ${isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
                 onClick={onClose}
             />
 
             <aside
                 className={`
-                    utility-sidebar fixed z-50 flex flex-col border-slate-200 bg-white/96 shadow-2xl shadow-slate-300/40 transition-transform dark:border-slate-700 dark:bg-slate-950/96 dark:shadow-black/30
-                    ${isMobile ? 'inset-x-0 bottom-0 top-auto h-[85svh] rounded-t-3xl border-t' : 'inset-y-0 right-0 w-[min(94vw,520px)] border-l'}
+                    utility-sidebar fixed z-30 flex flex-col border-slate-200 bg-white/96 shadow-2xl shadow-slate-300/40 transition-transform dark:border-slate-700 dark:bg-slate-950/96 dark:shadow-black/30
+                    ${isMobile ? 'inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] top-auto h-[80svh] rounded-t-3xl border-t' : 'inset-y-0 right-0 w-[min(94vw,520px)] border-l'}
                     ${isOpen ? 'translate-x-0 translate-y-0' : isMobile ? 'translate-y-full' : 'translate-x-full'}
                     lg:static lg:z-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:shadow-xl
                     ${isOpen ? 'lg:w-[480px]' : 'lg:w-[64px]'}
@@ -1749,9 +1749,21 @@ export const UtilitySidebar = ({
                     </nav>
                     )}
 
-                    <div className={`min-h-0 flex-1 overflow-y-auto p-3 overscroll-contain pb-[max(env(safe-area-inset-bottom),0.75rem)] [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden lg:hidden'}`}>
+                    <div className={`min-h-0 flex-1 overflow-y-auto p-3 overscroll-contain pb-4 [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden lg:hidden'}`}>
                         {renderContent()}
                     </div>
+
+                    {isMobile && isOpen && (
+                        <div className="sticky bottom-0 border-t border-slate-200 bg-white/96 px-3 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-950/96">
+                            <button
+                                type="button"
+                                onClick={() => setIsOpen(false)}
+                                className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                            >
+                                Schließen
+                            </button>
+                        </div>
+                    )}
                 </div>
             </aside>
         </>
