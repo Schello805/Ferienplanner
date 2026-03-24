@@ -9,8 +9,8 @@ export const ImprintPage = () => {
           <div className="mt-2 space-y-1">
             <div>Mein Ferienplaner</div>
             <div>Betreiber: Michael Schellenberger</div>
-            <div>Adresse: [Straße, Hausnummer]</div>
-            <div>PLZ Ort: [PLZ Ort]</div>
+            <div>Adresse: Ziegeleistrasse</div>
+            <div>PLZ Ort: 91572 Bechhofen</div>
             <div>Land: Deutschland</div>
           </div>
         </div>
@@ -18,8 +18,7 @@ export const ImprintPage = () => {
         <div>
           <div className="font-extrabold">Kontakt</div>
           <div className="mt-2 space-y-1">
-            <div>E-Mail: [kontakt@mein-ferienplaner.de]</div>
-            <div>Telefon: [optional]</div>
+            <div>E-Mail: info@schellenberger.biz</div>
           </div>
         </div>
 

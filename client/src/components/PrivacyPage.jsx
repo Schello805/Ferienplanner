@@ -13,8 +13,8 @@ export const PrivacyPage = () => {
           <div className="font-extrabold">Verantwortlicher</div>
           <div className="mt-2 space-y-1">
             <div>Michael Schellenberger</div>
-            <div>[Adresse]</div>
-            <div>E-Mail: [kontakt@mein-ferienplaner.de]</div>
+            <div>Ziegeleistrasse, 91572 Bechhofen, Deutschland</div>
+            <div>E-Mail: info@schellenberger.biz</div>
           </div>
         </div>
 
