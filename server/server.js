@@ -1355,6 +1355,7 @@ app.use('/api', (req, res, next) => {
 app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
   const db = openDb();
   try {
+    const nowIso = new Date().toISOString();
     const [
       userCount,
       calendarCount,
@@ -1362,6 +1363,11 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
       childCount,
       freeDayCount,
       entryCount,
+      activeSessionCount,
+      pendingInviteCount,
+      pendingVerificationCount,
+      unverifiedUserCount,
+      smtpUpdatedAtRow,
     ] = await Promise.all([
       dbGet(db, 'SELECT COUNT(*) AS count FROM users'),
       dbGet(db, 'SELECT COUNT(*) AS count FROM calendars'),
@@ -1369,7 +1375,20 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
       dbGet(db, 'SELECT COUNT(*) AS count FROM children'),
       dbGet(db, 'SELECT COUNT(*) AS count FROM child_free_days'),
       dbGet(db, 'SELECT COUNT(*) AS count FROM vacation_entries'),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM sessions WHERE expiresAt > ?', [nowIso]),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM calendar_invitations WHERE expiresAt > ?', [nowIso]),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM email_verifications'),
+      dbGet(db, 'SELECT COUNT(*) AS count FROM users WHERE emailVerified = 0'),
+      dbGet(db, 'SELECT updatedAt FROM smtp_settings WHERE id = 1'),
     ]);
+
+    let smtpConfigured = false;
+    try {
+      const effective = await getEffectiveSmtpSettings();
+      smtpConfigured = Boolean(effective);
+    } catch {
+      smtpConfigured = false;
+    }
 
     let dbSizeBytes = null;
     try {
@@ -1385,9 +1404,15 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
       children: Number(childCount?.count || 0),
       childFreeDays: Number(freeDayCount?.count || 0),
       vacationEntries: Number(entryCount?.count || 0),
+      activeSessions: Number(activeSessionCount?.count || 0),
+      pendingInvites: Number(pendingInviteCount?.count || 0),
+      pendingEmailVerifications: Number(pendingVerificationCount?.count || 0),
+      unverifiedUsers: Number(unverifiedUserCount?.count || 0),
       dbSizeBytes,
       uptimeSeconds: Math.floor(process.uptime()),
       serverVersion: process.env.npm_package_version || null,
+      smtpConfigured,
+      smtpUpdatedAt: smtpUpdatedAtRow?.updatedAt || null,
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });

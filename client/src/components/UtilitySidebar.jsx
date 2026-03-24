@@ -150,6 +150,10 @@ const AdminToolsPanel = ({ currentUser }) => {
                             ['Kinder', stats.children],
                             ['Freie Tage', stats.childFreeDays],
                             ['Einträge', stats.vacationEntries],
+                            ['Sessions', stats.activeSessions],
+                            ['Einladungen', stats.pendingInvites],
+                            ['E-Mail offen', stats.pendingEmailVerifications],
+                            ['User unverifiziert', stats.unverifiedUsers],
                         ].map(([label, value]) => (
                             <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
                                 <div className="font-semibold">{label}</div>
@@ -165,6 +169,19 @@ const AdminToolsPanel = ({ currentUser }) => {
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
                             <div className="font-semibold">Uptime</div>
                             <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">{stats.uptimeSeconds}s</div>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                            <div className="font-semibold">Server</div>
+                            <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">{stats.serverVersion || '–'}</div>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                            <div className="font-semibold">SMTP</div>
+                            <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">
+                                {stats.smtpConfigured ? 'konfiguriert' : 'nicht aktiv'}
+                            </div>
+                            {stats.smtpUpdatedAt && (
+                                <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Updated: {stats.smtpUpdatedAt}</div>
+                            )}
                         </div>
                     </div>
                 )}
