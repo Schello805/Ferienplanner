@@ -17,6 +17,12 @@ const formatLocalDateInput = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const normalizeUser = (user) => {
+  if (!user) return null;
+  const isAdmin = Boolean(user.isAdmin ?? user.is_admin ?? user.admin);
+  return { ...user, isAdmin };
+};
+
 const createDefaultRecurringRule = () => ({
   frequency: 'weekly',
   anchorDate: formatLocalDateInput(new Date()),
@@ -223,7 +229,7 @@ function App() {
         throw new Error(data.error || `auth status failed: ${response.status}`);
       }
       setSetupRequired(Boolean(data.setupRequired));
-      setCurrentUser(data.authenticated ? data.user : null);
+      setCurrentUser(data.authenticated ? normalizeUser(data.user) : null);
       setCurrentCalendar(data.authenticated ? data.calendar : null);
     } catch (error) {
       console.error('Failed to load auth status', error);
@@ -399,7 +405,7 @@ function App() {
       }
 
       setStoredAuthToken(data.token);
-      setCurrentUser(data.user);
+      setCurrentUser(normalizeUser(data.user));
       setCurrentCalendar(data.calendar || null);
       setSetupRequired(false);
       toast.success(effectiveMode === 'setup' ? 'Benutzer angelegt' : 'Angemeldet');
@@ -490,6 +496,7 @@ function App() {
 
   const activeMobileNav = !isMobile || !sidebarOpen ? (moreMenuOpen ? 'more' : 'calendar') : sidebarTab;
   const version = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
+  const isAdmin = Boolean(currentUser?.isAdmin ?? currentUser?.is_admin ?? currentUser?.admin);
 
   const buildShareUrl = () => {
     if (typeof window === 'undefined') return '';
@@ -713,7 +720,7 @@ function App() {
                   { id: 'general', label: 'Allgemein' },
                   { id: 'parents', label: 'Eltern' },
                   { id: 'help', label: 'Hilfe' },
-                  ...(currentUser?.isAdmin ? [{ id: 'admin', label: 'Admin' }] : []),
+                  ...(isAdmin ? [{ id: 'admin', label: 'Admin' }] : []),
                 ].map((entry) => (
                   <button
                     key={entry.id}

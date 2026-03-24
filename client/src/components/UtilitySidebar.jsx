@@ -30,11 +30,11 @@ const AdminToolsPanel = ({ currentUser }) => {
     const [smtpSaving, setSmtpSaving] = React.useState(false);
 
     const loadAdminData = React.useCallback(async () => {
-        if (!currentUser?.isAdmin) return;
+        if (!isUserAdmin(currentUser)) return;
         try {
             const [statsRes, logsRes] = await Promise.all([
                 authFetch('/api/admin/stats'),
-                authFetch('/api/admin/logs'),
+                authFetch('/api/admin/logs?limit=50'),
             ]);
 
             const statsData = await statsRes.json();
@@ -52,7 +52,7 @@ const AdminToolsPanel = ({ currentUser }) => {
     }, [currentUser]);
 
     const loadSmtpSettings = React.useCallback(async () => {
-        if (!currentUser?.isAdmin) return;
+        if (!isUserAdmin(currentUser)) return;
         try {
             const response = await authFetch('/api/admin/smtp');
             const data = await response.json();
@@ -82,7 +82,7 @@ const AdminToolsPanel = ({ currentUser }) => {
         loadSmtpSettings();
     }, [loadAdminData, loadSmtpSettings]);
 
-    if (!currentUser?.isAdmin) {
+    if (!isUserAdmin(currentUser)) {
         return null;
     }
 
@@ -456,6 +456,8 @@ const CHILD_TYPE_OPTIONS = [
     { value: 'kita', label: 'Kita' },
     { value: 'other', label: 'Sonstiges' },
 ];
+
+const isUserAdmin = (user) => Boolean(user?.isAdmin ?? user?.is_admin ?? user?.admin);
 
 const TABS = [
     {
@@ -1069,7 +1071,7 @@ const UserManagementPanel = ({ currentUser }) => {
     const [draft, setDraft] = React.useState({ username: '', password: '', isAdmin: false });
 
     const loadUsers = React.useCallback(async () => {
-        if (!currentUser?.isAdmin) return;
+        if (!isUserAdmin(currentUser)) return;
         try {
             const response = await authFetch('/api/users');
             const data = await response.json();
@@ -1085,7 +1087,7 @@ const UserManagementPanel = ({ currentUser }) => {
         loadUsers();
     }, [loadUsers]);
 
-    if (!currentUser?.isAdmin) {
+    if (!isUserAdmin(currentUser)) {
         return null;
     }
 
@@ -1633,7 +1635,8 @@ export const UtilitySidebar = ({
     onToggleShareMode,
     onLogout,
 }) => {
-    const tabs = currentUser?.isAdmin ? TABS : TABS.filter((tab) => tab.id !== 'admin');
+    const isAdmin = isUserAdmin(currentUser);
+    const tabs = isAdmin ? TABS : TABS.filter((tab) => tab.id !== 'admin');
     const activeLabel = tabs.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
 
     const renderContent = () => {
