@@ -250,7 +250,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                     type="button"
                     onClick={exportDiagnostics}
                     disabled={diagnosticsExporting}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                    className="w-full max-w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
                 >
                     {diagnosticsExporting ? 'Exportiere…' : 'Diagnostics exportieren'}
                 </button>
@@ -258,13 +258,13 @@ const AdminToolsPanel = ({ currentUser }) => {
 
             <SidebarSection title="Datenbank" subtitle="Read-only Ansicht (Admin).">
                 <div className="space-y-3">
-                    <div className="grid gap-2 sm:grid-cols-3">
-                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    <div className="grid gap-2 md:grid-cols-3">
+                        <label className="grid min-w-0 gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
                             Tabelle
                             <select
                                 value={browseResource}
                                 onChange={(event) => setBrowseResource(event.target.value)}
-                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="users">users</option>
                                 <option value="calendars">calendars</option>
@@ -272,25 +272,25 @@ const AdminToolsPanel = ({ currentUser }) => {
                             </select>
                         </label>
 
-                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300 sm:col-span-2">
+                        <label className="grid min-w-0 gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300 md:col-span-2">
                             Suche (id/Name/Datum)
                             <input
                                 type="text"
                                 value={browseQuery}
                                 onChange={(event) => setBrowseQuery(event.target.value)}
-                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                                 placeholder="z.B. 1 oder max oder 2026-08"
                             />
                         </label>
                     </div>
 
-                    <div className="grid gap-2 sm:grid-cols-3">
-                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    <div className="grid gap-2 md:grid-cols-3">
+                        <label className="grid min-w-0 gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
                             Limit
                             <select
                                 value={browseLimit}
                                 onChange={(event) => setBrowseLimit(Number(event.target.value))}
-                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value={25}>25</option>
                                 <option value={50}>50</option>
@@ -299,7 +299,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                             </select>
                         </label>
 
-                        <div className="sm:col-span-2">
+                        <div className="md:col-span-2">
                             <button
                                 type="button"
                                 onClick={loadBrowseRows}
@@ -329,7 +329,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                                         browseRows.map((row, idx) => (
                                             <tr key={idx} className={idx % 2 === 0 ? 'bg-slate-50/60 dark:bg-slate-900/40' : ''}>
                                                 <td className="px-3 py-2">
-                                                    <pre className="whitespace-pre-wrap break-words text-[11px] leading-snug text-slate-800 dark:text-slate-100">{JSON.stringify(row, null, 2)}</pre>
+                                                    <pre className="max-w-full whitespace-pre-wrap break-words text-[11px] leading-snug text-slate-800 dark:text-slate-100">{JSON.stringify(row, null, 2)}</pre>
                                                 </td>
                                             </tr>
                                         ))
