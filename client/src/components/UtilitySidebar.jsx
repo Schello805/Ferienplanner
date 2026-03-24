@@ -1721,10 +1721,12 @@ export const UtilitySidebar = ({
                     ${isOpen ? 'lg:w-[480px]' : 'lg:w-[64px]'}
                 `}
             >
-                <div className="flex items-center justify-between border-b border-slate-200 px-3 py-3 dark:border-slate-700">
+                <div className={`flex items-center justify-between border-b border-slate-200 px-3 dark:border-slate-700 ${isMobile ? 'py-2' : 'py-3'}`}>
                     <div className={`overflow-hidden transition-all ${isOpen ? 'w-auto opacity-100' : 'w-0 opacity-0 lg:hidden'}`}>
-                        <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Utility Sidebar</div>
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">{activeLabel}</div>
+                        {!isMobile && (
+                            <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Utility Sidebar</div>
+                        )}
+                        <div className={`font-bold text-slate-800 dark:text-white ${isMobile ? 'text-base' : 'text-sm'}`}>{activeLabel}</div>
                     </div>
                     {!isMobile && (
                         <button
