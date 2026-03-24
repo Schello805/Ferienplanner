@@ -1352,11 +1352,57 @@ const GeneralSettingsPanel = ({
     onToggleShareMode,
     onCopyShareLink,
 }) => {
+    const [slugDraft, setSlugDraft] = React.useState('');
+    const [slugSaving, setSlugSaving] = React.useState(false);
+
+    React.useEffect(() => {
+        if (currentCalendar?.slug) {
+            setSlugDraft(String(currentCalendar.slug));
+        }
+    }, [currentCalendar?.slug]);
+
     const totals = holidayBreakdown.reduce((acc, holiday) => {
         acc.calendarDays += holiday.calendarDays;
         acc.netDays += holiday.netDays;
         return acc;
     }, { calendarDays: 0, netDays: 0 });
+
+    const calendarUrl = React.useMemo(() => {
+        if (typeof window === 'undefined') return '';
+        const slug = currentCalendar?.slug;
+        if (!slug) return '';
+        return `${window.location.origin}/k/${slug}`;
+    }, [currentCalendar?.slug]);
+
+    const copyCalendarUrl = async () => {
+        if (!calendarUrl) return;
+        try {
+            await navigator.clipboard.writeText(calendarUrl);
+            toast.success('Kalender-URL kopiert');
+        } catch (error) {
+            console.error(error);
+            toast.error('Kalender-URL konnte nicht kopiert werden');
+        }
+    };
+
+    const saveSlug = async () => {
+        setSlugSaving(true);
+        try {
+            const response = await authFetch('/api/calendar/slug', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug: slugDraft }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Slug konnte nicht gespeichert werden');
+            toast.success('Kalender-URL gespeichert');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Slug konnte nicht gespeichert werden');
+        } finally {
+            setSlugSaving(false);
+        }
+    };
 
     return (
     <div className="space-y-4">
@@ -1367,6 +1413,45 @@ const GeneralSettingsPanel = ({
                     Angemeldet als <strong>{currentUser?.username || 'Unbekannt'}</strong>. Kinder, freie Tage, Urlaube und Regeln werden in diesem Kalender gespeichert.
                 </div>
             </div>
+            {currentCalendar?.role === 'owner' && (
+                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+                    <div className="font-semibold">Kalender-URL</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Wähle einen eindeutigen Slug (klein, mit Bindestrichen). Beispiel: <span className="font-mono">familie-mueller</span>
+                    </div>
+                    <div className="mt-3 grid gap-2 md:grid-cols-3">
+                        <input
+                            type="text"
+                            value={slugDraft}
+                            onChange={(event) => setSlugDraft(event.target.value)}
+                            className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                            placeholder="familie-mueller"
+                            autoComplete="off"
+                        />
+                        <button
+                            type="button"
+                            onClick={saveSlug}
+                            disabled={slugSaving}
+                            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-900 px-3 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                        >
+                            {slugSaving ? 'Speichere…' : 'Speichern'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={copyCalendarUrl}
+                            disabled={!calendarUrl}
+                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                        >
+                            Link kopieren
+                        </button>
+                    </div>
+                    {calendarUrl && (
+                        <div className="mt-2 break-all rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                            {calendarUrl}
+                        </div>
+                    )}
+                </div>
+            )}
             <div className="grid gap-2 sm:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
                     <div className="font-semibold">Kinder</div>

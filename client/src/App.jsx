@@ -23,6 +23,8 @@ const normalizeUser = (user) => {
   return { ...user, isAdmin };
 };
 
+const CALENDAR_SLUG_STORAGE_KEY = 'ferienplanerTargetSlug';
+
 const createDefaultRecurringRule = () => ({
   frequency: 'weekly',
   anchorDate: formatLocalDateInput(new Date()),
@@ -231,6 +233,13 @@ function App() {
       setSetupRequired(Boolean(data.setupRequired));
       setCurrentUser(data.authenticated ? normalizeUser(data.user) : null);
       setCurrentCalendar(data.authenticated ? data.calendar : null);
+      if (typeof window !== 'undefined' && data.authenticated && data.calendar?.slug) {
+        try {
+          localStorage.setItem(CALENDAR_SLUG_STORAGE_KEY, String(data.calendar.slug));
+        } catch {
+          // ignore storage errors
+        }
+      }
     } catch (error) {
       console.error('Failed to load auth status', error);
       clearStoredAuthToken();

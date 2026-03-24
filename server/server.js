@@ -492,10 +492,21 @@ async function initializeDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         ownerUserId INTEGER NOT NULL,
+        slug TEXT,
         createdAt TEXT,
         updatedAt TEXT,
         FOREIGN KEY (ownerUserId) REFERENCES users(id) ON DELETE CASCADE
       )`
+    );
+
+    const calendarColumns = await dbAll(db, 'PRAGMA table_info(calendars)');
+    const calendarColumnNames = new Set(calendarColumns.map((row) => row.name));
+    if (!calendarColumnNames.has('slug')) {
+      await dbRun(db, 'ALTER TABLE calendars ADD COLUMN slug TEXT');
+    }
+    await dbRun(
+      db,
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_calendars_slug_nocase ON calendars(lower(slug)) WHERE slug IS NOT NULL AND slug != ''"
     );
 
     await dbRun(
@@ -963,7 +974,7 @@ async function ensureUserCalendarContext(userId) {
   try {
     let membership = await dbGet(
       db,
-      `SELECT calendars.id, calendars.name, calendar_memberships.role
+      `SELECT calendars.id, calendars.name, calendars.slug, calendar_memberships.role
        FROM calendar_memberships
        JOIN calendars ON calendars.id = calendar_memberships.calendarId
        WHERE calendar_memberships.userId = ?
@@ -1018,8 +1029,40 @@ async function ensureUserCalendarContext(userId) {
     return {
       id: membership.id,
       name: membership.name,
+      slug: membership.slug || null,
       role: membership.role || 'owner',
     };
+  } finally {
+    db.close();
+  }
+}
+
+function normalizeCalendarSlug(input) {
+  const raw = String(input || '').trim().toLowerCase();
+  const cleaned = raw
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return cleaned;
+}
+
+async function getCalendarContextBySlug(userId, slugRaw) {
+  const slug = normalizeCalendarSlug(slugRaw);
+  if (!slug) return null;
+
+  const db = openDb();
+  try {
+    const row = await dbGet(
+      db,
+      `SELECT calendars.id, calendars.name, calendars.slug, calendar_memberships.role
+       FROM calendars
+       JOIN calendar_memberships ON calendar_memberships.calendarId = calendars.id
+       WHERE calendar_memberships.userId = ? AND lower(calendars.slug) = lower(?)
+       LIMIT 1`,
+      [userId, slug]
+    );
+    if (!row) return null;
+    return { id: row.id, name: row.name, slug: row.slug || null, role: row.role || 'viewer' };
   } finally {
     db.close();
   }
@@ -1103,7 +1146,7 @@ async function getAuthState(req) {
         emailVerified: Boolean(row.emailVerified),
         isAdmin: Boolean(row.isAdmin),
       },
-      calendar: await ensureUserCalendarContext(row.id),
+      calendar: (await getCalendarContextBySlug(row.id, req.get('X-Calendar-Slug'))) || (await ensureUserCalendarContext(row.id)),
     };
   } finally {
     db.close();
@@ -1408,6 +1451,56 @@ app.use('/api', (req, res, next) => {
     return next();
   }
   return requireAuth(req, res, next);
+});
+
+app.get('/api/calendar/slug', (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  if (!calendarId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+  return res.json({ slug: req.auth?.calendar?.slug || null });
+});
+
+app.post('/api/calendar/slug', requireCalendarRole('owner'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  const userId = req.auth?.user?.id;
+  if (!calendarId || !userId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+
+  const requestedSlug = normalizeCalendarSlug(req.body?.slug || '');
+  if (!requestedSlug || requestedSlug.length < 3) {
+    return res.status(400).json({ error: 'Slug must be at least 3 characters (a-z, 0-9, -)' });
+  }
+  if (requestedSlug.length > 48) {
+    return res.status(400).json({ error: 'Slug is too long (max 48)' });
+  }
+
+  const db = openDb();
+  try {
+    const existing = await dbGet(
+      db,
+      'SELECT id FROM calendars WHERE lower(slug) = lower(?) AND id != ? LIMIT 1',
+      [requestedSlug, calendarId]
+    );
+    if (existing) {
+      return res.status(409).json({ error: 'Slug already taken' });
+    }
+
+    const now = new Date().toISOString();
+    await dbRun(
+      db,
+      'UPDATE calendars SET slug = ?, updatedAt = ? WHERE id = ?',
+      [requestedSlug, now, calendarId]
+    );
+
+    const calendar = await ensureUserCalendarContext(userId);
+    return res.json({ success: true, calendar });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
 });
 
 app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {

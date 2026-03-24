@@ -1,5 +1,6 @@
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 const AUTH_TOKEN_KEY = 'ferienplanerAuthToken';
+const CALENDAR_SLUG_KEY = 'ferienplanerTargetSlug';
 
 export const getApiUrl = () => API_URL;
 
@@ -22,11 +23,21 @@ export const clearStoredAuthToken = () => {
   localStorage.removeItem(AUTH_TOKEN_KEY);
 };
 
+export const getStoredCalendarSlug = () => {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(CALENDAR_SLUG_KEY) || '';
+};
+
 export const authFetch = async (path, init = {}) => {
   const token = getStoredAuthToken();
   const headers = new Headers(init.headers || {});
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const calendarSlug = getStoredCalendarSlug();
+  if (calendarSlug) {
+    headers.set('X-Calendar-Slug', calendarSlug);
   }
 
   const response = await fetch(`${API_URL}${path}`, {
