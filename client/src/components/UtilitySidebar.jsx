@@ -1726,14 +1726,16 @@ export const UtilitySidebar = ({
                         <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Utility Sidebar</div>
                         <div className="text-sm font-bold text-slate-800 dark:text-white">{activeLabel}</div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => setIsOpen(!isOpen)}
-                        className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                        title={isOpen ? 'Sidebar einklappen' : 'Sidebar ausklappen'}
-                    >
-                        {isMobile ? (isOpen ? '↓' : '↑') : (isOpen ? '→' : '←')}
-                    </button>
+                    {!isMobile && (
+                        <button
+                            type="button"
+                            onClick={() => setIsOpen(!isOpen)}
+                            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                            title={isOpen ? 'Sidebar einklappen' : 'Sidebar ausklappen'}
+                        >
+                            {isOpen ? '→' : '←'}
+                        </button>
+                    )}
                 </div>
 
                 <div className={`flex min-h-0 flex-1 ${isMobile ? 'flex-col' : ''}`}>
