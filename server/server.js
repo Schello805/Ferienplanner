@@ -845,11 +845,69 @@ async function sendVerificationEmail({ req, to, token }) {
     auth: { user: smtp.user, pass: smtp.pass },
   });
 
+  const appName = 'Mein Ferienplaner';
+  const previewText = 'Bitte bestätige deine E-Mail-Adresse.';
+  const html = `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${appName}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#0b1220;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${previewText}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1220;padding:24px 12px">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0f172a;border:1px solid rgba(148,163,184,0.2);border-radius:16px;overflow:hidden">
+            <tr>
+              <td style="padding:20px 20px 8px 20px;color:#e2e8f0">
+                <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em">${appName}</div>
+                <div style="margin-top:6px;font-size:13px;color:rgba(226,232,240,0.75)">E-Mail bestätigen</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 20px 20px 20px;color:#e2e8f0">
+                <div style="font-size:14px;line-height:1.5;color:rgba(226,232,240,0.92)">
+                  Bitte bestätige deine E-Mail-Adresse, damit dein Konto aktiviert bleibt.
+                </div>
+                <div style="height:16px"></div>
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="center" bgcolor="#38bdf8" style="border-radius:12px">
+                      <a href="${verifyUrl}" style="display:inline-block;padding:12px 16px;font-weight:800;font-size:14px;color:#0b1220;text-decoration:none">
+                        E-Mail bestätigen
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <div style="height:16px"></div>
+                <div style="font-size:12px;line-height:1.5;color:rgba(226,232,240,0.7)">
+                  Falls der Button nicht funktioniert, öffne diesen Link:
+                  <div style="margin-top:8px;word-break:break-all">
+                    <a href="${verifyUrl}" style="color:#93c5fd;text-decoration:underline">${verifyUrl}</a>
+                  </div>
+                </div>
+                <div style="height:16px"></div>
+                <div style="font-size:12px;color:rgba(226,232,240,0.6)">Der Link ist 24 Stunden gültig.</div>
+              </td>
+            </tr>
+          </table>
+          <div style="max-width:560px;margin-top:10px;color:rgba(226,232,240,0.45);font-size:11px;line-height:1.4">
+            Du erhältst diese E-Mail, weil du eine Adresse für ${appName} bestätigt hast.
+          </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
   await transport.sendMail({
     from: smtp.fromAddress,
     to,
-    subject: 'Ferienplaner: E-Mail bestätigen',
+    subject: 'Mein Ferienplaner: E-Mail bestätigen',
     text: `Bitte bestätige deine E-Mail-Adresse über diesen Link:\n\n${verifyUrl}\n\nDer Link ist 24 Stunden gültig.`,
+    html,
   });
 }
 
