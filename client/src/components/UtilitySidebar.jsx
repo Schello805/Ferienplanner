@@ -1177,8 +1177,6 @@ const GeneralSettingsPanel = ({
     totalNetHolidays,
     holidayBreakdown,
     children,
-    darkMode,
-    setDarkMode,
     shareMode,
     onToggleShareMode,
     onCopyShareLink,
@@ -1341,13 +1339,6 @@ const GeneralSettingsPanel = ({
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
                 >
                     Drucken
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setDarkMode(!darkMode)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-                >
-                    {darkMode ? 'Licht an' : 'Licht aus'}
                 </button>
             </div>
             <button
@@ -1629,8 +1620,6 @@ export const UtilitySidebar = ({
     setP2RecurringRules,
     onCopyShareLink,
     onEnterShareMode,
-    darkMode,
-    setDarkMode,
     shareMode,
     onToggleShareMode,
     onLogout,
@@ -1668,8 +1657,6 @@ export const UtilitySidebar = ({
                         totalNetHolidays={totalNetHolidays}
                         holidayBreakdown={holidayBreakdown}
                         children={children}
-                        darkMode={darkMode}
-                        setDarkMode={setDarkMode}
                         shareMode={shareMode}
                         onToggleShareMode={onToggleShareMode}
                         onCopyShareLink={onCopyShareLink}
