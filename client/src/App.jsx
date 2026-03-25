@@ -255,6 +255,40 @@ function App() {
     refreshAuthStatus();
   }, [refreshAuthStatus]);
 
+  const loadFamilyData = useCallback(async () => {
+    try {
+      const [childrenRes, freeDaysRes] = await Promise.all([
+        authFetch('/api/children'),
+        authFetch('/api/child-free-days'),
+      ]);
+
+      if (childrenRes.status === 401 || freeDaysRes.status === 401) {
+        clearStoredAuthToken();
+        setCurrentUser(null);
+        await refreshAuthStatus();
+        return;
+      }
+
+      if (!childrenRes.ok) {
+        throw new Error(`children request failed: ${childrenRes.status}`);
+      }
+      if (!freeDaysRes.ok) {
+        throw new Error(`child-free-days request failed: ${freeDaysRes.status}`);
+      }
+
+      const [childrenData, freeDaysData] = await Promise.all([
+        childrenRes.json(),
+        freeDaysRes.json(),
+      ]);
+
+      setChildren(childrenData);
+      setChildFreeDays(freeDaysData);
+    } catch (error) {
+      console.error('Failed to load family data', error);
+      toast.error('Kinderdaten konnten nicht geladen werden');
+    }
+  }, [refreshAuthStatus]);
+
   const applyingSetupDraftRef = useRef(false);
 
   const applySetupDraftIfPresent = useCallback(async () => {
@@ -370,40 +404,6 @@ function App() {
 
     window.addEventListener('ferienplaner:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('ferienplaner:unauthorized', handleUnauthorized);
-  }, [refreshAuthStatus]);
-
-  const loadFamilyData = useCallback(async () => {
-    try {
-      const [childrenRes, freeDaysRes] = await Promise.all([
-        authFetch('/api/children'),
-        authFetch('/api/child-free-days'),
-      ]);
-
-      if (childrenRes.status === 401 || freeDaysRes.status === 401) {
-        clearStoredAuthToken();
-        setCurrentUser(null);
-        await refreshAuthStatus();
-        return;
-      }
-
-      if (!childrenRes.ok) {
-        throw new Error(`children request failed: ${childrenRes.status}`);
-      }
-      if (!freeDaysRes.ok) {
-        throw new Error(`child-free-days request failed: ${freeDaysRes.status}`);
-      }
-
-      const [childrenData, freeDaysData] = await Promise.all([
-        childrenRes.json(),
-        freeDaysRes.json(),
-      ]);
-
-      setChildren(childrenData);
-      setChildFreeDays(freeDaysData);
-    } catch (error) {
-      console.error('Failed to load family data', error);
-      toast.error('Kinderdaten konnten nicht geladen werden');
-    }
   }, [refreshAuthStatus]);
 
   useEffect(() => {
