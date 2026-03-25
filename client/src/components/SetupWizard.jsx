@@ -6,6 +6,15 @@ const DRAFT_KEY = 'ferienplanerSetupDraft';
 
 const CHILD_COLOR_PALETTE = ['#f97316', '#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#eab308', '#06b6d4', '#f472b6'];
 
+const normalizeCalendarSlug = (input) => {
+  const raw = String(input || '').trim().toLowerCase();
+  const cleaned = raw
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return cleaned;
+};
+
 const StepPill = ({ active, done, label }) => {
   const base = 'rounded-full px-3 py-1 text-[11px] font-bold transition-colors';
   if (active) return <div className={`${base} bg-sky-500 text-slate-950`}>{label}</div>;
@@ -22,6 +31,8 @@ export const SetupWizard = () => {
     if (typeof window === 'undefined') return 'BY';
     return localStorage.getItem('stateCode') || 'BY';
   });
+
+  const [calendarSlug, setCalendarSlug] = React.useState('');
 
   const [p1Color, setP1Color] = React.useState(() => (typeof window !== 'undefined' ? localStorage.getItem('p1Color') : '') || '#22c55e');
   const [p2Color, setP2Color] = React.useState(() => (typeof window !== 'undefined' ? localStorage.getItem('p2Color') : '') || '#3b82f6');
@@ -47,6 +58,7 @@ export const SetupWizard = () => {
     try {
       const draft = JSON.parse(raw);
       if (draft?.stateCode) setStateCode(String(draft.stateCode));
+      if (typeof draft?.calendarSlug === 'string') setCalendarSlug(String(draft.calendarSlug));
       if (draft?.colors?.p1Color) setP1Color(String(draft.colors.p1Color));
       if (draft?.colors?.p2Color) setP2Color(String(draft.colors.p2Color));
       if (draft?.colors?.careColor) setCareColor(String(draft.colors.careColor));
@@ -211,6 +223,7 @@ export const SetupWizard = () => {
     if (typeof window !== 'undefined') {
       const payload = {
         stateCode,
+        calendarSlug,
         colors: { p1Color, p2Color, careColor },
         children,
       };
@@ -281,6 +294,27 @@ export const SetupWizard = () => {
                   ))}
                 </select>
               </label>
+
+              <div className="pt-2">
+                <div className="text-base font-extrabold">Name für den Kalender (optional)</div>
+                <label className="mt-3 grid gap-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Name für den Kalender
+                  <input
+                    type="text"
+                    value={calendarSlug}
+                    onChange={(e) => setCalendarSlug(e.target.value)}
+                    className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    placeholder="z.B. familie-mueller"
+                  />
+                </label>
+                <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  Hinweis: Dieser Name wird für deinen Familien-Link verwendet, damit ihr später schneller wieder einsteigen könnt.
+                </div>
+                <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                  Vorschau: <span className="font-mono">/k/{normalizeCalendarSlug(calendarSlug) || 'dein-name'}</span>
+                </div>
+              </div>
+
               <div className="text-xs text-slate-500 dark:text-slate-400">
                 Das Bundesland steuert Ferien- und Feiertagsdaten.
               </div>

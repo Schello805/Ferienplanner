@@ -320,6 +320,25 @@ function App() {
       if (draft.colors?.p2Color) setP2Color(String(draft.colors.p2Color));
       if (draft.colors?.careColor) setCareColor(String(draft.colors.careColor));
 
+      if (typeof draft?.calendarSlug === 'string') {
+        const slugRaw = String(draft.calendarSlug).trim();
+        if (slugRaw) {
+          try {
+            const response = await authFetch('/api/calendar/slug', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ slug: slugRaw }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              toast.warning(data.error || 'Kalender-Name konnte nicht übernommen werden');
+            }
+          } catch (error) {
+            toast.warning(error?.message || 'Kalender-Name konnte nicht übernommen werden');
+          }
+        }
+      }
+
       const draftChildrenRaw = Array.isArray(draft?.children)
         ? draft.children
         : draft?.child
