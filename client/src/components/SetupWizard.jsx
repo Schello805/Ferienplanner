@@ -4,6 +4,8 @@ import { GERMAN_STATES } from '../constants/germanStates';
 
 const DRAFT_KEY = 'ferienplanerSetupDraft';
 
+const CHILD_COLOR_PALETTE = ['#f97316', '#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#eab308', '#06b6d4', '#f472b6'];
+
 const StepPill = ({ active, done, label }) => {
   const base = 'rounded-full px-3 py-1 text-[11px] font-bold transition-colors';
   if (active) return <div className={`${base} bg-sky-500 text-slate-950`}>{label}</div>;
@@ -30,6 +32,11 @@ export const SetupWizard = () => {
   const [childType, setChildType] = React.useState('school');
   const [childColor, setChildColor] = React.useState('#f97316');
   const [usesSchoolHolidays, setUsesSchoolHolidays] = React.useState(true);
+
+  const [editingChildIndex, setEditingChildIndex] = React.useState(null);
+  const [childNameError, setChildNameError] = React.useState('');
+
+  const [draftSavedAt, setDraftSavedAt] = React.useState(null);
 
   const [error, setError] = React.useState('');
 
@@ -70,6 +77,25 @@ export const SetupWizard = () => {
     }
   }, []);
 
+  const getSuggestedChildColor = React.useCallback(
+    (existingChildren) => {
+      const used = new Set(
+        (existingChildren || [])
+          .filter((c) => c && typeof c === 'object')
+          .map((c) => String(c.color || '').toLowerCase())
+      );
+      const next = CHILD_COLOR_PALETTE.find((c) => !used.has(c.toLowerCase()));
+      return next || CHILD_COLOR_PALETTE[existingChildren.length % CHILD_COLOR_PALETTE.length] || '#f97316';
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (editingChildIndex !== null) return;
+    if (childName.trim()) return;
+    setChildColor((prev) => prev || getSuggestedChildColor(children));
+  }, [children, childName, editingChildIndex, getSuggestedChildColor]);
+
   const steps = [
     { id: 'state', label: 'Bundesland' },
     { id: 'colors', label: 'Farben' },
@@ -90,10 +116,10 @@ export const SetupWizard = () => {
   const addChild = () => {
     const name = childName.trim();
     if (!name) {
-      setError('Bitte einen Namen eingeben.');
+      setChildNameError('Bitte einen Namen eingeben.');
       return;
     }
-
+    setChildNameError('');
     setError('');
     setChildren((prev) => [
       ...prev,
@@ -106,12 +132,72 @@ export const SetupWizard = () => {
     ]);
     setChildName('');
     setChildType('school');
-    setChildColor('#f97316');
+    setChildColor(getSuggestedChildColor(children.concat([{ name, type: childType, color: childColor, usesSchoolHolidays }])));
     setUsesSchoolHolidays(true);
+    setDraftSavedAt(new Date());
   };
 
   const removeChild = (idx) => {
     setChildren((prev) => prev.filter((_, i) => i !== idx));
+    if (editingChildIndex === idx) {
+      setEditingChildIndex(null);
+      setChildName('');
+      setChildType('school');
+      setChildColor(getSuggestedChildColor(children.filter((_, i) => i !== idx)));
+      setUsesSchoolHolidays(true);
+    }
+    setDraftSavedAt(new Date());
+  };
+
+  const startEditChild = (idx) => {
+    const c = children[idx];
+    if (!c) return;
+    setEditingChildIndex(idx);
+    setChildName(String(c.name || ''));
+    setChildType(String(c.type || 'school'));
+    setChildColor(String(c.color || '#f97316'));
+    setUsesSchoolHolidays(c.usesSchoolHolidays !== false);
+    setChildNameError('');
+    setError('');
+  };
+
+  const cancelEditChild = () => {
+    setEditingChildIndex(null);
+    setChildName('');
+    setChildType('school');
+    setChildColor(getSuggestedChildColor(children));
+    setUsesSchoolHolidays(true);
+    setChildNameError('');
+  };
+
+  const saveEditedChild = () => {
+    if (editingChildIndex === null) return;
+    const name = childName.trim();
+    if (!name) {
+      setChildNameError('Bitte einen Namen eingeben.');
+      return;
+    }
+    setChildNameError('');
+    setError('');
+    setChildren((prev) =>
+      prev.map((c, idx) =>
+        idx === editingChildIndex
+          ? {
+              ...c,
+              name,
+              type: childType,
+              color: childColor,
+              usesSchoolHolidays,
+            }
+          : c
+      )
+    );
+    setEditingChildIndex(null);
+    setChildName('');
+    setChildType('school');
+    setChildColor(getSuggestedChildColor(children));
+    setUsesSchoolHolidays(true);
+    setDraftSavedAt(new Date());
   };
 
   const saveDraftAndContinue = () => {
@@ -130,6 +216,8 @@ export const SetupWizard = () => {
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
     }
+
+    setDraftSavedAt(new Date());
 
     if (step < steps.length - 1) {
       setStep((s) => s + 1);
@@ -171,6 +259,11 @@ export const SetupWizard = () => {
         </div>
 
         <div className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+          {draftSavedAt && (
+            <div className="mb-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Zwischengespeichert: {draftSavedAt.toLocaleString()}
+            </div>
+          )}
           {step === 0 && (
             <div className="space-y-4">
               <div className="text-base font-extrabold">Bundesland wählen</div>
@@ -234,30 +327,52 @@ export const SetupWizard = () => {
                             <div className="text-[11px] text-slate-500 dark:text-slate-400">{c.type}{c.usesSchoolHolidays ? ' · Schulferien' : ''}</div>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeChild(idx)}
-                          className="shrink-0 rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                          Entfernen
-                        </button>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditChild(idx)}
+                            className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            Bearbeiten
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeChild(idx)}
+                            className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            Entfernen
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Neues Kind hinzufügen</div>
+              <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {editingChildIndex === null ? 'Neues Kind hinzufügen' : 'Kind bearbeiten'}
+              </div>
               <label className="grid gap-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Name
                 <input
                   type="text"
                   value={childName}
-                  onChange={(e) => setChildName(e.target.value)}
-                  className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  onChange={(e) => {
+                    setChildName(e.target.value);
+                    if (childNameError) setChildNameError('');
+                  }}
+                  onBlur={() => {
+                    if (childName.trim()) return;
+                    if (childNameError) return;
+                    if (editingChildIndex !== null) setChildNameError('Bitte einen Namen eingeben.');
+                  }}
+                  className={`h-11 rounded-2xl border bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:bg-slate-900 dark:text-white ${childNameError ? 'border-rose-300 dark:border-rose-900/50' : 'border-slate-200 dark:border-slate-700'}`}
                   placeholder="z.B. Emma"
                 />
               </label>
+              {childNameError && (
+                <div className="-mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{childNameError}</div>
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="grid gap-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
                   Typ
@@ -282,13 +397,32 @@ export const SetupWizard = () => {
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={addChild}
-                  className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-sky-400"
-                >
-                  Kind hinzufügen
-                </button>
+                {editingChildIndex === null ? (
+                  <button
+                    type="button"
+                    onClick={addChild}
+                    className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-sky-400"
+                  >
+                    Kind hinzufügen
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={saveEditedChild}
+                      className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-sky-400"
+                    >
+                      Speichern
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditChild}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                    >
+                      Abbrechen
+                    </button>
+                  </>
+                )}
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
                 Im nächsten Schritt wirst du automatisch zum Login/Setup geführt, falls du noch kein Konto hast.
