@@ -25,6 +25,7 @@ export const SetupWizard = () => {
   const [p2Color, setP2Color] = React.useState(() => (typeof window !== 'undefined' ? localStorage.getItem('p2Color') : '') || '#3b82f6');
   const [careColor, setCareColor] = React.useState(() => (typeof window !== 'undefined' ? localStorage.getItem('careColor') : '') || '#a855f7');
 
+  const [children, setChildren] = React.useState([]);
   const [childName, setChildName] = React.useState('');
   const [childType, setChildType] = React.useState('school');
   const [childColor, setChildColor] = React.useState('#f97316');
@@ -42,10 +43,28 @@ export const SetupWizard = () => {
       if (draft?.colors?.p1Color) setP1Color(String(draft.colors.p1Color));
       if (draft?.colors?.p2Color) setP2Color(String(draft.colors.p2Color));
       if (draft?.colors?.careColor) setCareColor(String(draft.colors.careColor));
-      if (draft?.child?.name) setChildName(String(draft.child.name));
-      if (draft?.child?.type) setChildType(String(draft.child.type));
-      if (draft?.child?.color) setChildColor(String(draft.child.color));
-      if (typeof draft?.child?.usesSchoolHolidays === 'boolean') setUsesSchoolHolidays(Boolean(draft.child.usesSchoolHolidays));
+
+      const draftChildren = Array.isArray(draft?.children)
+        ? draft.children
+        : draft?.child
+          ? [draft.child]
+          : [];
+      const normalized = draftChildren
+        .filter((c) => c && typeof c === 'object')
+        .map((c) => ({
+          name: String(c.name || '').trim(),
+          type: String(c.type || 'school'),
+          color: c.color ? String(c.color) : '#f97316',
+          usesSchoolHolidays: c.usesSchoolHolidays !== false,
+        }))
+        .filter((c) => c.name);
+      if (normalized.length > 0) {
+        setChildren(normalized);
+        setChildName('');
+        setChildType('school');
+        setChildColor('#f97316');
+        setUsesSchoolHolidays(true);
+      }
     } catch {
       // ignore
     }
@@ -54,7 +73,7 @@ export const SetupWizard = () => {
   const steps = [
     { id: 'state', label: 'Bundesland' },
     { id: 'colors', label: 'Farben' },
-    { id: 'child', label: 'Kind' },
+    { id: 'children', label: 'Kinder' },
     { id: 'done', label: 'Fertig' },
   ];
 
@@ -63,9 +82,36 @@ export const SetupWizard = () => {
       if (!stateCode) return 'Bitte ein Bundesland auswählen.';
     }
     if (step === 2) {
-      if (!childName.trim()) return 'Bitte mindestens ein Kind anlegen (Name fehlt).';
+      if (!children.length) return 'Bitte mindestens ein Kind anlegen.';
     }
     return '';
+  };
+
+  const addChild = () => {
+    const name = childName.trim();
+    if (!name) {
+      setError('Bitte einen Namen eingeben.');
+      return;
+    }
+
+    setError('');
+    setChildren((prev) => [
+      ...prev,
+      {
+        name,
+        type: childType,
+        color: childColor,
+        usesSchoolHolidays,
+      },
+    ]);
+    setChildName('');
+    setChildType('school');
+    setChildColor('#f97316');
+    setUsesSchoolHolidays(true);
+  };
+
+  const removeChild = (idx) => {
+    setChildren((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const saveDraftAndContinue = () => {
@@ -80,12 +126,7 @@ export const SetupWizard = () => {
       const payload = {
         stateCode,
         colors: { p1Color, p2Color, careColor },
-        child: {
-          name: childName.trim(),
-          type: childType,
-          color: childColor,
-          usesSchoolHolidays,
-        },
+        children,
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
     }
@@ -178,7 +219,35 @@ export const SetupWizard = () => {
 
           {step === 2 && (
             <div className="space-y-4">
-              <div className="text-base font-extrabold">Kind anlegen</div>
+              <div className="text-base font-extrabold">Kinder anlegen</div>
+
+              {children.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Aktuelle Kinder</div>
+                  <div className="grid gap-2">
+                    {children.map((c, idx) => (
+                      <div key={`${c.name}-${idx}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950/40">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: c.color || '#f97316' }} />
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-slate-800 dark:text-slate-100">{c.name}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">{c.type}{c.usesSchoolHolidays ? ' · Schulferien' : ''}</div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeChild(idx)}
+                          className="shrink-0 rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          Entfernen
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Neues Kind hinzufügen</div>
               <label className="grid gap-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Name
                 <input
@@ -211,6 +280,16 @@ export const SetupWizard = () => {
                   Schulferien nutzen
                 </label>
               </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={addChild}
+                  className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-sky-400"
+                >
+                  Kind hinzufügen
+                </button>
+              </div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
                 Im nächsten Schritt wirst du automatisch zum Login/Setup geführt, falls du noch kein Konto hast.
               </div>
@@ -226,8 +305,10 @@ export const SetupWizard = () => {
                   <div className="mt-1 text-slate-600 dark:text-slate-300">{stateCode}</div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950/40">
-                  <div className="font-semibold">Kind</div>
-                  <div className="mt-1 text-slate-600 dark:text-slate-300">{childName.trim() || '—'}</div>
+                  <div className="font-semibold">Kinder</div>
+                  <div className="mt-1 text-slate-600 dark:text-slate-300">
+                    {children.length ? children.map((c) => c.name).join(', ') : '—'}
+                  </div>
                 </div>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">

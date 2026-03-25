@@ -320,21 +320,55 @@ function App() {
       if (draft.colors?.p2Color) setP2Color(String(draft.colors.p2Color));
       if (draft.colors?.careColor) setCareColor(String(draft.colors.careColor));
 
-      const child = draft.child || null;
-      if (children.length === 0 && child?.name && typeof child.name === 'string' && child.name.trim()) {
-        const response = await authFetch('/api/children', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: child.name.trim(),
-            type: child.type || 'school',
-            color: child.color || null,
-            usesSchoolHolidays: child.usesSchoolHolidays !== false,
-          }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'Onboarding: Kind konnte nicht angelegt werden');
+      const draftChildrenRaw = Array.isArray(draft?.children)
+        ? draft.children
+        : draft?.child
+          ? [draft.child]
+          : [];
+
+      const draftChildren = draftChildrenRaw
+        .filter((c) => c && typeof c === 'object')
+        .map((c) => ({
+          name: String(c.name || '').trim(),
+          type: String(c.type || 'school'),
+          color: c.color ? String(c.color) : null,
+          usesSchoolHolidays: c.usesSchoolHolidays !== false,
+        }))
+        .filter((c) => c.name);
+
+      if (draftChildren.length > 0) {
+        const existingRes = await authFetch('/api/children');
+        const existingData = await existingRes.json();
+        if (!existingRes.ok) {
+          throw new Error(existingData.error || `children request failed: ${existingRes.status}`);
+        }
+        const existing = Array.isArray(existingData) ? existingData : [];
+
+        const existingKeySet = new Set(
+          existing
+            .filter((c) => c && typeof c === 'object')
+            .map((c) => `${String(c.name || '').trim().toLowerCase()}::${String(c.type || 'school')}`)
+        );
+
+        for (const child of draftChildren) {
+          const key = `${child.name.trim().toLowerCase()}::${child.type}`;
+          if (existingKeySet.has(key)) continue;
+
+          const response = await authFetch('/api/children', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: child.name,
+              type: child.type,
+              color: child.color,
+              usesSchoolHolidays: child.usesSchoolHolidays,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Onboarding: Kind konnte nicht angelegt werden');
+          }
+          existingKeySet.add(key);
         }
       }
 
@@ -348,7 +382,7 @@ function App() {
     } finally {
       applyingSetupDraftRef.current = false;
     }
-  }, [children.length, currentUser, loadFamilyData, refreshAuthStatus, setCareColor, setP1Color, setP2Color, setStateCode]);
+  }, [currentUser, loadFamilyData, refreshAuthStatus, setCareColor, setP1Color, setP2Color, setStateCode]);
 
   useEffect(() => {
     const verifyEmail = async () => {
