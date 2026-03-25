@@ -6,6 +6,7 @@
 - Registrierung: Verifikationsmails nutzen gespeicherte SMTP-Konfiguration
 - Passwortregel: Mindestlänge von 10 auf 8 Zeichen reduziert
 - Profil: E-Mail-Adresse ändern mit Bestätigungslink
+- Setup: Hinweis im Einrichtungs-Wizard ergänzt (ohne Kalender-Name wird automatisch ein zufälliger Link erstellt)
 
 ## 0.1.0
 

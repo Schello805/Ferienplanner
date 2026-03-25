@@ -308,7 +308,7 @@ export const SetupWizard = () => {
                   />
                 </label>
                 <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  Hinweis: Dieser Name wird für deinen Familien-Link verwendet, damit ihr später schneller wieder einsteigen könnt.
+                  Hinweis: Dieser Name wird für deinen Familien-Link verwendet, damit ihr später schneller wieder einsteigen könnt. Wenn du nichts angibst, wird automatisch ein zufälliger Link erstellt.
                 </div>
                 <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
                   Vorschau: <span className="font-mono">/k/{normalizeCalendarSlug(calendarSlug) || 'dein-name'}</span>
