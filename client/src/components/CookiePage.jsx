@@ -13,7 +13,7 @@ export const CookiePage = () => {
             </div>
             <div>
               Je nach Server-/Proxy-Konfiguration können technisch notwendige Cookies oder Header zum sicheren Betrieb eingesetzt werden.
-              Wenn du Analytics oder externe Dienste aktivierst, muss dieser Hinweis angepasst werden.
+              Wenn zukünftig Analytics oder externe Dienste aktiviert werden, muss dieser Hinweis angepasst werden.
             </div>
           </div>
         </div>
@@ -23,6 +23,10 @@ export const CookiePage = () => {
           <div className="mt-2 space-y-2">
             <div>
               Im Browser können Einstellungen (z.B. Farben, Bundesland) und ein Login-Token gespeichert werden, damit die App funktioniert.
+            </div>
+            <div>
+              Diese Speicherung ist technisch erforderlich, um dich wiederzuerkennen und die App bedienbar zu halten.
+              Du kannst LocalStorage in deinem Browser jederzeit löschen; danach ist eine erneute Anmeldung erforderlich.
             </div>
           </div>
         </div>

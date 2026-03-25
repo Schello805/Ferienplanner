@@ -6,7 +6,7 @@ export const PrivacyPage = () => {
       <div className="space-y-4">
         <div className="text-xs text-slate-500 dark:text-slate-400">
           Hinweis: Diese Datenschutzerklärung ist eine praxisnahe Vorlage und ersetzt keine Rechtsberatung.
-          Passe sie an dein Hosting, Logging, E-Mail-Versand und ggf. Analytics an.
+          Sie wurde nach bestem Wissen für dieses Projekt konkretisiert.
         </div>
 
         <div>
@@ -33,6 +33,20 @@ export const PrivacyPage = () => {
         </div>
 
         <div>
+          <div className="font-extrabold">Hosting / Betrieb</div>
+          <div className="mt-2 space-y-2">
+            <div>
+              Der Dienst wird aktuell privat betrieben (Proxmox-Host, LXC-Container im Heimnetz). Es werden keine externen
+              Hosting-Anbieter eingesetzt, sofern nicht ausdrücklich anders angegeben.
+            </div>
+            <div>
+              Proxmox/Container-/Reverse-Proxy-Komponenten können technisch bedingt Protokolldaten erzeugen. Eine gezielte
+              Auswertung zu Marketingzwecken findet nicht statt.
+            </div>
+          </div>
+        </div>
+
+        <div>
           <div className="font-extrabold">Zweck der Verarbeitung</div>
           <div className="mt-2 space-y-2">
             <div>Betrieb der Webapp, Authentifizierung, Verwaltung persönlicher Kalender, Fehleranalyse und Sicherheit.</div>
@@ -45,6 +59,10 @@ export const PrivacyPage = () => {
             <div>
               Kontodaten und Kalenderdaten werden gespeichert, solange das Konto besteht. Sessions werden zeitlich befristet gespeichert.
             </div>
+            <div>
+              Server-Logs (sofern vorhanden) werden nur so lange gespeichert, wie es für Betrieb und Sicherheit erforderlich ist.
+              Da aktuell kein bewusstes Logging-Setup konfiguriert wurde, kann die Speicherdauer je nach Systemstandard variieren.
+            </div>
           </div>
         </div>
 
@@ -53,7 +71,7 @@ export const PrivacyPage = () => {
           <div className="mt-2 space-y-2">
             <div>
               Für Verifikations- und System-E-Mails wird ein SMTP-Server verwendet. Dabei wird mindestens die Empfängeradresse verarbeitet.
-              Die konkrete Verarbeitung hängt vom verwendeten Mailanbieter ab.
+              Der Versand erfolgt aktuell über den Domain-/Mailanbieter febas.net (SMTP: mail.febas.net).
             </div>
           </div>
         </div>
