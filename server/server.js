@@ -216,6 +216,73 @@ app.post('/api/auth/verify-email', async (req, res) => {
   }
 });
 
+app.get('/api/calendar/members', requireAuth, requireCalendarRole('owner'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  if (!calendarId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+
+  const db = openDb();
+  try {
+    const rows = await dbAll(
+      db,
+      `SELECT users.id, users.username, users.email, calendar_memberships.role, calendar_memberships.createdAt
+       FROM calendar_memberships
+       JOIN users ON users.id = calendar_memberships.userId
+       WHERE calendar_memberships.calendarId = ?
+       ORDER BY calendar_memberships.role = 'owner' DESC, lower(users.username) ASC`,
+      [calendarId]
+    );
+    return res.json({ members: rows });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.delete('/api/calendar/members/:userId', requireAuth, requireCalendarRole('owner'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  const actingUserId = req.auth?.user?.id;
+  const targetUserId = Number(req.params.userId);
+
+  if (!calendarId || !actingUserId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+  if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+    return res.status(400).json({ error: 'Invalid userId' });
+  }
+  if (targetUserId === actingUserId) {
+    return res.status(400).json({ error: 'Owner cannot remove self' });
+  }
+
+  const db = openDb();
+  try {
+    const membership = await dbGet(
+      db,
+      'SELECT role FROM calendar_memberships WHERE calendarId = ? AND userId = ?',
+      [calendarId, targetUserId]
+    );
+    if (!membership) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+    if (String(membership.role) === 'owner') {
+      return res.status(400).json({ error: 'Cannot remove owner' });
+    }
+
+    await dbRun(
+      db,
+      'DELETE FROM calendar_memberships WHERE calendarId = ? AND userId = ?',
+      [calendarId, targetUserId]
+    );
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
 const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(CLIENT_DIST) && process.env.NODE_ENV !== 'test') {
   app.use(express.static(CLIENT_DIST));
@@ -1438,6 +1505,65 @@ app.post('/api/auth/change-email', requireAuth, async (req, res) => {
 
     await sendVerificationEmail({ req, to: normalizedEmail, token });
     pushAdminLog('auth.change_email_requested', `Email change requested userId=${user.id}`, { userId: user.id });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/auth/delete-account', requireAuth, async (req, res) => {
+  const { password } = req.body || {};
+  if (!password) {
+    return res.status(400).json({ error: 'password is required' });
+  }
+
+  const userId = req.auth?.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const db = openDb();
+  try {
+    const user = await dbGet(
+      db,
+      'SELECT id, passwordHash, passwordSalt FROM users WHERE id = ?',
+      [userId]
+    );
+    if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+      return res.status(401).json({ error: 'Password is incorrect' });
+    }
+
+    const ownedCalendars = await dbAll(db, 'SELECT id FROM calendars WHERE ownerUserId = ?', [userId]);
+    const ownedCalendarIds = ownedCalendars
+      .map((row) => Number(row.id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    await dbRun(db, 'BEGIN TRANSACTION');
+    try {
+      if (ownedCalendarIds.length > 0) {
+        const placeholders = ownedCalendarIds.map(() => '?').join(',');
+
+        await dbRun(db, `DELETE FROM vacation_entries WHERE calendarId IN (${placeholders})`, ownedCalendarIds);
+        await dbRun(db, `DELETE FROM vacations WHERE calendarId IN (${placeholders})`, ownedCalendarIds);
+        await dbRun(db, `DELETE FROM child_free_days WHERE calendarId IN (${placeholders})`, ownedCalendarIds);
+        await dbRun(db, `DELETE FROM children WHERE calendarId IN (${placeholders})`, ownedCalendarIds);
+        await dbRun(db, `DELETE FROM calendar_invitations WHERE calendarId IN (${placeholders})`, ownedCalendarIds);
+        await dbRun(db, `DELETE FROM calendar_memberships WHERE calendarId IN (${placeholders})`, ownedCalendarIds);
+        await dbRun(db, `DELETE FROM calendars WHERE id IN (${placeholders})`, ownedCalendarIds);
+      }
+
+      await dbRun(db, 'DELETE FROM sessions WHERE userId = ?', [userId]);
+      await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [userId]);
+      await dbRun(db, 'DELETE FROM users WHERE id = ?', [userId]);
+
+      await dbRun(db, 'COMMIT');
+    } catch (error) {
+      await dbRun(db, 'ROLLBACK');
+      throw error;
+    }
+
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });

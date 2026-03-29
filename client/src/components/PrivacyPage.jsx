@@ -81,6 +81,9 @@ export const PrivacyPage = () => {
           <div className="mt-2 space-y-2">
             <div>Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit, Widerspruch.</div>
             <div>
+              Die Löschung deines Kontos inklusive Kalender und gespeicherter Daten kannst du direkt in der App im Bereich <strong>Profil</strong> auslösen.
+            </div>
+            <div>
               Wenn du möchtest, kann ich dir einen kleinen Admin-Export ergänzen, der Nutzer:innen ihre Kalenderdaten als JSON bereitstellt.
             </div>
           </div>

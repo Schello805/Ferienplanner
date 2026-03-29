@@ -6,6 +6,9 @@
 - Registrierung: Verifikationsmails nutzen gespeicherte SMTP-Konfiguration
 - Passwortregel: Mindestlänge von 10 auf 8 Zeichen reduziert
 - Profil: E-Mail-Adresse ändern mit Bestätigungslink
+- Profil: Konto inkl. Kalender und gespeicherter Daten im Profil löschen (Self-Service)
+- Admin: Neue Benutzer können nicht mehr als Admin angelegt werden (nur Bootstrap-Admin)
+- Kalender: Mitgliederliste im Teilen-Tab + Freigaben entfernen (Owner)
 - Setup: Hinweis im Einrichtungs-Wizard ergänzt (ohne Kalender-Name wird automatisch ein zufälliger Link erstellt)
 
 ## 0.1.0

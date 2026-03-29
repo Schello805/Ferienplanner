@@ -499,10 +499,51 @@ const InvitationPanel = ({ currentCalendar }) => {
     const [expiresInDays, setExpiresInDays] = React.useState(14);
     const [inviteUrl, setInviteUrl] = React.useState('');
     const [loading, setLoading] = React.useState(false);
+    const [members, setMembers] = React.useState([]);
+    const [membersLoading, setMembersLoading] = React.useState(false);
 
-    if (!currentCalendar || currentCalendar.role !== 'owner') {
+    const isOwner = Boolean(currentCalendar && currentCalendar.role === 'owner');
+
+    const loadMembers = React.useCallback(async () => {
+        if (!isOwner) return;
+        setMembersLoading(true);
+        try {
+            const response = await authFetch('/api/calendar/members');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Mitglieder konnten nicht geladen werden');
+            setMembers(Array.isArray(data.members) ? data.members : []);
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Mitglieder konnten nicht geladen werden');
+            setMembers([]);
+        } finally {
+            setMembersLoading(false);
+        }
+    }, [isOwner]);
+
+    React.useEffect(() => {
+        if (!isOwner) return;
+        loadMembers();
+    }, [loadMembers, currentCalendar?.id, isOwner]);
+
+    if (!isOwner) {
         return null;
     }
+
+    const removeMember = async (userId) => {
+        const ok = window.confirm('Möchtest du diesem Benutzer wirklich den Zugriff auf den Kalender entziehen?');
+        if (!ok) return;
+        try {
+            const response = await authFetch(`/api/calendar/members/${userId}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Entfernen fehlgeschlagen');
+            toast.success('Freigabe entfernt');
+            await loadMembers();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Entfernen fehlgeschlagen');
+        }
+    };
 
     const createInvitation = async () => {
         setLoading(true);
@@ -584,6 +625,43 @@ const InvitationPanel = ({ currentCalendar }) => {
                         </button>
                     </div>
                 )}
+
+                <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold">Mitglieder</div>
+                        <button
+                            type="button"
+                            onClick={loadMembers}
+                            disabled={membersLoading}
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                        >
+                            {membersLoading ? 'Lade…' : 'Aktualisieren'}
+                        </button>
+                    </div>
+                    <div className="mt-2 space-y-2">
+                        {members.length === 0 ? (
+                            <div className="text-slate-500 dark:text-slate-400">Noch keine weiteren Mitglieder.</div>
+                        ) : (
+                            members.map((m) => (
+                                <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+                                    <div className="min-w-0">
+                                        <div className="truncate font-semibold text-slate-800 dark:text-slate-100">{m.username}</div>
+                                        <div className="text-[11px] text-slate-500 dark:text-slate-400">{m.role}</div>
+                                    </div>
+                                    {m.role !== 'owner' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeMember(m.id)}
+                                            className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-900 transition-colors hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100 dark:hover:bg-rose-950/50"
+                                        >
+                                            Entfernen
+                                        </button>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
             </div>
         </SidebarSection>
     );
@@ -1638,6 +1716,9 @@ const ProfilePanel = ({ currentUser, onLogout }) => {
     const [newEmail, setNewEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
     const [saving, setSaving] = React.useState(false);
+    const [deletePassword, setDeletePassword] = React.useState('');
+    const [deleteConfirmText, setDeleteConfirmText] = React.useState('');
+    const [deleting, setDeleting] = React.useState(false);
 
     const requestEmailChange = async (event) => {
         event.preventDefault();
@@ -1663,6 +1744,41 @@ const ProfilePanel = ({ currentUser, onLogout }) => {
             toast.error(error.message || 'E-Mail konnte nicht geändert werden');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const deleteAccount = async () => {
+        if (!deletePassword) {
+            toast.error('Bitte Passwort eingeben');
+            return;
+        }
+        if (deleteConfirmText.trim().toLowerCase() !== 'löschen') {
+            toast.error('Bitte zur Bestätigung "LÖSCHEN" eingeben');
+            return;
+        }
+
+        const ok = window.confirm('Möchtest du dein Konto und alle zugehörigen Kalenderdaten wirklich unwiderruflich löschen?');
+        if (!ok) return;
+
+        setDeleting(true);
+        try {
+            const response = await authFetch('/api/auth/delete-account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: deletePassword }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Löschen fehlgeschlagen');
+
+            toast.success('Konto wurde gelöscht');
+            setDeletePassword('');
+            setDeleteConfirmText('');
+            await onLogout();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Löschen fehlgeschlagen');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -1716,6 +1832,38 @@ const ProfilePanel = ({ currentUser, onLogout }) => {
             </SidebarSection>
 
             <PasswordPanel />
+
+            <SidebarSection title="Account löschen" subtitle="Entfernt dein Profil, deinen Kalender und alle gespeicherten Daten unwiderruflich.">
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/70 px-3 py-3 text-sm text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">
+                    <div className="font-semibold">Achtung: Dies kann nicht rückgängig gemacht werden.</div>
+                    <div className="mt-1 text-xs opacity-80">Gelöscht werden u.a. Kinder, Einträge, Freigaben/Einladungen und Link-Namen.</div>
+                </div>
+                <div className="mt-3 space-y-2">
+                    <input
+                        type="password"
+                        value={deletePassword}
+                        onChange={(event) => setDeletePassword(event.target.value)}
+                        placeholder="Passwort bestätigen"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-rose-300 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        autoComplete="current-password"
+                    />
+                    <input
+                        type="text"
+                        value={deleteConfirmText}
+                        onChange={(event) => setDeleteConfirmText(event.target.value)}
+                        placeholder='Zur Bestätigung: LÖSCHEN'
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-rose-300 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    />
+                    <button
+                        type="button"
+                        onClick={deleteAccount}
+                        disabled={deleting}
+                        className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100 dark:hover:bg-rose-950/50"
+                    >
+                        {deleting ? 'Lösche…' : 'Account & Daten endgültig löschen'}
+                    </button>
+                </div>
+            </SidebarSection>
 
             <SidebarSection title="Sitzung" subtitle="Dein Konto verwalten.">
                 <button
