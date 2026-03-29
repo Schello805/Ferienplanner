@@ -13,15 +13,25 @@ const formatGermanDate = (value) => {
 };
 
 const InfoTip = ({ text }) => {
+    const [open, setOpen] = React.useState(false);
     return (
-        <button
-            type="button"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-            title={text}
-            aria-label={text}
-        >
-            i
-        </button>
+        <span className="relative inline-flex">
+            <button
+                type="button"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                title={text}
+                aria-label={text}
+                onClick={() => setOpen((value) => !value)}
+                onBlur={() => setOpen(false)}
+            >
+                i
+            </button>
+            {open && (
+                <div className="absolute right-0 top-8 z-50 w-72 max-w-[80vw] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                    {text}
+                </div>
+            )}
+        </span>
     );
 };
 
@@ -149,8 +159,8 @@ const NotificationPanel = () => {
                         />
                     </label>
 
-                    <div className="grid gap-2 pt-2 sm:grid-cols-2">
-                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    <div className="grid gap-3 pt-2 sm:grid-cols-2">
+                        <label className="grid min-w-0 gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
                             <div className="flex items-center justify-between gap-2">
                                 <span>Wann senden?</span>
                                 <InfoTip text="Immer senden: du bekommst den Digest auch dann, wenn es keine unbetreuten Tage gibt. Schwellwert: du bekommst den Digest nur, wenn die Anzahl unbetreuter Tage im Zeitraum größer als X ist." />
@@ -158,13 +168,13 @@ const NotificationPanel = () => {
                             <select
                                 value={settings.digestMode}
                                 onChange={(event) => setSettings((current) => ({ ...current, digestMode: event.target.value }))}
-                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
-                                <option value="always">Immer senden (auch wenn alles betreut ist)</option>
-                                <option value="threshold">Nur senden, wenn unbetreute Tage &gt; X</option>
+                                <option value="always">Immer senden</option>
+                                <option value="threshold">Nur bei &gt; X</option>
                             </select>
                         </label>
-                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <label className="grid min-w-0 gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
                             <div className="flex items-center justify-between gap-2">
                                 <span>X (Schwellwert)</span>
                                 <InfoTip text="Beispiel: X=3 bedeutet: Digest wird nur gesendet, wenn es im Zeitraum mehr als 3 unbetreute Tage gibt (also 4 oder mehr)." />
@@ -176,7 +186,7 @@ const NotificationPanel = () => {
                                 value={Number(settings.digestThresholdDays) || 0}
                                 onChange={(event) => setSettings((current) => ({ ...current, digestThresholdDays: Number(event.target.value) }))}
                                 disabled={settings.digestMode !== 'threshold'}
-                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             />
                         </label>
                     </div>
