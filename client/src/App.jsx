@@ -137,8 +137,10 @@ function App() {
     return true;
   });
   const [sidebarTab, setSidebarTab] = useState(() => {
-    const saved = localStorage.getItem('sidebarTab') || 'legend';
-    return saved === 'settings' ? 'general' : saved;
+    const saved = localStorage.getItem('sidebarTab') || 'profile';
+    if (saved === 'settings') return 'general';
+    if (saved === 'legend') return 'profile';
+    return saved;
   });
   const [holidayTableOpen, setHolidayTableOpen] = useState(() => localStorage.getItem('holidayTableOpen') === 'true');
   const [stateCode, setStateCode] = useState(() => {
@@ -751,11 +753,20 @@ function App() {
       )
     },
     {
-      id: 'legend',
-      label: 'Legende',
+      id: 'profile',
+      label: 'Profil',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75a17.93 17.93 0 0 1-7.5-1.632Z" />
+        </svg>
+      )
+    },
+    {
+      id: 'parents',
+      label: 'Eltern',
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75a17.93 17.93 0 0 1-7.5-1.632Z" />
         </svg>
       )
     },
@@ -765,24 +776,6 @@ function App() {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm10.5 1.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM3.75 20.25a6.75 6.75 0 0 1 10.5-5.622m1.654 5.31a8.966 8.966 0 0 0 4.846 1.312c.173 0 .344-.005.514-.015a8.966 8.966 0 0 0-2.827-6.145 8.966 8.966 0 0 0-6.255-2.59c-.76 0-1.499.094-2.205.271" />
-        </svg>
-      )
-    },
-    {
-      id: 'share',
-      label: 'Teilen',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9m0 0-3-3m3 3-3 3M15 4.5h1.125A2.625 2.625 0 0 1 18.75 7.125v9.75A2.625 2.625 0 0 1 16.125 19.5H15m-6 0H7.875A2.625 2.625 0 0 1 5.25 16.875v-9.75A2.625 2.625 0 0 1 7.875 4.5H9" />
-        </svg>
-      )
-    },
-    {
-      id: 'profile',
-      label: 'Profil',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75a17.93 17.93 0 0 1-7.5-1.632Z" />
         </svg>
       )
     },
@@ -797,7 +790,7 @@ function App() {
     },
   ];
 
-  const primaryMobileTabIds = new Set(['legend', 'children', 'share', 'profile']);
+  const primaryMobileTabIds = new Set(['profile', 'parents', 'children']);
   const activeMobileNav = !isMobile || !sidebarOpen
     ? (moreMenuOpen ? 'more' : 'calendar')
     : (primaryMobileTabIds.has(sidebarTab) ? sidebarTab : 'more');
@@ -965,7 +958,7 @@ function App() {
 
       {isMobile && !shareMode && (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/96 px-[max(env(safe-area-inset-left),0.5rem)] pr-[max(env(safe-area-inset-right),0.5rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.18)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/96">
-          <div className="mx-auto grid w-full max-w-xl grid-cols-6 gap-1.5">
+          <div className="mx-auto grid w-full max-w-xl grid-cols-5 gap-1.5">
             {mobileNavItems.map((item) => {
               const active = activeMobileNav === item.id;
               return (
@@ -1028,7 +1021,8 @@ function App() {
               <div className="mt-3 grid flex-1 grid-cols-2 gap-2 overflow-y-auto pb-3 [-webkit-overflow-scrolling:touch]">
                 {[
                   { id: 'general', label: 'Allgemein' },
-                  { id: 'parents', label: 'Eltern' },
+                  { id: 'share', label: 'Teilen' },
+                  { id: 'notifications', label: 'Benachrichtigungen' },
                   { id: 'help', label: 'Hilfe' },
                   ...(isAdmin ? [{ id: 'admin', label: 'Admin' }] : []),
                 ].map((entry) => (
