@@ -473,6 +473,11 @@ async function initializeDatabase() {
       )`
     );
 
+    const firstAdmin = await dbGet(db, 'SELECT id FROM users ORDER BY id ASC LIMIT 1');
+    if (firstAdmin?.id) {
+      await dbRun(db, 'UPDATE users SET isAdmin = CASE WHEN id = ? THEN 1 ELSE 0 END', [firstAdmin.id]);
+    }
+
     const userColumns = await dbAll(db, 'PRAGMA table_info(users)');
     const userColumnNames = new Set(userColumns.map((row) => row.name));
     if (!userColumnNames.has('email')) {

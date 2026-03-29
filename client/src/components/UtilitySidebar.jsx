@@ -1317,7 +1317,7 @@ const PasswordPanel = () => {
 
 const UserManagementPanel = ({ currentUser }) => {
     const [users, setUsers] = React.useState([]);
-    const [draft, setDraft] = React.useState({ username: '', password: '', isAdmin: false });
+    const [draft, setDraft] = React.useState({ username: '', password: '' });
 
     const loadUsers = React.useCallback(async () => {
         if (!isUserAdmin(currentUser)) return;
@@ -1353,12 +1353,11 @@ const UserManagementPanel = ({ currentUser }) => {
                 body: JSON.stringify({
                     username: draft.username.trim(),
                     password: draft.password,
-                    isAdmin: draft.isAdmin,
                 }),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Benutzer konnte nicht angelegt werden');
-            setDraft({ username: '', password: '', isAdmin: false });
+            setDraft({ username: '', password: '' });
             await loadUsers();
             toast.success('Benutzer angelegt');
         } catch (error) {
@@ -1384,15 +1383,6 @@ const UserManagementPanel = ({ currentUser }) => {
                     placeholder="Startpasswort"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                 />
-                <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                    <input
-                        type="checkbox"
-                        checked={draft.isAdmin}
-                        onChange={(event) => setDraft((current) => ({ ...current, isAdmin: event.target.checked }))}
-                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                    />
-                    Als Admin anlegen
-                </label>
                 <button
                     type="submit"
                     className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
