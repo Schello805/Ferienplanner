@@ -2282,6 +2282,10 @@ const ParentSettingsPanel = ({
         () => buildVacationRanges(vacations, new Set(['p2', 'both']), fromYear),
         [fromYear, vacations]
     );
+    const careData = React.useMemo(
+        () => buildVacationRanges(vacations, new Set(['care']), fromYear),
+        [fromYear, vacations]
+    );
 
     const renderRangeRow = (range) => {
         const startLabel = formatGermanDateOnly(range.start);
@@ -2367,6 +2371,22 @@ const ParentSettingsPanel = ({
                             className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0"
                         />
                     </div>
+
+                    <details className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+                        <summary className="cursor-pointer select-none list-none">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Betreuungstage (ab {fromYear})</div>
+                                <div className="text-xs font-bold text-slate-900 dark:text-white">{careData.total} Tage</div>
+                            </div>
+                        </summary>
+                        <div className="mt-2 space-y-2">
+                            {careData.ranges.length > 0 ? careData.ranges.map(renderRangeRow) : (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                                    Keine Betreuungstage eingetragen.
+                                </div>
+                            )}
+                        </div>
+                    </details>
                 </div>
             </SidebarSection>
 
