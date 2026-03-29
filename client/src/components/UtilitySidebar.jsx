@@ -1007,23 +1007,15 @@ const CHILD_TYPE_OPTIONS = [
 
 const isUserAdmin = (user) => Boolean(user?.isAdmin ?? user?.is_admin ?? user?.admin);
 
+const PRIMARY_TAB_IDS = ['profile', 'parents', 'children'];
+
 const TABS = [
     {
-        id: 'legend',
-        label: 'Legende',
+        id: 'profile',
+        label: 'Profil',
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15" />
-            </svg>
-        )
-    },
-    {
-        id: 'general',
-        label: 'Allgemein',
-        icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2.25" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.964 0a9 9 0 1 0-11.964 0m11.964 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
         )
     },
@@ -1046,20 +1038,21 @@ const TABS = [
         )
     },
     {
+        id: 'general',
+        label: 'Allgemein',
+        icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2.25" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+        )
+    },
+    {
         id: 'share',
         label: 'Teilen',
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.066 2.186 2.25 2.25 0 0 0-3.066-2.186Zm0-12.814a2.25 2.25 0 1 0 3.066-2.186 2.25 2.25 0 0 0-3.066 2.186Z" />
-            </svg>
-        )
-    },
-    {
-        id: 'profile',
-        label: 'Profil',
-        icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.964 0a9 9 0 1 0-11.964 0m11.964 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
         )
     },
@@ -1073,21 +1066,21 @@ const TABS = [
         )
     },
     {
-        id: 'admin',
-        label: 'Admin',
-        icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4 text-amber-500 dark:text-amber-300">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M12 3l7.5 4.5v6c0 5.25-3.75 8.25-7.5 9-3.75-.75-7.5-3.75-7.5-9v-6L12 3Z" />
-            </svg>
-        )
-    },
-    {
         id: 'help',
         label: 'Hilfe',
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 17.25h.008v.008H12v-.008Z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+        )
+    },
+    {
+        id: 'admin',
+        label: 'Admin',
+        icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4 text-amber-500 dark:text-amber-300">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M12 3l7.5 4.5v6c0 5.25-3.75 8.25-7.5 9-3.75-.75-7.5-3.75-7.5-9v-6L12 3Z" />
             </svg>
         )
     },
@@ -2250,8 +2243,28 @@ const ChildSettingsPanel = ({ children, childFreeDays, onRefreshFamilyData }) =>
     </div>
 );
 
-const HelpPanel = () => (
+const HelpPanel = ({
+    p1Color,
+    p2Color,
+    careColor,
+    setP1Color,
+    setP2Color,
+    setCareColor,
+    children,
+}) => (
     <div className="space-y-4 text-sm text-slate-600 dark:text-gray-300">
+        <SidebarSection title="Legende" subtitle="Farben und Bedeutung im Kalender.">
+            <CalendarLegend
+                p1Color={p1Color}
+                p2Color={p2Color}
+                careColor={careColor}
+                setP1Color={setP1Color}
+                setP2Color={setP2Color}
+                setCareColor={setCareColor}
+                children={children}
+            />
+        </SidebarSection>
+
         <SidebarSection title="Bedienung" subtitle="So trägst du Urlaub oder Betreuung schnell ein.">
             <div className="grid gap-3">
                 {[
@@ -2330,24 +2343,23 @@ export const UtilitySidebar = ({
 }) => {
     const isAdmin = isUserAdmin(currentUser);
     const tabs = isAdmin ? TABS : TABS.filter((tab) => tab.id !== 'admin');
+    const primaryTabIds = PRIMARY_TAB_IDS;
+    const moreTabIds = tabs
+        .map((t) => t.id)
+        .filter((id) => !primaryTabIds.includes(id));
+    const [mobileMoreOpen, setMobileMoreOpen] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!activeTab) return;
+        const allowed = new Set(tabs.map((t) => t.id));
+        if (allowed.has(activeTab)) return;
+        setActiveTab(primaryTabIds[0]);
+    }, [activeTab, primaryTabIds, setActiveTab, tabs]);
+
     const activeLabel = tabs.find(tab => tab.id === activeTab)?.label ?? 'Werkzeuge';
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'legend':
-                return (
-                    <SidebarSection title="Legende" subtitle="Farben, Bedeutungen und Schnellzugriff auf Farbwahl.">
-                        <CalendarLegend
-                            p1Color={p1Color}
-                            p2Color={p2Color}
-                            careColor={careColor}
-                            setP1Color={setP1Color}
-                            setP2Color={setP2Color}
-                            setCareColor={setCareColor}
-                            children={children}
-                        />
-                    </SidebarSection>
-                );
             case 'general':
                 return (
                     <GeneralSettingsPanel
@@ -2405,7 +2417,17 @@ export const UtilitySidebar = ({
                 return <AdminToolsPanel currentUser={currentUser} />;
             case 'help':
             default:
-                return <HelpPanel />;
+                return (
+                    <HelpPanel
+                        p1Color={p1Color}
+                        p2Color={p2Color}
+                        careColor={careColor}
+                        setP1Color={setP1Color}
+                        setP2Color={setP2Color}
+                        setCareColor={setCareColor}
+                        children={children}
+                    />
+                );
         }
     };
 
@@ -2448,50 +2470,143 @@ export const UtilitySidebar = ({
                     {isMobile && isOpen && (
                         <nav className="border-b border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/70">
                             <div className="flex gap-2 overflow-x-auto pb-1">
-                                {tabs.map((tab) => {
-                                    const active = activeTab === tab.id;
-                                    return (
-                                        <button
-                                            key={tab.id}
-                                            type="button"
-                                            onClick={() => setActiveTab(tab.id)}
-                                            className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
-                                                active
-                                                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                                                    : 'bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white'
-                                            }`}
-                                        >
-                                            {tab.label}
-                                        </button>
-                                    );
-                                })}
+                                {tabs
+                                    .filter((t) => primaryTabIds.includes(t.id))
+                                    .map((tab) => {
+                                        const active = activeTab === tab.id;
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setMobileMoreOpen(false);
+                                                    setActiveTab(tab.id);
+                                                }}
+                                                className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                                                    active
+                                                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                                                        : 'bg-white text-slate-600 shadow-sm hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800'
+                                                }`}
+                                            >
+                                                {tab.label}
+                                            </button>
+                                        );
+                                    })}
+
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setMobileMoreOpen((v) => !v)}
+                                        className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                                            mobileMoreOpen
+                                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                                                : 'bg-white text-slate-600 shadow-sm hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800'
+                                        }`}
+                                    >
+                                        Mehr
+                                    </button>
+                                    {mobileMoreOpen && (
+                                        <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-950">
+                                            {moreTabIds.map((id) => {
+                                                const tab = tabs.find((t) => t.id === id);
+                                                if (!tab) return null;
+                                                const active = activeTab === tab.id;
+                                                return (
+                                                    <button
+                                                        key={tab.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setMobileMoreOpen(false);
+                                                            setActiveTab(tab.id);
+                                                        }}
+                                                        className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                                                            active
+                                                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                                                                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                                                        }`}
+                                                    >
+                                                        <span>{tab.label}</span>
+                                                        <span className="opacity-70">›</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </nav>
                     )}
 
                     {!isMobile && (
                     <nav className="flex w-16 flex-col items-center gap-2 border-r border-slate-200 bg-slate-50/70 px-2 py-3 dark:border-slate-700 dark:bg-slate-900/70">
-                        {tabs.map(tab => {
-                            const active = activeTab === tab.id;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    onClick={() => {
-                                        setActiveTab(tab.id);
-                                        setIsOpen(true);
-                                    }}
-                                    className={`flex w-full items-center justify-center rounded-xl px-2 py-2 transition-colors ${active ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'}`}
-                                    title={tab.label}
-                                    aria-label={tab.label}
-                                >
-                                    {tab.icon}
-                                </button>
-                            );
-                        })}
+                        {tabs
+                            .filter((t) => primaryTabIds.includes(t.id))
+                            .map((tab) => {
+                                const active = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setActiveTab(tab.id);
+                                            setIsOpen(true);
+                                        }}
+                                        className={`flex w-full items-center justify-center rounded-xl px-2 py-2 transition-colors ${active ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'}`}
+                                        title={tab.label}
+                                    >
+                                        {tab.icon}
+                                    </button>
+                                );
+                            })}
+
+                        <div className="my-1 h-px w-8 bg-slate-200 dark:bg-slate-700" />
+
+                        {tabs
+                            .filter((t) => !primaryTabIds.includes(t.id) && t.id !== 'admin')
+                            .map((tab) => {
+                                const active = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setActiveTab(tab.id);
+                                            setIsOpen(true);
+                                        }}
+                                        className={`flex w-full items-center justify-center rounded-xl px-2 py-2 transition-colors ${active ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'}`}
+                                        title={tab.label}
+                                    >
+                                        {tab.icon}
+                                    </button>
+                                );
+                            })}
+
+                        {isAdmin && (
+                            <>
+                                <div className="my-1 h-px w-8 bg-slate-200 dark:bg-slate-700" />
+                                {tabs
+                                    .filter((t) => t.id === 'admin')
+                                    .map((tab) => {
+                                        const active = activeTab === tab.id;
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setActiveTab(tab.id);
+                                                    setIsOpen(true);
+                                                }}
+                                                className={`flex w-full items-center justify-center rounded-xl px-2 py-2 transition-colors ${active ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'}`}
+                                                title={tab.label}
+                                            >
+                                                {tab.icon}
+                                            </button>
+                                        );
+                                    })}
+                            </>
+                        )}
                     </nav>
                     )}
-
                     <div className={`min-h-0 flex-1 overflow-y-auto p-3 overscroll-contain pb-4 [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden lg:hidden'}`}>
                         {renderContent()}
                     </div>
