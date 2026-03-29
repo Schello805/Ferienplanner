@@ -12,6 +12,168 @@ const formatGermanDate = (value) => {
     return `${day}.${month}.${year}`;
 };
 
+const NotificationPanel = () => {
+    const [loading, setLoading] = React.useState(false);
+    const [saving, setSaving] = React.useState(false);
+    const [settings, setSettings] = React.useState(() => ({
+        enabled: true,
+        membershipEmailsEnabled: true,
+        digestEnabled: true,
+        digestMode: 'always',
+        digestThresholdDays: 3,
+    }));
+
+    const loadSettings = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await authFetch('/api/notifications/settings');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Einstellungen konnten nicht geladen werden');
+            if (data?.settings) {
+                setSettings((current) => ({
+                    ...current,
+                    ...data.settings,
+                }));
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Einstellungen konnten nicht geladen werden');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        loadSettings();
+    }, [loadSettings]);
+
+    const saveSettings = async () => {
+        setSaving(true);
+        try {
+            const response = await authFetch('/api/notifications/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Speichern fehlgeschlagen');
+            if (data?.settings) {
+                setSettings((current) => ({
+                    ...current,
+                    ...data.settings,
+                }));
+            }
+            toast.success('Gespeichert');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Speichern fehlgeschlagen');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <SidebarSection
+            title="Benachrichtigungen"
+            subtitle="Stelle ein, welche E-Mails du erhalten möchtest. Standardmäßig sind Benachrichtigungen aktiviert."
+        >
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                        <div className="min-w-0">
+                            <div className="font-semibold text-slate-800 dark:text-slate-100">Benachrichtigungen aktiv</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">Wenn deaktiviert, werden keine E-Mails versendet.</div>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={Boolean(settings.enabled)}
+                            onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                    </label>
+
+                    <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                        <div className="min-w-0">
+                            <div className="font-semibold text-slate-800 dark:text-slate-100">Zugriffsmails</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">E-Mails bei Zugriff erteilt/entzogen.</div>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={Boolean(settings.membershipEmailsEnabled)}
+                            onChange={(event) => setSettings((current) => ({ ...current, membershipEmailsEnabled: event.target.checked }))}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                    </label>
+                </div>
+
+                <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">Jahresübersicht (E-Mail)</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                        Zeitraum: heute bis 31.12 (ab Dezember zusätzlich Hinweis für Folgejahr).
+                    </div>
+
+                    <label className="flex items-center justify-between gap-3 pt-2 text-sm">
+                        <div className="min-w-0">
+                            <div className="font-semibold text-slate-700 dark:text-slate-200">Übersicht aktiv</div>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={Boolean(settings.digestEnabled)}
+                            onChange={(event) => setSettings((current) => ({ ...current, digestEnabled: event.target.checked }))}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                    </label>
+
+                    <div className="grid gap-2 pt-2 sm:grid-cols-2">
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            Modus
+                            <select
+                                value={settings.digestMode}
+                                onChange={(event) => setSettings((current) => ({ ...current, digestMode: event.target.value }))}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            >
+                                <option value="always">Immer senden</option>
+                                <option value="threshold">Nur wenn &gt; X unbetreute Tage</option>
+                            </select>
+                        </label>
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            X (Schwellwert)
+                            <input
+                                type="number"
+                                min={0}
+                                max={366}
+                                value={Number(settings.digestThresholdDays) || 0}
+                                onChange={(event) => setSettings((current) => ({ ...current, digestThresholdDays: Number(event.target.value) }))}
+                                disabled={settings.digestMode !== 'threshold'}
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            />
+                        </label>
+                    </div>
+                </div>
+
+                <div className="grid gap-2">
+                    <button
+                        type="button"
+                        onClick={saveSettings}
+                        disabled={saving}
+                        className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
+                    >
+                        {saving ? 'Speichere…' : 'Speichern'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={loadSettings}
+                        disabled={loading}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                    >
+                        {loading ? 'Lade…' : 'Neu laden'}
+                    </button>
+                </div>
+            </div>
+        </SidebarSection>
+    );
+};
+
 const AdminToolsPanel = ({ currentUser }) => {
     const [stats, setStats] = React.useState(null);
     const [logs, setLogs] = React.useState([]);
@@ -498,7 +660,9 @@ const InvitationPanel = ({ currentCalendar }) => {
     const [role, setRole] = React.useState('editor');
     const [expiresInDays, setExpiresInDays] = React.useState(14);
     const [inviteUrl, setInviteUrl] = React.useState('');
+    const [inviteEmail, setInviteEmail] = React.useState('');
     const [loading, setLoading] = React.useState(false);
+    const [emailSending, setEmailSending] = React.useState(false);
     const [members, setMembers] = React.useState([]);
     const [membersLoading, setMembersLoading] = React.useState(false);
 
@@ -576,6 +740,31 @@ const InvitationPanel = ({ currentCalendar }) => {
         }
     };
 
+    const sendInviteEmail = async () => {
+        if (!inviteEmail.trim()) {
+            toast.error('Bitte eine E-Mail-Adresse angeben');
+            return;
+        }
+        setEmailSending(true);
+        try {
+            const response = await authFetch('/api/invitations/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, expiresInDays, email: inviteEmail.trim() }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Einladung konnte nicht gesendet werden');
+            setInviteUrl(data.inviteUrl || '');
+            setInviteEmail('');
+            toast.success('Einladung gesendet');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Einladung konnte nicht gesendet werden');
+        } finally {
+            setEmailSending(false);
+        }
+    };
+
     return (
         <SidebarSection title="Einladung" subtitle="Erstelle einen Link, damit andere Konten diesem Kalender beitreten können.">
             <div className="space-y-3">
@@ -612,6 +801,26 @@ const InvitationPanel = ({ currentCalendar }) => {
                 >
                     {loading ? 'Erstelle …' : 'Einladungslink erstellen'}
                 </button>
+
+                <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+                    <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Einladung per E-Mail senden</div>
+                    <input
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(event) => setInviteEmail(event.target.value)}
+                        placeholder="E-Mail-Adresse"
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        autoComplete="email"
+                    />
+                    <button
+                        type="button"
+                        onClick={sendInviteEmail}
+                        disabled={emailSending}
+                        className="w-full rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
+                    >
+                        {emailSending ? 'Sende …' : 'Einladung senden'}
+                    </button>
+                </div>
 
                 {inviteUrl && (
                     <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
@@ -761,6 +970,15 @@ const TABS = [
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.964 0a9 9 0 1 0-11.964 0m11.964 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+        )
+    },
+    {
+        id: 'notifications',
+        label: 'Benachrichtigungen',
+        icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
             </svg>
         )
     },
@@ -2091,6 +2309,8 @@ export const UtilitySidebar = ({
                 );
             case 'profile':
                 return <ProfilePanel currentUser={currentUser} onLogout={onLogout} />;
+            case 'notifications':
+                return <NotificationPanel />;
             case 'admin':
                 return <AdminToolsPanel currentUser={currentUser} />;
             case 'help':

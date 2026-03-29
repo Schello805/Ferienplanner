@@ -26,6 +26,14 @@ const normalizeUser = (user) => {
 const CALENDAR_SLUG_STORAGE_KEY = 'ferienplanerTargetSlug';
 const SETUP_DRAFT_KEY = 'ferienplanerSetupDraft';
 
+const safeJsonStringify = (value) => {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '';
+  }
+};
+
 const createDefaultRecurringRule = () => ({
   frequency: 'weekly',
   anchorDate: formatLocalDateInput(new Date()),
@@ -113,6 +121,13 @@ function App() {
   const [p1RecurringRules, setP1RecurringRules] = useState(() => loadRecurringRules('p1RecurringRules', 'p1DaysOff', 'p1RecurringRule'));
   const [p2RecurringRules, setP2RecurringRules] = useState(() => loadRecurringRules('p2RecurringRules', 'p2DaysOff', 'p2RecurringRule'));
 
+  const recurringRulesLoadedRef = useRef(false);
+  const calendarSettingsLoadedRef = useRef(false);
+  const savingRecurringRulesRef = useRef(false);
+  const savingCalendarSettingsRef = useRef(false);
+  const lastSavedRecurringRef = useRef({ p1: '', p2: '' });
+  const lastSavedStateCodeRef = useRef('');
+
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('sidebarOpen');
@@ -194,6 +209,139 @@ function App() {
   useEffect(() => {
     localStorage.setItem('stateCode', stateCode);
   }, [stateCode]);
+
+  useEffect(() => {
+    const loadCalendarSettingsFromServer = async () => {
+      if (!currentUser) return;
+      if (calendarSettingsLoadedRef.current) return;
+      try {
+        const response = await authFetch('/api/calendar/settings');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'settings request failed');
+        if (data?.stateCode) {
+          const normalized = String(data.stateCode).toUpperCase();
+          lastSavedStateCodeRef.current = normalized;
+          setStateCode(normalized);
+        }
+        calendarSettingsLoadedRef.current = true;
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    loadCalendarSettingsFromServer();
+  }, [currentUser]);
+
+  useEffect(() => {
+    const loadRecurringRulesFromServer = async () => {
+      if (!currentUser) return;
+      if (recurringRulesLoadedRef.current) return;
+      try {
+        const response = await authFetch('/api/calendar/recurring-rules');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'recurring rules request failed');
+        if (data?.rules?.p1 && Array.isArray(data.rules.p1)) {
+          const p1Json = safeJsonStringify(data.rules.p1);
+          if (p1Json) lastSavedRecurringRef.current.p1 = p1Json;
+          setP1RecurringRules(data.rules.p1);
+        }
+        if (data?.rules?.p2 && Array.isArray(data.rules.p2)) {
+          const p2Json = safeJsonStringify(data.rules.p2);
+          if (p2Json) lastSavedRecurringRef.current.p2 = p2Json;
+          setP2RecurringRules(data.rules.p2);
+        }
+        recurringRulesLoadedRef.current = true;
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    loadRecurringRulesFromServer();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) return;
+    recurringRulesLoadedRef.current = false;
+    calendarSettingsLoadedRef.current = false;
+    savingRecurringRulesRef.current = false;
+    savingCalendarSettingsRef.current = false;
+    lastSavedRecurringRef.current = { p1: '', p2: '' };
+    lastSavedStateCodeRef.current = '';
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!calendarSettingsLoadedRef.current) return;
+
+    const normalized = String(stateCode || 'BY').toUpperCase();
+    if (lastSavedStateCodeRef.current === normalized) return;
+    if (savingCalendarSettingsRef.current) return;
+
+    const timer = window.setTimeout(async () => {
+      savingCalendarSettingsRef.current = true;
+      try {
+        const response = await authFetch('/api/calendar/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stateCode: normalized }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'settings save failed');
+        lastSavedStateCodeRef.current = normalized;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        savingCalendarSettingsRef.current = false;
+      }
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [currentUser, stateCode]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!recurringRulesLoadedRef.current) return;
+    if (savingRecurringRulesRef.current) return;
+
+    const p1Json = safeJsonStringify(p1RecurringRules);
+    const p2Json = safeJsonStringify(p2RecurringRules);
+    if (p1Json && lastSavedRecurringRef.current.p1 === p1Json && p2Json && lastSavedRecurringRef.current.p2 === p2Json) {
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      savingRecurringRulesRef.current = true;
+      try {
+        if (p1Json && lastSavedRecurringRef.current.p1 !== p1Json) {
+          const r1 = await authFetch('/api/calendar/recurring-rules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userKey: 'p1', rules: p1RecurringRules }),
+          });
+          const d1 = await r1.json();
+          if (!r1.ok) throw new Error(d1.error || 'save recurring rules p1 failed');
+          lastSavedRecurringRef.current.p1 = p1Json;
+        }
+
+        if (p2Json && lastSavedRecurringRef.current.p2 !== p2Json) {
+          const r2 = await authFetch('/api/calendar/recurring-rules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userKey: 'p2', rules: p2RecurringRules }),
+          });
+          const d2 = await r2.json();
+          if (!r2.ok) throw new Error(d2.error || 'save recurring rules p2 failed');
+          lastSavedRecurringRef.current.p2 = p2Json;
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        savingRecurringRulesRef.current = false;
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [currentUser, p1RecurringRules, p2RecurringRules]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

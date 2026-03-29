@@ -270,11 +270,38 @@ app.delete('/api/calendar/members/:userId', requireAuth, requireCalendarRole('ow
       return res.status(400).json({ error: 'Cannot remove owner' });
     }
 
+    const calendarRow = await dbGet(db, 'SELECT name FROM calendars WHERE id = ? LIMIT 1', [calendarId]);
+    const targetUser = await dbGet(db, 'SELECT username, email FROM users WHERE id = ? LIMIT 1', [targetUserId]);
+    const targetEmail = normalizeEmail(targetUser?.email || '');
+    const targetUsername = targetUser?.username || '';
+    const targetSettings = await getNotificationSettings(db, targetUserId);
+
     await dbRun(
       db,
       'DELETE FROM calendar_memberships WHERE calendarId = ? AND userId = ?',
       [calendarId, targetUserId]
     );
+
+    if (
+      targetEmail &&
+      isValidEmail(targetEmail) &&
+      targetSettings.enabled &&
+      targetSettings.membershipEmailsEnabled
+    ) {
+      await sendBrandedEmail({
+        req,
+        to: targetEmail,
+        subject: 'Mein Ferienplaner: Zugriff entzogen',
+        previewText: 'Dein Zugriff auf einen Kalender wurde entfernt.',
+        headline: 'Zugriff entzogen',
+        subline: 'Kalenderfreigabe',
+        bodyHtml: `Dein Zugriff auf den Kalender <strong>${String(calendarRow?.name || 'Kalender')}</strong> wurde entfernt.`
+          + (targetUsername ? `<div style="height:10px"></div><div>Benutzer: <strong>${String(targetUsername).replace(/</g, '&lt;')}</strong></div>` : ''),
+        ctaUrl: `${getPublicBaseUrl(req)}/hilfe`,
+        ctaText: 'Hilfe öffnen',
+        footerReason: 'Du erhältst diese E-Mail, weil du Benachrichtigungen zu Kalenderfreigaben aktiviert hast.',
+      });
+    }
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -565,6 +592,7 @@ async function initializeDatabase() {
         name TEXT NOT NULL,
         ownerUserId INTEGER NOT NULL,
         slug TEXT,
+        stateCode TEXT,
         createdAt TEXT,
         updatedAt TEXT,
         FOREIGN KEY (ownerUserId) REFERENCES users(id) ON DELETE CASCADE
@@ -576,9 +604,39 @@ async function initializeDatabase() {
     if (!calendarColumnNames.has('slug')) {
       await dbRun(db, 'ALTER TABLE calendars ADD COLUMN slug TEXT');
     }
+    if (!calendarColumnNames.has('stateCode')) {
+      await dbRun(db, "ALTER TABLE calendars ADD COLUMN stateCode TEXT");
+    }
     await dbRun(
       db,
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_calendars_slug_nocase ON calendars(lower(slug)) WHERE slug IS NOT NULL AND slug != ''"
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS notification_settings (
+        userId INTEGER PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        inviteEmailsEnabled INTEGER NOT NULL DEFAULT 1,
+        membershipEmailsEnabled INTEGER NOT NULL DEFAULT 1,
+        digestEnabled INTEGER NOT NULL DEFAULT 1,
+        digestMode TEXT NOT NULL DEFAULT 'always',
+        digestThresholdDays INTEGER NOT NULL DEFAULT 3,
+        updatedAt TEXT,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS calendar_recurring_rules (
+        calendarId INTEGER NOT NULL,
+        userKey TEXT NOT NULL,
+        rulesJson TEXT NOT NULL,
+        updatedAt TEXT,
+        PRIMARY KEY (calendarId, userKey),
+        FOREIGN KEY (calendarId) REFERENCES calendars(id) ON DELETE CASCADE
+      )`
     );
 
     await dbRun(
@@ -910,6 +968,104 @@ function getMailerTransport() {
   throw new Error('getMailerTransport is deprecated');
 }
 
+async function sendBrandedEmail({ req, to, subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason }) {
+  const smtp = await getEffectiveSmtpSettings();
+  const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req);
+  const safeBaseUrl = String(baseUrl).replace(/\/$/, '');
+  const logoUrl = `${safeBaseUrl}/app-icon.png`;
+  const helpUrl = `${safeBaseUrl}/hilfe`;
+  const imprintUrl = `${safeBaseUrl}/impressum`;
+  const privacyUrl = `${safeBaseUrl}/datenschutz`;
+
+  if (!smtp) {
+    process.stderr.write('SMTP not configured; cannot send email.\n');
+    process.stderr.write(`To: ${to} Subject: ${subject}\n`);
+    return;
+  }
+
+  const transport = nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    auth: { user: smtp.user, pass: smtp.pass },
+  });
+
+  const appName = 'Mein Ferienplaner';
+  const html = `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${appName}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#0b1220;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${String(previewText || '').replace(/</g, '&lt;')}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1220;padding:24px 12px">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0f172a;border:1px solid rgba(148,163,184,0.2);border-radius:16px;overflow:hidden">
+            <tr>
+              <td style="padding:20px 20px 8px 20px;color:#e2e8f0">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <img src="${logoUrl}" width="40" height="40" alt="${appName}" style="display:block;border-radius:12px;border:1px solid rgba(148,163,184,0.25);background:#0b1220" />
+                  <div style="min-width:0">
+                    <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em">${appName}</div>
+                    <div style="margin-top:6px;font-size:13px;color:rgba(226,232,240,0.75)">${String(subline || '')}</div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 20px 20px 20px;color:#e2e8f0">
+                <div style="font-weight:800;font-size:16px;letter-spacing:-0.01em">${String(headline || '')}</div>
+                <div style="height:10px"></div>
+                <div style="font-size:14px;line-height:1.55;color:rgba(226,232,240,0.92)">${bodyHtml || ''}</div>
+                ${ctaUrl ? `
+                <div style="height:16px"></div>
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="center" bgcolor="#38bdf8" style="border-radius:12px">
+                      <a href="${ctaUrl}" style="display:inline-block;padding:12px 16px;font-weight:800;font-size:14px;color:#0b1220;text-decoration:none">${String(ctaText || 'Öffnen')}</a>
+                    </td>
+                  </tr>
+                </table>
+                <div style="height:16px"></div>
+                <div style="font-size:12px;line-height:1.5;color:rgba(226,232,240,0.7)">
+                  Falls der Button nicht funktioniert, öffne diesen Link:
+                  <div style="margin-top:8px;word-break:break-all">
+                    <a href="${ctaUrl}" style="color:#93c5fd;text-decoration:underline">${ctaUrl}</a>
+                  </div>
+                </div>` : ''}
+              </td>
+            </tr>
+          </table>
+          <div style="max-width:560px;margin-top:10px;color:rgba(226,232,240,0.45);font-size:11px;line-height:1.4">
+            <div>${String(footerReason || '').replace(/</g, '&lt;')}</div>
+            <div style="margin-top:6px">
+              <a href="${helpUrl}" style="color:rgba(226,232,240,0.6);text-decoration:underline">Hilfe</a>
+              <span style="opacity:0.5"> · </span>
+              <a href="${imprintUrl}" style="color:rgba(226,232,240,0.6);text-decoration:underline">Impressum</a>
+              <span style="opacity:0.5"> · </span>
+              <a href="${privacyUrl}" style="color:rgba(226,232,240,0.6);text-decoration:underline">Datenschutz</a>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const plainText = `${String(headline || '')}\n\n${String(previewText || '')}\n\n${ctaUrl ? `${ctaUrl}\n\n` : ''}${String(footerReason || '')}`;
+
+  await transport.sendMail({
+    from: smtp.fromAddress,
+    to,
+    subject,
+    text: plainText,
+    html,
+  });
+}
+
 async function sendVerificationEmail({ req, to, token }) {
   const smtp = await getEffectiveSmtpSettings();
   const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req);
@@ -1059,9 +1215,9 @@ async function ensureUserCalendarContext(userId) {
       const createdAt = new Date().toISOString();
       const calendarResult = await dbRun(
         db,
-        `INSERT INTO calendars (name, ownerUserId, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?)`,
-        ['Mein Kalender', userId, createdAt, createdAt]
+        `INSERT INTO calendars (name, ownerUserId, stateCode, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?)`,
+        ['Mein Kalender', userId, 'BY', createdAt, createdAt]
       );
       await dbRun(
         db,
@@ -1634,6 +1790,217 @@ app.post('/api/calendar/slug', requireCalendarRole('owner'), async (req, res) =>
   }
 });
 
+app.get('/api/calendar/settings', async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  if (!calendarId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+
+  const db = openDb();
+  try {
+    const row = await dbGet(db, 'SELECT stateCode FROM calendars WHERE id = ? LIMIT 1', [calendarId]);
+    return res.json({ stateCode: row?.stateCode || 'BY' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/calendar/settings', requireCalendarRole('owner'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  if (!calendarId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+
+  const stateCode = String(req.body?.stateCode || 'BY').toUpperCase();
+  if (!VALID_STATE_CODES.has(stateCode)) {
+    return res.status(400).json({ error: `Unsupported state: ${stateCode}` });
+  }
+
+  const db = openDb();
+  try {
+    await dbRun(db, 'UPDATE calendars SET stateCode = ?, updatedAt = ? WHERE id = ?', [stateCode, new Date().toISOString(), calendarId]);
+    return res.json({ success: true, stateCode });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.get('/api/calendar/recurring-rules', async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  if (!calendarId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+
+  const db = openDb();
+  try {
+    const rows = await dbAll(
+      db,
+      'SELECT userKey, rulesJson, updatedAt FROM calendar_recurring_rules WHERE calendarId = ?',
+      [calendarId]
+    );
+    const rules = { p1: [], p2: [] };
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.rulesJson || '[]');
+        if (row.userKey === 'p1') rules.p1 = Array.isArray(parsed) ? parsed : [];
+        if (row.userKey === 'p2') rules.p2 = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        // ignore broken rows
+      }
+    }
+    return res.json({ rules });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/calendar/recurring-rules', requireCalendarRole('editor'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  const { userKey, rules } = req.body || {};
+
+  if (!calendarId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+
+  const normalizedUserKey = userKey === 'p1' || userKey === 'p2' ? userKey : null;
+  if (!normalizedUserKey) {
+    return res.status(400).json({ error: 'userKey must be p1 or p2' });
+  }
+  if (!Array.isArray(rules)) {
+    return res.status(400).json({ error: 'rules must be an array' });
+  }
+
+  const rulesJson = JSON.stringify(rules);
+  if (rulesJson.length > 100_000) {
+    return res.status(400).json({ error: 'rules payload too large' });
+  }
+
+  const db = openDb();
+  try {
+    const now = new Date().toISOString();
+    await dbRun(
+      db,
+      `INSERT INTO calendar_recurring_rules (calendarId, userKey, rulesJson, updatedAt)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(calendarId, userKey) DO UPDATE SET rulesJson = excluded.rulesJson, updatedAt = excluded.updatedAt`,
+      [calendarId, normalizedUserKey, rulesJson, now]
+    );
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+async function getNotificationSettings(db, userId) {
+  const row = await dbGet(
+    db,
+    `SELECT enabled, inviteEmailsEnabled, membershipEmailsEnabled, digestEnabled, digestMode, digestThresholdDays
+     FROM notification_settings WHERE userId = ?`,
+    [userId]
+  );
+  if (!row) {
+    return {
+      enabled: true,
+      inviteEmailsEnabled: true,
+      membershipEmailsEnabled: true,
+      digestEnabled: true,
+      digestMode: 'always',
+      digestThresholdDays: 3,
+    };
+  }
+  return {
+    enabled: Boolean(row.enabled),
+    inviteEmailsEnabled: Boolean(row.inviteEmailsEnabled),
+    membershipEmailsEnabled: Boolean(row.membershipEmailsEnabled),
+    digestEnabled: Boolean(row.digestEnabled),
+    digestMode: row.digestMode === 'threshold' ? 'threshold' : 'always',
+    digestThresholdDays: Number.isFinite(Number(row.digestThresholdDays)) ? Math.max(0, Math.floor(Number(row.digestThresholdDays))) : 3,
+  };
+}
+
+app.get('/api/notifications/settings', async (req, res) => {
+  const userId = req.auth?.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const db = openDb();
+  try {
+    const settings = await getNotificationSettings(db, userId);
+    return res.json({ settings });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post('/api/notifications/settings', async (req, res) => {
+  const userId = req.auth?.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const body = req.body || {};
+  const enabled = body.enabled !== undefined ? Boolean(body.enabled) : true;
+  const inviteEmailsEnabled = body.inviteEmailsEnabled !== undefined ? Boolean(body.inviteEmailsEnabled) : true;
+  const membershipEmailsEnabled = body.membershipEmailsEnabled !== undefined ? Boolean(body.membershipEmailsEnabled) : true;
+  const digestEnabled = body.digestEnabled !== undefined ? Boolean(body.digestEnabled) : true;
+  const digestMode = body.digestMode === 'threshold' ? 'threshold' : 'always';
+  const digestThresholdDaysRaw = Number(body.digestThresholdDays);
+  const digestThresholdDays = Number.isFinite(digestThresholdDaysRaw) ? Math.max(0, Math.min(366, Math.floor(digestThresholdDaysRaw))) : 3;
+
+  const db = openDb();
+  try {
+    const now = new Date().toISOString();
+    await dbRun(
+      db,
+      `INSERT INTO notification_settings (
+        userId,
+        enabled,
+        inviteEmailsEnabled,
+        membershipEmailsEnabled,
+        digestEnabled,
+        digestMode,
+        digestThresholdDays,
+        updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(userId) DO UPDATE SET
+        enabled = excluded.enabled,
+        inviteEmailsEnabled = excluded.inviteEmailsEnabled,
+        membershipEmailsEnabled = excluded.membershipEmailsEnabled,
+        digestEnabled = excluded.digestEnabled,
+        digestMode = excluded.digestMode,
+        digestThresholdDays = excluded.digestThresholdDays,
+        updatedAt = excluded.updatedAt`,
+      [
+        userId,
+        enabled ? 1 : 0,
+        inviteEmailsEnabled ? 1 : 0,
+        membershipEmailsEnabled ? 1 : 0,
+        digestEnabled ? 1 : 0,
+        digestMode,
+        digestThresholdDays,
+        now,
+      ]
+    );
+    const settings = await getNotificationSettings(db, userId);
+    return res.json({ success: true, settings });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
 app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
   const db = openDb();
   try {
@@ -1705,6 +2072,304 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
 
 app.get('/api/admin/logs', requireAuth, requireAdmin, (req, res) => {
   res.json({ entries: adminLogEntries.slice(-ADMIN_LOG_MAX_ENTRIES) });
+});
+
+function formatDateOnlyUtc(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isWeekendLocal(date) {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+function startOfWeekLocal(date) {
+  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = copy.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  copy.setDate(copy.getDate() + diff);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function getWeekdayOccurrenceInMonthLocal(date) {
+  return Math.floor((date.getDate() - 1) / 7) + 1;
+}
+
+function parseLocalDateInput(value) {
+  const normalized = normalizeDateOnly(value);
+  if (!normalized) return null;
+  const [year, month, day] = normalized.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function isRecurringDayMatchLocal(date, selectedDays = [], rule = { frequency: 'weekly' }) {
+  if (!Array.isArray(selectedDays) || !selectedDays.includes(date.getDay())) return false;
+
+  const frequency = rule?.frequency || 'weekly';
+  if (frequency === 'weekly') return true;
+
+  const anchorDate = parseLocalDateInput(rule?.anchorDate);
+  if (!anchorDate) return true;
+  if (date < anchorDate) return false;
+
+  if (frequency === 'biweekly') {
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    const weekDiff = Math.round((startOfWeekLocal(date) - startOfWeekLocal(anchorDate)) / msPerWeek);
+    return weekDiff % 2 === 0;
+  }
+
+  if (frequency === 'monthly') {
+    return getWeekdayOccurrenceInMonthLocal(date) === getWeekdayOccurrenceInMonthLocal(anchorDate);
+  }
+
+  return true;
+}
+
+function matchesAnyRecurringRuleLocal(date, rules = []) {
+  if (!Array.isArray(rules)) return false;
+  return rules.some((rule) => isRecurringDayMatchLocal(date, rule?.days || [], rule));
+}
+
+async function loadCalendarRecurringRules(db, calendarId) {
+  const rows = await dbAll(
+    db,
+    'SELECT userKey, rulesJson FROM calendar_recurring_rules WHERE calendarId = ?',
+    [calendarId]
+  );
+  const rules = { p1: [], p2: [] };
+  for (const row of rows) {
+    try {
+      const parsed = JSON.parse(row.rulesJson || '[]');
+      if (row.userKey === 'p1') rules.p1 = Array.isArray(parsed) ? parsed : [];
+      if (row.userKey === 'p2') rules.p2 = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // ignore
+    }
+  }
+  return rules;
+}
+
+async function loadCalendarStateCode(db, calendarId) {
+  const row = await dbGet(db, 'SELECT stateCode FROM calendars WHERE id = ? LIMIT 1', [calendarId]);
+  const code = String(row?.stateCode || 'BY').toUpperCase();
+  return VALID_STATE_CODES.has(code) ? code : 'BY';
+}
+
+async function getHolidaysForYear({ year, stateCode }) {
+  const hd = new Holidays('DE', stateCode);
+  const publicHolidaysRaw = hd.getHolidays(year);
+  const publicHolidays = publicHolidaysRaw
+    .filter((h) => h.type === 'public')
+    .map((h) => ({ date: normalizeDateOnly(h.date) }))
+    .filter((h) => h.date);
+
+  let schoolHolidays = [];
+  try {
+    const response = await axios.get(`https://schulferien-api.de/api/v1/${year}/${stateCode}/`, { timeout: 3000 });
+    schoolHolidays = (response.data || []).map((h) => ({
+      start: normalizeDateOnly(h.start),
+      end: normalizeDateOnly(h.end),
+      name: h.name || h.title || h.slug || 'Ferien',
+    })).filter((h) => h.start && h.end);
+  } catch {
+    schoolHolidays = (STATIC_HOLIDAYS[stateCode]?.[year]?.school || []).map((h) => ({
+      start: normalizeDateOnly(h.start),
+      end: normalizeDateOnly(h.end),
+      name: h.name || 'Ferien',
+    })).filter((h) => h.start && h.end);
+  }
+
+  return {
+    public: publicHolidays,
+    school: schoolHolidays,
+  };
+}
+
+function isDateInSchoolHoliday(dateString, schoolHolidays) {
+  return (schoolHolidays || []).some((h) => dateString >= h.start && dateString <= h.end);
+}
+
+function isPublicHoliday(dateString, publicHolidays) {
+  return (publicHolidays || []).some((h) => h.date === dateString);
+}
+
+async function computeUnattendedDates({ db, calendarId, startDate, endDate }) {
+  const stateCode = await loadCalendarStateCode(db, calendarId);
+  const rules = await loadCalendarRecurringRules(db, calendarId);
+
+  const years = new Set([startDate.getFullYear(), endDate.getFullYear()]);
+  const holidaysByYear = new Map();
+  for (const year of years) {
+    holidaysByYear.set(year, await getHolidaysForYear({ year, stateCode }));
+  }
+
+  const children = await dbAll(
+    db,
+    'SELECT id, usesSchoolHolidays FROM children WHERE calendarId = ?',
+    [calendarId]
+  );
+  const childrenById = new Map(children.map((c) => [Number(c.id), { id: Number(c.id), usesSchoolHolidays: Boolean(c.usesSchoolHolidays) }]));
+
+  const childFreeDays = await dbAll(
+    db,
+    'SELECT childId, startDate, endDate, label FROM child_free_days WHERE calendarId = ? AND endDate >= ? AND startDate <= ?',
+    [calendarId, formatDateOnlyUtc(new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()))), formatDateOnlyUtc(new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())))]
+  );
+
+  const vacations = await dbAll(
+    db,
+    'SELECT date, userId FROM vacation_entries WHERE calendarId = ? AND date >= ? AND date <= ?',
+    [calendarId, normalizeDateOnly(formatDateOnlyUtc(new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())))), normalizeDateOnly(formatDateOnlyUtc(new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()))))]
+  );
+  const vacationsMap = new Map(vacations.map((v) => [String(v.date), String(v.userId || '')]));
+
+  const unattendedDates = [];
+
+  for (let d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const year = d.getFullYear();
+    const holidays = holidaysByYear.get(year);
+    const dateString = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const weekend = isWeekendLocal(d);
+    if (weekend) continue;
+
+    if (isPublicHoliday(dateString, holidays?.public || [])) continue;
+
+    const isSchoolHoliday = isDateInSchoolHoliday(dateString, holidays?.school || []);
+
+    let requiresCare = false;
+
+    if (childrenById.size === 0) {
+      requiresCare = isSchoolHoliday;
+    } else {
+      if (isSchoolHoliday) {
+        for (const child of childrenById.values()) {
+          if (child.usesSchoolHolidays) {
+            requiresCare = true;
+            break;
+          }
+        }
+      }
+
+      if (!requiresCare && childFreeDays.length > 0) {
+        for (const entry of childFreeDays) {
+          const child = childrenById.get(Number(entry.childId));
+          if (!child) continue;
+          if (dateString >= String(entry.startDate) && dateString <= String(entry.endDate)) {
+            requiresCare = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!requiresCare) continue;
+
+    const vacationUserId = vacationsMap.get(dateString) || '';
+    const hasP1 = vacationUserId === 'p1' || vacationUserId === 'both';
+    const hasP2 = vacationUserId === 'p2' || vacationUserId === 'both';
+    const hasCare = vacationUserId === 'care';
+
+    const isP1Free = matchesAnyRecurringRuleLocal(d, rules.p1);
+    const isP2Free = matchesAnyRecurringRuleLocal(d, rules.p2);
+
+    if (!hasP1 && !hasP2 && !hasCare && !isP1Free && !isP2Free) {
+      unattendedDates.push(dateString);
+    }
+  }
+
+  return unattendedDates;
+}
+
+async function sendDigestForCalendar({ req, db, calendarId, startDate, endDate, includeNextYearHint }) {
+  const unattendedDates = await computeUnattendedDates({ db, calendarId, startDate, endDate });
+  const calendarRow = await dbGet(db, 'SELECT name FROM calendars WHERE id = ? LIMIT 1', [calendarId]);
+  const calendarName = String(calendarRow?.name || 'Kalender');
+
+  const members = await dbAll(
+    db,
+    `SELECT users.id, users.email, users.username
+     FROM calendar_memberships
+     JOIN users ON users.id = calendar_memberships.userId
+     WHERE calendar_memberships.calendarId = ?`,
+    [calendarId]
+  );
+
+  for (const member of members) {
+    const userId = Number(member.id);
+    const email = normalizeEmail(member.email || '');
+    if (!email || !isValidEmail(email)) continue;
+
+    const settings = await getNotificationSettings(db, userId);
+    if (!settings.enabled || !settings.digestEnabled) continue;
+
+    if (settings.digestMode === 'threshold' && unattendedDates.length <= settings.digestThresholdDays) {
+      continue;
+    }
+
+    const rangeLabel = `${startDate.toLocaleDateString('de-DE')} bis ${endDate.toLocaleDateString('de-DE')}`;
+    const unattendedPreview = unattendedDates.slice(0, 25);
+    const extraCount = unattendedDates.length - unattendedPreview.length;
+
+    const listHtml = unattendedDates.length === 0
+      ? '<div>Keine unbetreuten Tage gefunden. 👍</div>'
+      : `<div>Unbetreute Tage: <strong>${unattendedDates.length}</strong></div>`
+        + '<div style="height:10px"></div>'
+        + `<ul style="margin:0;padding-left:18px">${unattendedPreview.map((d) => `<li>${d}</li>`).join('')}</ul>`
+        + (extraCount > 0 ? `<div style="height:10px"></div><div>… und ${extraCount} weitere.</div>` : '');
+
+    const hintHtml = includeNextYearHint
+      ? '<div style="height:14px"></div><div><strong>Hinweis:</strong> Ab Dezember lohnt es sich, bereits die Planung für das Folgejahr zu starten.</div>'
+      : '';
+
+    await sendBrandedEmail({
+      req,
+      to: email,
+      subject: `Mein Ferienplaner: Jahresübersicht Betreuung (${new Date().getFullYear()})`,
+      previewText: `Übersicht unbetreuter Tage (${rangeLabel}).`,
+      headline: 'Betreuungs-Übersicht',
+      subline: calendarName,
+      bodyHtml: `<div>Zeitraum: <strong>${rangeLabel}</strong></div><div style="height:12px"></div>${listHtml}${hintHtml}`,
+      ctaUrl: `${getPublicBaseUrl(req)}/app`,
+      ctaText: 'Kalender öffnen',
+      footerReason: 'Du erhältst diese E-Mail, weil du Benachrichtigungen (Jahresübersicht) aktiviert hast.',
+    });
+  }
+
+  return {
+    unattendedCount: unattendedDates.length,
+  };
+}
+
+app.post('/api/admin/digest/run', requireAuth, requireAdmin, async (req, res) => {
+  const db = openDb();
+  try {
+    const today = new Date();
+    const year = today.getFullYear();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const end = new Date(year, 11, 31);
+    const includeNextYearHint = today.getMonth() >= 11;
+
+    const calendars = await dbAll(db, 'SELECT id FROM calendars ORDER BY id ASC');
+    const results = [];
+    for (const cal of calendars) {
+      const calendarId = Number(cal.id);
+      if (!Number.isInteger(calendarId) || calendarId <= 0) continue;
+      const result = await sendDigestForCalendar({ req, db, calendarId, startDate: start, endDate: end, includeNextYearHint });
+      results.push({ calendarId, ...result });
+    }
+    return res.json({ success: true, year, range: { start: normalizeDateOnly(formatDateOnlyUtc(new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())))), end: `${year}-12-31` }, results });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
 });
 
 app.get('/api/admin/diagnostics', requireAuth, requireAdmin, async (req, res) => {
@@ -2127,6 +2792,70 @@ app.post('/api/invitations', requireCalendarRole('owner'), async (req, res) => {
   }
 });
 
+app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  const userId = req.auth?.user?.id;
+  const { role = 'viewer', expiresInDays = 14, email } = req.body || {};
+
+  if (!calendarId || !userId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+
+  const to = normalizeEmail(email);
+  if (!to || !isValidEmail(to)) {
+    return res.status(400).json({ error: 'Valid email is required' });
+  }
+
+  const normalizedRole = ['viewer', 'editor'].includes(role) ? role : 'viewer';
+  const numericExpires = Number(expiresInDays);
+  const expiresDays = Number.isFinite(numericExpires) ? Math.max(1, Math.min(90, Math.floor(numericExpires))) : 14;
+
+  const token = crypto.randomBytes(32).toString('base64url');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const createdAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const db = openDb();
+  try {
+    const calendarRow = await dbGet(db, 'SELECT name FROM calendars WHERE id = ? LIMIT 1', [calendarId]);
+    const ownerRow = await dbGet(db, 'SELECT username FROM users WHERE id = ? LIMIT 1', [userId]);
+
+    await dbRun(
+      db,
+      `INSERT INTO calendar_invitations (calendarId, invitedByUserId, role, tokenHash, createdAt, expiresAt)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [calendarId, userId, normalizedRole, tokenHash, createdAt, expiresAt]
+    );
+
+    const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || `http://localhost:${PORT}`;
+    const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/?invite=${token}`;
+
+    await sendBrandedEmail({
+      req,
+      to,
+      subject: 'Mein Ferienplaner: Einladung zum Kalender',
+      previewText: 'Du wurdest zu einem Kalender eingeladen.',
+      headline: 'Einladung zum Kalender',
+      subline: 'Kalender teilen',
+      bodyHtml: `Du wurdest zu dem Kalender <strong>${String(calendarRow?.name || 'Kalender')}</strong> eingeladen.`
+        + `<div style="height:10px"></div>`
+        + `<div>Rolle: <strong>${normalizedRole === 'editor' ? 'Editor' : 'Viewer'}</strong></div>`
+        + (ownerRow?.username ? `<div>Einladung von: <strong>${String(ownerRow.username).replace(/</g, '&lt;')}</strong></div>` : '')
+        + `<div>Gültig bis: <strong>${String(expiresAt).slice(0, 10)}</strong></div>`,
+      ctaUrl: inviteUrl,
+      ctaText: 'Einladung annehmen',
+      footerReason: 'Du erhältst diese E-Mail, weil dich jemand zu einem Kalender in Mein Ferienplaner eingeladen hat.',
+    });
+
+    pushAdminLog('calendar.invite_email_sent', `Invite email sent calendarId=${calendarId} role=${normalizedRole}`, { calendarId, role: normalizedRole, expiresAt, to });
+    return res.json({ success: true, token, inviteUrl, role: normalizedRole, expiresAt });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
 app.post('/api/invitations/accept', async (req, res) => {
   const userId = req.auth?.user?.id;
   const { token } = req.body || {};
@@ -2188,6 +2917,31 @@ app.post('/api/invitations/accept', async (req, res) => {
     );
 
     pushAdminLog('calendar.invite_accept', `Invite accepted calendarId=${invite.calendarId} userId=${userId} role=${membershipRole}`, { calendarId: invite.calendarId, userId, role: membershipRole });
+
+    try {
+      const settings = await getNotificationSettings(db, userId);
+      const userRow = await dbGet(db, 'SELECT username, email FROM users WHERE id = ? LIMIT 1', [userId]);
+      const email = normalizeEmail(userRow?.email || '');
+      if (email && isValidEmail(email) && settings.enabled && settings.membershipEmailsEnabled) {
+        const calendarRow = await dbGet(db, 'SELECT name FROM calendars WHERE id = ? LIMIT 1', [invite.calendarId]);
+        await sendBrandedEmail({
+          req,
+          to: email,
+          subject: 'Mein Ferienplaner: Zugriff erhalten',
+          previewText: 'Du hast Zugriff auf einen Kalender erhalten.',
+          headline: 'Zugriff erhalten',
+          subline: 'Kalenderfreigabe',
+          bodyHtml: `Du hast Zugriff auf den Kalender <strong>${String(calendarRow?.name || 'Kalender')}</strong> erhalten.`
+            + `<div style="height:10px"></div>`
+            + `<div>Rolle: <strong>${membershipRole === 'editor' ? 'Editor' : membershipRole}</strong></div>`,
+          ctaUrl: `${getPublicBaseUrl(req)}/app`,
+          ctaText: 'Kalender öffnen',
+          footerReason: 'Du erhältst diese E-Mail, weil du Benachrichtigungen zu Kalenderfreigaben aktiviert hast.',
+        });
+      }
+    } catch {
+      // ignore notification errors
+    }
 
     return res.json({ success: true, calendarId: invite.calendarId, role: membershipRole });
   } catch (error) {
