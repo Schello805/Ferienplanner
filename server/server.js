@@ -1394,7 +1394,7 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
-  const { username, password, isAdmin = false } = req.body;
+  const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'username and password are required' });
   }
@@ -1412,10 +1412,10 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
       db,
       `INSERT INTO users (username, emailVerified, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
        VALUES (?, 1, ?, ?, ?, ?, ?)`,
-      [String(username).trim(), hash, salt, isAdmin ? 1 : 0, now, now]
+      [String(username).trim(), hash, salt, 0, now, now]
     );
     await ensureUserCalendarContext(result.lastID);
-    pushAdminLog('admin.create_user', `Admin created user: ${String(username).trim()}`, { username: String(username).trim(), userId: result.lastID, isAdmin: Boolean(isAdmin) });
+    pushAdminLog('admin.create_user', `Admin created user: ${String(username).trim()}`, { username: String(username).trim(), userId: result.lastID, isAdmin: false });
     res.json({ success: true, id: result.lastID });
   } catch (error) {
     res.status(500).json({ error: error.message });
