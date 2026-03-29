@@ -10,7 +10,6 @@ export const Footer = () => {
         <footer className="mt-2 hidden border-t border-gray-100 py-2 text-center text-[11px] text-gray-400 dark:border-slate-800 dark:text-gray-600 md:block print:hidden">
             <p>&copy; {new Date().getFullYear()} Mein Ferienplaner. Alle Rechte vorbehalten.</p>
             <div className="mt-0.5 flex items-center justify-center gap-3">
-                <p>Optimiert für die Jahresübersicht.</p>
                 <Link
                     to="/hilfe"
                     className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"

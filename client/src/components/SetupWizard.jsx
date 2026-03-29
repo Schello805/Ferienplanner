@@ -44,6 +44,14 @@ export const SetupWizard = () => {
   const [childColor, setChildColor] = React.useState('#f97316');
   const [usesSchoolHolidays, setUsesSchoolHolidays] = React.useState(true);
 
+  const [notificationSettings, setNotificationSettings] = React.useState(() => ({
+    enabled: true,
+    membershipEmailsEnabled: true,
+    digestEnabled: true,
+    digestMode: 'always',
+    digestThresholdDays: 3,
+  }));
+
   const [editingChildIndex, setEditingChildIndex] = React.useState(null);
   const [childNameError, setChildNameError] = React.useState('');
 
@@ -84,6 +92,14 @@ export const SetupWizard = () => {
         setChildColor('#f97316');
         setUsesSchoolHolidays(true);
       }
+
+      if (draft?.notificationSettings && typeof draft.notificationSettings === 'object') {
+        setNotificationSettings((current) => ({
+          ...current,
+          ...draft.notificationSettings,
+          digestThresholdDays: Number(draft.notificationSettings.digestThresholdDays ?? current.digestThresholdDays) || 0,
+        }));
+      }
     } catch {
       // ignore
     }
@@ -112,6 +128,7 @@ export const SetupWizard = () => {
     { id: 'state', label: 'Bundesland' },
     { id: 'colors', label: 'Farben' },
     { id: 'children', label: 'Kinder' },
+    { id: 'emails', label: 'E-Mails' },
     { id: 'done', label: 'Fertig' },
   ];
 
@@ -226,6 +243,7 @@ export const SetupWizard = () => {
         calendarSlug,
         colors: { p1Color, p2Color, careColor },
         children,
+        notificationSettings,
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
     }
@@ -465,6 +483,84 @@ export const SetupWizard = () => {
           )}
 
           {step === 3 && (
+            <div className="space-y-4">
+              <div className="text-base font-extrabold">E-Mails & Benachrichtigungen</div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                Du kannst diese Einstellungen später jederzeit in der Sidebar unter <strong>Benachrichtigungen</strong> ändern.
+              </div>
+
+              <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                <div>
+                  <div className="font-extrabold text-slate-900 dark:text-white">Alle E-Mails aktiv</div>
+                  <div className="mt-0.5 text-xs opacity-80">Master-Schalter für alle E-Mails.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(notificationSettings.enabled)}
+                  onChange={(e) => setNotificationSettings((prev) => ({ ...prev, enabled: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+              </label>
+
+              <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                <div>
+                  <div className="font-extrabold text-slate-900 dark:text-white">Zugriff auf Kalender</div>
+                  <div className="mt-0.5 text-xs opacity-80">E-Mail bei Zugriff erteilt oder entzogen.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(notificationSettings.membershipEmailsEnabled)}
+                  onChange={(e) => setNotificationSettings((prev) => ({ ...prev, membershipEmailsEnabled: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+              </label>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                <div className="text-sm font-extrabold text-slate-900 dark:text-white">Jahres-Digest</div>
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                  Zeitraum: heute bis 31.12. (ab 01.12. zusätzlich Hinweis fürs Folgejahr)
+                </div>
+
+                <label className="mt-3 flex items-center justify-between gap-3 text-sm font-semibold text-slate-700 dark:text-slate-100">
+                  <span>Jahres-Digest aktiv</span>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(notificationSettings.digestEnabled)}
+                    onChange={(e) => setNotificationSettings((prev) => ({ ...prev, digestEnabled: e.target.checked }))}
+                    className="h-4 w-4"
+                  />
+                </label>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Wann senden?
+                    <select
+                      value={notificationSettings.digestMode}
+                      onChange={(e) => setNotificationSettings((prev) => ({ ...prev, digestMode: e.target.value }))}
+                      className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    >
+                      <option value="always">Immer senden</option>
+                      <option value="threshold">Nur bei &gt; X</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    X (Schwellwert)
+                    <input
+                      type="number"
+                      min={0}
+                      max={366}
+                      value={Number(notificationSettings.digestThresholdDays) || 0}
+                      onChange={(e) => setNotificationSettings((prev) => ({ ...prev, digestThresholdDays: Number(e.target.value) }))}
+                      disabled={notificationSettings.digestMode !== 'threshold'}
+                      className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
             <div className="space-y-4">
               <div className="text-base font-extrabold">Zusammenfassung</div>
               <div className="grid gap-2 sm:grid-cols-2">

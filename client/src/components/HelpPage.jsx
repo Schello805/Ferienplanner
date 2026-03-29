@@ -34,6 +34,9 @@ export const HelpPage = () => {
             <a className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-200 dark:hover:bg-slate-800" href="#hilfe-mitglieder">
               Mitglieder verwalten
             </a>
+            <a className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-200 dark:hover:bg-slate-800" href="#hilfe-benachrichtigungen">
+              Benachrichtigungen
+            </a>
             <a className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-200 dark:hover:bg-slate-800" href="#hilfe-loeschen">
               Konto löschen
             </a>
@@ -127,6 +130,31 @@ export const HelpPage = () => {
             </div>
             <div>
               Hinweis: Der Owner kann sich selbst nicht entfernen, damit der Kalender nicht ohne Besitzer wird.
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-2" aria-labelledby="hilfe-benachrichtigungen">
+          <div id="hilfe-benachrichtigungen" className="text-base font-extrabold">
+            Benachrichtigungen (E-Mail)
+          </div>
+          <div className="space-y-2">
+            <div>
+              In der Sidebar findest du den Tab <strong>Benachrichtigungen</strong>. Dort stellst du ein, welche E-Mails du erhalten möchtest.
+            </div>
+            <div className="space-y-1">
+              <div>
+                <strong>Alle E-Mails aktiv</strong>: Master-Schalter. Wenn deaktiviert, werden gar keine E-Mails versendet.
+              </div>
+              <div>
+                <strong>Zugriff auf Kalender</strong>: E-Mail, wenn dir Zugriff auf einen Kalender erteilt oder entzogen wird.
+              </div>
+              <div>
+                <strong>Jahres-Digest</strong>: Zusammenfassung unbetreuter Tage. Zeitraum: heute bis 31.12. Ab 01.12. zusätzlich mit Hinweis zur Planung des Folgejahrs.
+              </div>
+              <div>
+                <strong>Schwellwert</strong>: Wenn du den Modus „Nur bei &gt; X" wählst, bekommst du den Digest nur, wenn es im Zeitraum mehr als X unbetreute Tage gibt.
+              </div>
             </div>
           </div>
         </section>

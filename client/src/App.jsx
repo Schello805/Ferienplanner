@@ -543,6 +543,29 @@ function App() {
         }
       }
 
+      if (draft?.notificationSettings && typeof draft.notificationSettings === 'object') {
+        const payload = {
+          enabled: draft.notificationSettings.enabled !== false,
+          membershipEmailsEnabled: draft.notificationSettings.membershipEmailsEnabled !== false,
+          digestEnabled: draft.notificationSettings.digestEnabled !== false,
+          digestMode: String(draft.notificationSettings.digestMode || 'always'),
+          digestThresholdDays: Number(draft.notificationSettings.digestThresholdDays ?? 3) || 0,
+        };
+        try {
+          const response = await authFetch('/api/notifications/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            toast.warning(data.error || 'Benachrichtigungen konnten nicht übernommen werden');
+          }
+        } catch (error) {
+          toast.warning(error?.message || 'Benachrichtigungen konnten nicht übernommen werden');
+        }
+      }
+
       localStorage.removeItem(SETUP_DRAFT_KEY);
       toast.success('Einrichtung übernommen');
       await refreshAuthStatus();
