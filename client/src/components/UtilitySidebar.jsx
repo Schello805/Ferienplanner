@@ -64,7 +64,6 @@ const InfoTip = ({ text }) => {
                 type="button"
                 ref={buttonRef}
                 className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                title={text}
                 aria-label={text}
                 onClick={() => setOpen((value) => !value)}
             >
