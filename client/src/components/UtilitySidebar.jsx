@@ -913,7 +913,7 @@ const RecurringRulesGroup = ({ label, color, rules, setRules }) => (
             </div>
             <button
                 type="button"
-                onClick={() => setRules([...rules, createEmptyRule()])}
+                onClick={() => setRules((current) => [...current, createEmptyRule()])}
                 className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
                 Regel hinzufügen
@@ -927,8 +927,8 @@ const RecurringRulesGroup = ({ label, color, rules, setRules }) => (
                     label={label}
                     color={color}
                     rule={rule}
-                    onChangeRule={(nextRule) => setRules(rules.map((item) => item.id === rule.id ? nextRule : item))}
-                    onRemoveRule={() => setRules(rules.length > 1 ? rules.filter((item) => item.id !== rule.id) : [createEmptyRule()])}
+                    onChangeRule={(nextRule) => setRules((current) => current.map((item) => item.id === rule.id ? nextRule : item))}
+                    onRemoveRule={() => setRules((current) => (current.length > 1 ? current.filter((item) => item.id !== rule.id) : [createEmptyRule()]))}
                     canRemove={rules.length > 1}
                 />
             ))}

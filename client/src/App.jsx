@@ -183,8 +183,12 @@ function App() {
   }, [p1Color, p2Color, careColor]);
 
   useEffect(() => {
-    localStorage.setItem('p1RecurringRules', JSON.stringify(p1RecurringRules));
-    localStorage.setItem('p2RecurringRules', JSON.stringify(p2RecurringRules));
+    try {
+      localStorage.setItem('p1RecurringRules', JSON.stringify(p1RecurringRules));
+      localStorage.setItem('p2RecurringRules', JSON.stringify(p2RecurringRules));
+    } catch {
+      // ignore storage errors (e.g. private mode / quota)
+    }
   }, [p1RecurringRules, p2RecurringRules]);
 
   useEffect(() => {
