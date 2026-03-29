@@ -1743,10 +1743,27 @@ const GeneralSettingsPanel = ({
         return `${window.location.origin}/k/${slug}`;
     }, [currentCalendar?.slug]);
 
+    const normalizeCalendarSlug = React.useCallback((input) => {
+        const raw = String(input || '').trim().toLowerCase();
+        return raw
+            .replace(/[^a-z0-9-]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+    }, []);
+
+    const draftSlugNormalized = React.useMemo(() => normalizeCalendarSlug(slugDraft), [normalizeCalendarSlug, slugDraft]);
+
+    const draftCalendarUrl = React.useMemo(() => {
+        if (typeof window === 'undefined') return '';
+        if (!draftSlugNormalized) return '';
+        return `${window.location.origin}/k/${draftSlugNormalized}`;
+    }, [draftSlugNormalized]);
+
     const copyCalendarUrl = async () => {
-        if (!calendarUrl) return;
+        const value = draftCalendarUrl || calendarUrl;
+        if (!value) return;
         try {
-            await navigator.clipboard.writeText(calendarUrl);
+            await navigator.clipboard.writeText(value);
             toast.success('Kalender-URL kopiert');
         } catch (error) {
             console.error(error);
@@ -1757,10 +1774,11 @@ const GeneralSettingsPanel = ({
     const saveSlug = async () => {
         setSlugSaving(true);
         try {
+            const slug = draftSlugNormalized;
             const response = await authFetch('/api/calendar/slug', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slug: slugDraft }),
+                body: JSON.stringify({ slug }),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Slug konnte nicht gespeichert werden');
@@ -1788,7 +1806,7 @@ const GeneralSettingsPanel = ({
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         Wähle einen eindeutigen Slug (klein, mit Bindestrichen). Beispiel: <span className="font-mono">familie-mueller</span>
                     </div>
-                    <div className="mt-3 grid gap-2 md:grid-cols-3">
+                    <div className="mt-3 space-y-2">
                         <input
                             type="text"
                             value={slugDraft}
@@ -1797,28 +1815,30 @@ const GeneralSettingsPanel = ({
                             placeholder="familie-mueller"
                             autoComplete="off"
                         />
-                        <button
-                            type="button"
-                            onClick={saveSlug}
-                            disabled={slugSaving}
-                            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-900 px-3 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-                        >
-                            {slugSaving ? 'Speichere…' : 'Speichern'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={copyCalendarUrl}
-                            disabled={!calendarUrl}
-                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-                        >
-                            Link kopieren
-                        </button>
-                    </div>
-                    {calendarUrl && (
-                        <div className="mt-2 break-all rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
-                            {calendarUrl}
+
+                        <div className="break-all rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                            {draftCalendarUrl || calendarUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/k/...`}
                         </div>
-                    )}
+
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                onClick={saveSlug}
+                                disabled={slugSaving || !draftSlugNormalized}
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-900 px-3 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                            >
+                                {slugSaving ? 'Speichere…' : 'Speichern'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={copyCalendarUrl}
+                                disabled={!(draftCalendarUrl || calendarUrl)}
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                            >
+                                Link kopieren
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
             <div className="grid gap-2 sm:grid-cols-2">
