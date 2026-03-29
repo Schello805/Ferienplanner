@@ -662,6 +662,7 @@ async function initializeDatabase() {
         tokenHash TEXT NOT NULL UNIQUE,
         createdAt TEXT,
         expiresAt TEXT,
+        revokedAt TEXT,
         usedAt TEXT,
         usedByUserId INTEGER,
         FOREIGN KEY (calendarId) REFERENCES calendars(id) ON DELETE CASCADE,
@@ -669,6 +670,11 @@ async function initializeDatabase() {
         FOREIGN KEY (usedByUserId) REFERENCES users(id) ON DELETE SET NULL
       )`
     );
+
+    const inviteColumns = new Set((await dbAll(db, 'PRAGMA table_info(calendar_invitations)')).map((row) => row.name));
+    if (!inviteColumns.has('revokedAt')) {
+      await dbRun(db, 'ALTER TABLE calendar_invitations ADD COLUMN revokedAt TEXT');
+    }
 
     await dbRun(
       db,
@@ -1057,13 +1063,37 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
 
   const plainText = `${String(headline || '')}\n\n${String(previewText || '')}\n\n${ctaUrl ? `${ctaUrl}\n\n` : ''}${String(footerReason || '')}`;
 
+  const fromValue = String(smtp.fromAddress || '').includes('<')
+    ? smtp.fromAddress
+    : `Mein Ferienkalender <${smtp.fromAddress}>`;
+
   await transport.sendMail({
-    from: smtp.fromAddress,
+    from: fromValue,
     to,
     subject,
     text: plainText,
     html,
   });
+}
+
+function getGermanRoleLabel(role) {
+  if (role === 'editor') return 'Bearbeiter';
+  return 'Leser';
+}
+
+function computeInvitationExpiresAt({ mode, days }) {
+  const now = Date.now();
+  if (mode === 'unlimited') return null;
+  if (mode === 'year') {
+    const date = new Date();
+    date.setUTCMonth(11, 31);
+    date.setUTCHours(23, 59, 59, 999);
+    return date.toISOString();
+  }
+
+  const numericExpires = Number(days);
+  const expiresDays = Number.isFinite(numericExpires) ? Math.max(1, Math.min(365, Math.floor(numericExpires))) : 14;
+  return new Date(now + expiresDays * 24 * 60 * 60 * 1000).toISOString();
 }
 
 async function sendVerificationEmail({ req, to, token }) {
@@ -2761,16 +2791,15 @@ app.delete('/api/children/:id', requireCalendarRole('editor'), (req, res) => {
 app.post('/api/invitations', requireCalendarRole('owner'), async (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const userId = req.auth?.user?.id;
-  const { role = 'viewer', expiresInDays = 14 } = req.body || {};
+  const { role = 'viewer', expiresInDays = 14, expiresMode = 'days' } = req.body || {};
 
   const normalizedRole = ['viewer', 'editor'].includes(role) ? role : 'viewer';
-  const numericExpires = Number(expiresInDays);
-  const expiresDays = Number.isFinite(numericExpires) ? Math.max(1, Math.min(90, Math.floor(numericExpires))) : 14;
+  const normalizedMode = ['days', 'year', 'unlimited'].includes(expiresMode) ? expiresMode : 'days';
 
   const token = crypto.randomBytes(32).toString('base64url');
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const createdAt = new Date().toISOString();
-  const expiresAt = new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = computeInvitationExpiresAt({ mode: normalizedMode, days: expiresInDays });
 
   const db = openDb();
   try {
@@ -2783,8 +2812,95 @@ app.post('/api/invitations', requireCalendarRole('owner'), async (req, res) => {
 
     const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || `http://localhost:${PORT}`;
     const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/?invite=${token}`;
-    pushAdminLog('calendar.invite_create', `Invite created for calendarId=${calendarId} role=${normalizedRole}`, { calendarId, role: normalizedRole, expiresAt });
+    pushAdminLog('calendar.invite_create', `Invite created for calendarId=${calendarId} role=${normalizedRole}`, { calendarId, role: normalizedRole, expiresAt, expiresMode: normalizedMode });
     return res.json({ success: true, token, inviteUrl, role: normalizedRole, expiresAt });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.get('/api/invitations', requireAuth, requireCalendarRole('owner'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  if (!calendarId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+
+  const db = openDb();
+  try {
+    const rows = await dbAll(
+      db,
+      `SELECT
+         calendar_invitations.id,
+         calendar_invitations.role,
+         calendar_invitations.createdAt,
+         calendar_invitations.expiresAt,
+         calendar_invitations.revokedAt,
+         calendar_invitations.usedAt,
+         calendar_invitations.usedByUserId,
+         invitedBy.username AS invitedByUsername,
+         invitedBy.email AS invitedByEmail,
+         usedBy.username AS usedByUsername,
+         usedBy.email AS usedByEmail
+       FROM calendar_invitations
+       JOIN users AS invitedBy ON invitedBy.id = calendar_invitations.invitedByUserId
+       LEFT JOIN users AS usedBy ON usedBy.id = calendar_invitations.usedByUserId
+       WHERE calendar_invitations.calendarId = ?
+       ORDER BY calendar_invitations.createdAt DESC, calendar_invitations.id DESC`,
+      [calendarId]
+    );
+
+    const now = Date.now();
+    const withStatus = (rows || []).map((row) => {
+      let status = 'pending';
+      if (row.revokedAt) status = 'revoked';
+      else if (row.usedAt) status = 'active';
+      else if (row.expiresAt && new Date(row.expiresAt).getTime() < now) status = 'expired';
+      return { ...row, status };
+    });
+
+    return res.json({ invitations: withStatus });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.delete('/api/invitations/:id', requireAuth, requireCalendarRole('owner'), async (req, res) => {
+  const calendarId = req.auth?.calendar?.id;
+  const inviteId = Number(req.params.id);
+  if (!calendarId) {
+    return res.status(400).json({ error: 'Calendar context missing' });
+  }
+  if (!Number.isInteger(inviteId) || inviteId <= 0) {
+    return res.status(400).json({ error: 'Invalid invitation id' });
+  }
+
+  const db = openDb();
+  try {
+    const row = await dbGet(
+      db,
+      `SELECT id, usedAt, revokedAt
+       FROM calendar_invitations
+       WHERE id = ? AND calendarId = ?`,
+      [inviteId, calendarId]
+    );
+    if (!row) {
+      return res.status(404).json({ error: 'Invitation not found' });
+    }
+    if (row.usedAt) {
+      return res.status(409).json({ error: 'Invitation already used' });
+    }
+    if (row.revokedAt) {
+      return res.json({ success: true });
+    }
+
+    const now = new Date().toISOString();
+    await dbRun(db, 'UPDATE calendar_invitations SET revokedAt = ? WHERE id = ? AND calendarId = ?', [now, inviteId, calendarId]);
+    pushAdminLog('calendar.invite_revoke', `Invite revoked id=${inviteId} calendarId=${calendarId}`, { calendarId, inviteId });
+    return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   } finally {
@@ -2795,7 +2911,7 @@ app.post('/api/invitations', requireCalendarRole('owner'), async (req, res) => {
 app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const userId = req.auth?.user?.id;
-  const { role = 'viewer', expiresInDays = 14, email } = req.body || {};
+  const { role = 'viewer', expiresInDays = 14, expiresMode = 'days', email } = req.body || {};
 
   if (!calendarId || !userId) {
     return res.status(400).json({ error: 'Calendar context missing' });
@@ -2807,18 +2923,17 @@ app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req
   }
 
   const normalizedRole = ['viewer', 'editor'].includes(role) ? role : 'viewer';
-  const numericExpires = Number(expiresInDays);
-  const expiresDays = Number.isFinite(numericExpires) ? Math.max(1, Math.min(90, Math.floor(numericExpires))) : 14;
+  const normalizedMode = ['days', 'year', 'unlimited'].includes(expiresMode) ? expiresMode : 'days';
 
   const token = crypto.randomBytes(32).toString('base64url');
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const createdAt = new Date().toISOString();
-  const expiresAt = new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = computeInvitationExpiresAt({ mode: normalizedMode, days: expiresInDays });
 
   const db = openDb();
   try {
-    const calendarRow = await dbGet(db, 'SELECT name FROM calendars WHERE id = ? LIMIT 1', [calendarId]);
-    const ownerRow = await dbGet(db, 'SELECT username FROM users WHERE id = ? LIMIT 1', [userId]);
+    const calendarRow = await dbGet(db, 'SELECT name, slug FROM calendars WHERE id = ? LIMIT 1', [calendarId]);
+    const ownerRow = await dbGet(db, 'SELECT username, email FROM users WHERE id = ? LIMIT 1', [userId]);
 
     await dbRun(
       db,
@@ -2829,6 +2944,15 @@ app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req
 
     const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || `http://localhost:${PORT}`;
     const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/?invite=${token}`;
+    const calendarUrl = calendarRow?.slug
+      ? `${String(baseUrl).replace(/\/$/, '')}/k/${String(calendarRow.slug)}`
+      : `${String(baseUrl).replace(/\/$/, '')}/app`;
+
+    const roleLabel = getGermanRoleLabel(normalizedRole);
+    const inviterName = String(ownerRow?.username || '').replace(/</g, '&lt;');
+    const inviterEmail = normalizeEmail(ownerRow?.email || '');
+    const inviterLabel = inviterEmail ? `${inviterName} &lt;${String(inviterEmail).replace(/</g, '&lt;')}&gt;` : inviterName;
+    const validUntilLabel = expiresAt ? String(expiresAt).slice(0, 10) : 'unbegrenzt';
 
     await sendBrandedEmail({
       req,
@@ -2839,15 +2963,24 @@ app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req
       subline: 'Kalender teilen',
       bodyHtml: `Du wurdest zu dem Kalender <strong>${String(calendarRow?.name || 'Kalender')}</strong> eingeladen.`
         + `<div style="height:10px"></div>`
-        + `<div>Rolle: <strong>${normalizedRole === 'editor' ? 'Editor' : 'Viewer'}</strong></div>`
-        + (ownerRow?.username ? `<div>Einladung von: <strong>${String(ownerRow.username).replace(/</g, '&lt;')}</strong></div>` : '')
-        + `<div>Gültig bis: <strong>${String(expiresAt).slice(0, 10)}</strong></div>`,
+        + `<div>Kalender-Link: <a href="${calendarUrl}" style="color:#93c5fd;text-decoration:underline">${calendarUrl}</a></div>`
+        + `<div style="height:10px"></div>`
+        + `<div>Rolle: <strong>${roleLabel}</strong></div>`
+        + (inviterLabel ? `<div>Einladung von: <strong>${inviterLabel}</strong></div>` : '')
+        + `<div>Gültig bis: <strong>${validUntilLabel}</strong></div>`,
       ctaUrl: inviteUrl,
       ctaText: 'Einladung annehmen',
       footerReason: 'Du erhältst diese E-Mail, weil dich jemand zu einem Kalender in Mein Ferienplaner eingeladen hat.',
     });
 
-    pushAdminLog('calendar.invite_email_sent', `Invite email sent calendarId=${calendarId} role=${normalizedRole}`, { calendarId, role: normalizedRole, expiresAt, to });
+    pushAdminLog('calendar.invite_email_sent', `Invite email sent calendarId=${calendarId} role=${normalizedRole}`, {
+      calendarId,
+      role: normalizedRole,
+      expiresAt,
+      expiresMode: normalizedMode,
+      to,
+    });
+
     return res.json({ success: true, token, inviteUrl, role: normalizedRole, expiresAt });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -2868,7 +3001,7 @@ app.post('/api/invitations/accept', async (req, res) => {
   try {
     const invite = await dbGet(
       db,
-      `SELECT id, calendarId, role, expiresAt, usedAt
+      `SELECT id, calendarId, role, expiresAt, revokedAt, usedAt
        FROM calendar_invitations
        WHERE tokenHash = ?`,
       [tokenHash]
@@ -2876,6 +3009,9 @@ app.post('/api/invitations/accept', async (req, res) => {
 
     if (!invite) {
       return res.status(404).json({ error: 'Invitation not found' });
+    }
+    if (invite.revokedAt) {
+      return res.status(410).json({ error: 'Invitation revoked' });
     }
     if (invite.usedAt) {
       return res.status(409).json({ error: 'Invitation already used' });
