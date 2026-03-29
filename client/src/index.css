@@ -540,12 +540,13 @@ html.dark .settings-modal-heading {
   .day-cell-holiday-text {
     font-size: 7px !important;
     color: #000 !important;
-    font-weight: bold !important;
-    white-space: nowrap !important;
+    font-weight: normal !important;
     overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    line-height: 16px !important;
-    display: block !important;
+    line-height: 1.15 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
   }
 
   /* Unattended Warning */

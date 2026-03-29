@@ -154,7 +154,7 @@ export const DayCell = ({
 
             {/* Public Holiday Text - Full visibility */}
             {status.publicHoliday && (
-                <span className="day-cell-holiday-text text-[9px] sm:text-[10px] leading-tight text-center w-full px-0.5 text-red-900 dark:text-white font-bold z-20 break-words">
+                <span className="day-cell-holiday-text text-[7px] sm:text-[8px] leading-tight text-center w-full px-0.5 text-red-900 dark:text-white font-normal z-20 break-words">
                     {status.publicHoliday}
                 </span>
             )}

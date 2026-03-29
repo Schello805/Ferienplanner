@@ -1168,24 +1168,6 @@ const CalendarView = ({
                 </div>
             </div>
 
-            {apiNotice?.tone === 'info' && (
-                <div className="mt-2 rounded-xl border border-sky-100 bg-sky-50/80 px-3 py-2 text-xs text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200 print:hidden">
-                    <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <div className="font-semibold">{apiNotice.title}</div>
-                            <div className="mt-0.5 opacity-80">{apiNotice.message}</div>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setApiNotice(null)}
-                            className="rounded-lg px-2 py-1 font-semibold opacity-70 transition-opacity hover:opacity-100"
-                        >
-                            Ausblenden
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {shareMode && (
                 <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300 print:hidden">
                     Diese Ansicht ist schreibgeschützt und für kompakte Weitergabe optimiert. Sie ersetzt keine Benutzerfreigabe: Änderungen bleiben nur in der normalen Arbeitsansicht mit gültigem Login möglich.
