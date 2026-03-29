@@ -202,6 +202,54 @@ Wichtig:
 - Das Skript verwirft lokale Änderungen im Repo bewusst automatisch
 - Die Datenbank bleibt erhalten, weil sie außerhalb des Repos liegt
 
+### Jahres-Digest (monatliche E-Mail) – systemd Timer
+
+Der Jahres-Digest kann monatlich automatisch versendet werden.
+
+Die Deploy-Skripte (`deploy/install.sh` und `deploy/update.sh`) richten dafür automatisch einen systemd **Service + Timer** ein und aktivieren ihn.
+
+1) **Voraussetzung: Admin Token setzen**
+
+In `/etc/ferienplaner/ferienplaner.env` muss ein Admin-Bearer-Token gesetzt sein:
+
+```bash
+DIGEST_ADMIN_TOKEN=<ADMIN_BEARER_TOKEN>
+```
+
+Hinweis: Der Token wird als `Authorization: Bearer ...` beim internen Call an den Digest-Endpoint verwendet.
+
+2) **Units**
+
+- `ferienplanung-digest.service` (ruft den Endpoint auf)
+- `ferienplanung-digest.timer` (monatlicher Scheduler)
+
+3) **Status prüfen**
+
+```bash
+systemctl status ferienplanung-digest.timer --no-pager
+systemctl list-timers --all | grep ferienplanung-digest || true
+```
+
+4) **Logs ansehen**
+
+```bash
+sudo journalctl -u ferienplanung-digest.service -n 200 --no-pager
+```
+
+5) **Manueller Testlauf**
+
+```bash
+systemctl start ferienplanung-digest.service
+```
+
+Alternativ (direkt per curl, lokal auf dem Server):
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer <ADMIN_BEARER_TOKEN>" \
+  http://127.0.0.1:3000/api/admin/digest/run
+```
+
 ### Logs / Debug
 
 ```bash
