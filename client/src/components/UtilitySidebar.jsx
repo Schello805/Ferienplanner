@@ -12,6 +12,19 @@ const formatGermanDate = (value) => {
     return `${day}.${month}.${year}`;
 };
 
+const InfoTip = ({ text }) => {
+    return (
+        <button
+            type="button"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            title={text}
+            aria-label={text}
+        >
+            i
+        </button>
+    );
+};
+
 const NotificationPanel = () => {
     const [loading, setLoading] = React.useState(false);
     const [saving, setSaving] = React.useState(false);
@@ -75,14 +88,17 @@ const NotificationPanel = () => {
     return (
         <SidebarSection
             title="Benachrichtigungen"
-            subtitle="Stelle ein, welche E-Mails du erhalten möchtest. Standardmäßig sind Benachrichtigungen aktiviert."
+            subtitle="Stelle ein, welche E-Mails du erhalten möchtest. Standardmäßig ist alles aktiviert."
         >
             <div className="space-y-4">
                 <div className="space-y-2">
                     <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
                         <div className="min-w-0">
-                            <div className="font-semibold text-slate-800 dark:text-slate-100">Benachrichtigungen aktiv</div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">Wenn deaktiviert, werden keine E-Mails versendet.</div>
+                            <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                                <span>Alle E-Mails aktiv</span>
+                                <InfoTip text="Master-Schalter: Wenn deaktiviert, werden gar keine E-Mails von Mein Ferienplaner versendet (auch keine Einladungen oder Übersichten)." />
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">Master-Schalter für alle E-Mails.</div>
                         </div>
                         <input
                             type="checkbox"
@@ -94,8 +110,11 @@ const NotificationPanel = () => {
 
                     <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
                         <div className="min-w-0">
-                            <div className="font-semibold text-slate-800 dark:text-slate-100">Zugriffsmails</div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">E-Mails bei Zugriff erteilt/entzogen.</div>
+                            <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                                <span>Zugriff auf Kalender</span>
+                                <InfoTip text="Du bekommst eine E-Mail, wenn dir Zugriff auf einen Kalender erteilt oder entzogen wird." />
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">E-Mail bei Zugriff erteilt oder entzogen.</div>
                         </div>
                         <input
                             type="checkbox"
@@ -107,14 +126,20 @@ const NotificationPanel = () => {
                 </div>
 
                 <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">Jahresübersicht (E-Mail)</div>
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">Jahres-Digest (E-Mail)</div>
+                        <InfoTip text="Diese E-Mail fasst unbetreute Tage zusammen (basierend auf Schulferien/Feiertagen, eingetragenen Urlauben/Kindern und deinen wiederkehrenden Regeln)." />
+                    </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
-                        Zeitraum: heute bis 31.12 (ab Dezember zusätzlich Hinweis für Folgejahr).
+                        Zeitraum: heute bis 31.12. (Ab 01.12. zusätzlich Hinweis, dass du mit der Planung fürs Folgejahr starten solltest.)
                     </div>
 
                     <label className="flex items-center justify-between gap-3 pt-2 text-sm">
                         <div className="min-w-0">
-                            <div className="font-semibold text-slate-700 dark:text-slate-200">Übersicht aktiv</div>
+                            <div className="flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-200">
+                                <span>Jahres-Digest aktiv</span>
+                                <InfoTip text="Wenn deaktiviert, erhältst du keine Jahres-Digest E-Mail (unabhängig vom Modus/Schwellwert)." />
+                            </div>
                         </div>
                         <input
                             type="checkbox"
@@ -126,18 +151,24 @@ const NotificationPanel = () => {
 
                     <div className="grid gap-2 pt-2 sm:grid-cols-2">
                         <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                            Modus
+                            <div className="flex items-center justify-between gap-2">
+                                <span>Wann senden?</span>
+                                <InfoTip text="Immer senden: du bekommst den Digest auch dann, wenn es keine unbetreuten Tage gibt. Schwellwert: du bekommst den Digest nur, wenn die Anzahl unbetreuter Tage im Zeitraum größer als X ist." />
+                            </div>
                             <select
                                 value={settings.digestMode}
                                 onChange={(event) => setSettings((current) => ({ ...current, digestMode: event.target.value }))}
                                 className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
-                                <option value="always">Immer senden</option>
-                                <option value="threshold">Nur wenn &gt; X unbetreute Tage</option>
+                                <option value="always">Immer senden (auch wenn alles betreut ist)</option>
+                                <option value="threshold">Nur senden, wenn unbetreute Tage &gt; X</option>
                             </select>
                         </label>
                         <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                            X (Schwellwert)
+                            <div className="flex items-center justify-between gap-2">
+                                <span>X (Schwellwert)</span>
+                                <InfoTip text="Beispiel: X=3 bedeutet: Digest wird nur gesendet, wenn es im Zeitraum mehr als 3 unbetreute Tage gibt (also 4 oder mehr)." />
+                            </div>
                             <input
                                 type="number"
                                 min={0}
