@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import { toast } from 'sonner';
 import { CalendarLegend } from './CalendarLegend';
 import { GERMAN_STATES } from '../constants/germanStates';
@@ -14,23 +15,72 @@ const formatGermanDate = (value) => {
 
 const InfoTip = ({ text }) => {
     const [open, setOpen] = React.useState(false);
+    const buttonRef = React.useRef(null);
+    const [position, setPosition] = React.useState({ top: 0, left: 0 });
+
+    const updatePosition = React.useCallback(() => {
+        const el = buttonRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const padding = 8;
+        const desiredLeft = rect.right;
+        const maxLeft = Math.max(padding, window.innerWidth - 288 - padding);
+        const left = Math.min(desiredLeft, maxLeft);
+        const top = Math.min(rect.bottom + 8, window.innerHeight - padding);
+        setPosition({ top, left });
+    }, []);
+
+    React.useEffect(() => {
+        if (!open) return;
+        updatePosition();
+
+        const onPointerDown = (event) => {
+            const buttonEl = buttonRef.current;
+            if (!buttonEl) return;
+            if (buttonEl.contains(event.target)) return;
+            setOpen(false);
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') setOpen(false);
+        };
+
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+        document.addEventListener('pointerdown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+
+        return () => {
+            window.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener('resize', updatePosition);
+            document.removeEventListener('pointerdown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [open, updatePosition]);
+
     return (
         <span className="relative inline-flex">
             <button
                 type="button"
+                ref={buttonRef}
                 className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 title={text}
                 aria-label={text}
                 onClick={() => setOpen((value) => !value)}
-                onBlur={() => setOpen(false)}
             >
                 i
             </button>
-            {open && (
-                <div className="absolute right-0 top-8 z-50 w-72 max-w-[80vw] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-                    {text}
-                </div>
-            )}
+            {open &&
+                ReactDOM.createPortal(
+                    <div
+                        className="fixed z-[9999] w-72 max-w-[80vw] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        style={{ top: `${position.top}px`, left: `${position.left}px` }}
+                        role="dialog"
+                    >
+                        {text}
+                    </div>,
+                    document.body
+                )}
         </span>
     );
 };
