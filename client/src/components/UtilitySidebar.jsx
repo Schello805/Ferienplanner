@@ -2099,7 +2099,7 @@ const ProfilePanel = ({ currentUser, onLogout }) => {
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100">
                     <div className="font-semibold">{currentUser?.username || 'Unbekannt'}</div>
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Angemeldetes Konto</div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-2">
                         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                             <div className="font-semibold">E-Mail</div>
                             <div className="mt-1 break-all text-sm font-bold text-slate-900 dark:text-white">
