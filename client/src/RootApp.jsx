@@ -4,6 +4,7 @@ import { SetupWizard } from './components/SetupWizard.jsx';
 import { ImprintPage } from './components/ImprintPage.jsx';
 import { PrivacyPage } from './components/PrivacyPage.jsx';
 import { CookiePage } from './components/CookiePage.jsx';
+import { HelpPage } from './components/HelpPage.jsx';
 import App from './App.jsx';
 
 const CalendarSlugRoute = () => {
@@ -29,6 +30,7 @@ export const RootApp = () => {
         <Route path="/impressum" element={<ImprintPage />} />
         <Route path="/datenschutz" element={<PrivacyPage />} />
         <Route path="/cookies" element={<CookiePage />} />
+        <Route path="/hilfe" element={<HelpPage />} />
         <Route path="/app" element={<App />} />
         <Route path="/k/:slug" element={<CalendarSlugRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />

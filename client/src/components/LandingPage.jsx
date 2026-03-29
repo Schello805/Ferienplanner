@@ -81,6 +81,7 @@ export const LandingPage = () => {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>&copy; {new Date().getFullYear()} Mein Ferienplaner</div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
+              <Link to="/hilfe" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Hilfe</Link>
               <Link to="/impressum" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Impressum</Link>
               <Link to="/datenschutz" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Datenschutzerklärung</Link>
               <Link to="/cookies" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Cookiehinweis</Link>

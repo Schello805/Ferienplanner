@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { ChangelogModal } from './ChangelogModal.jsx';
 
 export const Footer = () => {
@@ -10,6 +11,13 @@ export const Footer = () => {
             <p>&copy; {new Date().getFullYear()} Mein Ferienplaner. Alle Rechte vorbehalten.</p>
             <div className="mt-0.5 flex items-center justify-center gap-3">
                 <p>Optimiert für die Jahresübersicht.</p>
+                <Link
+                    to="/hilfe"
+                    className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
+                    title="Hilfe öffnen"
+                >
+                    Hilfe
+                </Link>
                 <button
                     type="button"
                     onClick={() => setChangelogOpen(true)}
