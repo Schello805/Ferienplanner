@@ -15,6 +15,7 @@ clean_worktree
 update_code
 full_build
 write_systemd_unit
+ensure_digest_timer
 restart_service
 wait_for_healthcheck "$(current_port)"
 

@@ -4,6 +4,7 @@ set -Eeuo pipefail
 
 APP_NAME="ferienplaner"
 SERVICE_NAME="ferienplanung-backend"
+DIGEST_SERVICE_NAME="ferienplanung-digest"
 DEFAULT_PORT="${PORT:-3000}"
 DEFAULT_DB_PATH="${DB_PATH:-/var/lib/ferienplaner/database.sqlite}"
 
@@ -14,6 +15,8 @@ CLIENT_DIR="${REPO_ROOT}/client"
 ENV_DIR="/etc/${APP_NAME}"
 ENV_FILE="${ENV_DIR}/${APP_NAME}.env"
 SYSTEMD_UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+SYSTEMD_DIGEST_SERVICE_PATH="/etc/systemd/system/${DIGEST_SERVICE_NAME}.service"
+SYSTEMD_DIGEST_TIMER_PATH="/etc/systemd/system/${DIGEST_SERVICE_NAME}.timer"
 BACKUP_DIR="/var/lib/${APP_NAME}/backups"
 
 log() {
@@ -115,6 +118,15 @@ EOF
   fi
 }
 
+ensure_digest_token() {
+  if [[ -f "${ENV_FILE}" ]] && grep -qE '^DIGEST_ADMIN_TOKEN=' "${ENV_FILE}"; then
+    return 0
+  fi
+
+  log "Hinweis: DIGEST_ADMIN_TOKEN fehlt in ${ENV_FILE}. Der Digest-Timer wird eingerichtet, kann aber ohne Token nicht laufen."
+  log "Bitte in ${ENV_FILE} ergänzen: DIGEST_ADMIN_TOKEN=<ADMIN_BEARER_TOKEN>"
+}
+
 log_versions() {
   local git_ref
   git_ref="$(
@@ -170,6 +182,45 @@ StateDirectory=ferienplaner
 [Install]
 WantedBy=multi-user.target
 EOF
+}
+
+write_digest_systemd_units() {
+  log "Schreibe Digest systemd Units (${DIGEST_SERVICE_NAME})"
+
+  cat > "${SYSTEMD_DIGEST_SERVICE_PATH}" <<'EOF'
+[Unit]
+Description=Ferienplanung Digest Trigger
+After=network.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ferienplaner/ferienplaner.env
+ExecStart=/usr/bin/curl --silent --show-error --fail -X POST \
+  -H "Authorization: Bearer ${DIGEST_ADMIN_TOKEN}" \
+  "http://127.0.0.1:${PORT}/api/admin/digest/run"
+EOF
+
+  cat > "${SYSTEMD_DIGEST_TIMER_PATH}" <<'EOF'
+[Unit]
+Description=Ferienplanung Digest (monatlich)
+
+[Timer]
+OnCalendar=monthly
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target
+EOF
+}
+
+ensure_digest_timer() {
+  ensure_digest_token
+  write_digest_systemd_units
+  systemctl daemon-reload
+
+  log "Aktiviere Digest Timer ${DIGEST_SERVICE_NAME}.timer"
+  systemctl enable --now "${DIGEST_SERVICE_NAME}.timer"
 }
 
 enable_and_start_service() {

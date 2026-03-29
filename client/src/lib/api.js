@@ -1,4 +1,11 @@
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
+const normalizeApiUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  return `http://${raw}`;
+};
+
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL) || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 const AUTH_TOKEN_KEY = 'ferienplanerAuthToken';
 const CALENDAR_SLUG_KEY = 'ferienplanerTargetSlug';
 
