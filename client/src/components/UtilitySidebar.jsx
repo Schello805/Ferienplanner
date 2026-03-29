@@ -17,7 +17,7 @@ const parseIsoDateOnly = (value) => {
     if (typeof value !== 'string') return null;
     const match = value.match(/^\d{4}-\d{2}-\d{2}$/);
     if (!match) return null;
-    const date = new Date(value);
+    const date = new Date(`${value}T00:00:00Z`);
     if (Number.isNaN(date.getTime())) return null;
     return date;
 };
@@ -28,7 +28,7 @@ const formatGermanDateOnly = (value) => {
     return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
 };
 
-const buildVacationRanges = (vacations = [], allowedUserIds = new Set(), fromYear) => {
+const buildVacationRanges = (vacations = [], allowedUserIds = new Set(), fromYear, isNetDay = null) => {
     const fromDate = new Date(fromYear, 0, 1);
     const dateStrings = Array.from(
         new Set(
@@ -47,18 +47,20 @@ const buildVacationRanges = (vacations = [], allowedUserIds = new Set(), fromYea
     const ranges = [];
     let start = null;
     let prev = null;
-    let days = 0;
+    let calendarDays = 0;
+    let netDays = 0;
 
     const flush = () => {
         if (!start || !prev) return;
-        ranges.push({ start, end: prev, days });
+        ranges.push({ start, end: prev, calendarDays, netDays });
     };
 
     for (const dateString of dateStrings) {
         if (!start) {
             start = dateString;
             prev = dateString;
-            days = 1;
+            calendarDays = 1;
+            netDays = isNetDay ? (isNetDay(dateString) ? 1 : 0) : 0;
             continue;
         }
 
@@ -68,20 +70,23 @@ const buildVacationRanges = (vacations = [], allowedUserIds = new Set(), fromYea
 
         if (isNextDay) {
             prev = dateString;
-            days += 1;
+            calendarDays += 1;
+            if (isNetDay && isNetDay(dateString)) netDays += 1;
             continue;
         }
 
         flush();
         start = dateString;
         prev = dateString;
-        days = 1;
+        calendarDays = 1;
+        netDays = isNetDay ? (isNetDay(dateString) ? 1 : 0) : 0;
     }
 
     flush();
 
-    const total = ranges.reduce((acc, r) => acc + (r.days || 0), 0);
-    return { total, ranges };
+    const totalCalendar = ranges.reduce((acc, r) => acc + (r.calendarDays || 0), 0);
+    const totalNet = ranges.reduce((acc, r) => acc + (r.netDays || 0), 0);
+    return { totalCalendar, totalNet, ranges };
 };
 
 const InfoTip = ({ text }) => {
@@ -2268,23 +2273,96 @@ const ParentSettingsPanel = ({
     careColor,
     setCareColor,
     vacations,
+    stateCode,
     p1RecurringRules,
     setP1RecurringRules,
     p2RecurringRules,
     setP2RecurringRules
 }) => {
     const fromYear = new Date().getFullYear();
+    const holidayCacheRef = React.useRef({});
+    const [publicHolidaySets, setPublicHolidaySets] = React.useState({});
+
+    const yearsNeedingHolidays = React.useMemo(() => {
+        const fromDate = new Date(fromYear, 0, 1);
+        const yearSet = new Set();
+        (vacations || [])
+            .filter((v) => v && typeof v === 'object')
+            .map((v) => String(v.date || ''))
+            .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+            .forEach((d) => {
+                const parsed = parseIsoDateOnly(d);
+                if (!parsed || parsed < fromDate) return;
+                yearSet.add(parsed.getUTCFullYear());
+            });
+        return Array.from(yearSet.values()).sort((a, b) => a - b);
+    }, [fromYear, vacations]);
+
+    React.useEffect(() => {
+        if (!stateCode) return;
+        let cancelled = false;
+
+        const fetchMissing = async () => {
+            const nextSets = {};
+            for (const year of yearsNeedingHolidays) {
+                const key = `${year}:${stateCode}`;
+                if (holidayCacheRef.current[key]) {
+                    nextSets[year] = holidayCacheRef.current[key];
+                    continue;
+                }
+                try {
+                    const res = await authFetch(`/api/holidays?year=${year}&state=${stateCode}`);
+                    const data = await res.json();
+                    if (!res.ok) {
+                        throw new Error(data?.error || `holidays request failed: ${res.status}`);
+                    }
+                    const set = new Set(
+                        (Array.isArray(data?.public) ? data.public : [])
+                            .map((h) => String(h?.date || ''))
+                            .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+                    );
+                    holidayCacheRef.current[key] = set;
+                    nextSets[year] = set;
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+
+            if (cancelled) return;
+            setPublicHolidaySets((current) => ({ ...current, ...nextSets }));
+        };
+
+        fetchMissing();
+        return () => {
+            cancelled = true;
+        };
+    }, [stateCode, yearsNeedingHolidays]);
+
+    const isNetDay = React.useCallback(
+        (dateString) => {
+            const parsed = parseIsoDateOnly(dateString);
+            if (!parsed) return false;
+            const weekday = parsed.getUTCDay();
+            if (weekday === 0 || weekday === 6) return false;
+            const year = parsed.getUTCFullYear();
+            const set = publicHolidaySets[year];
+            if (set && set.has(dateString)) return false;
+            return true;
+        },
+        [publicHolidaySets]
+    );
+
     const p1Data = React.useMemo(
-        () => buildVacationRanges(vacations, new Set(['p1', 'both']), fromYear),
-        [fromYear, vacations]
+        () => buildVacationRanges(vacations, new Set(['p1', 'both']), fromYear, isNetDay),
+        [fromYear, isNetDay, vacations]
     );
     const p2Data = React.useMemo(
-        () => buildVacationRanges(vacations, new Set(['p2', 'both']), fromYear),
-        [fromYear, vacations]
+        () => buildVacationRanges(vacations, new Set(['p2', 'both']), fromYear, isNetDay),
+        [fromYear, isNetDay, vacations]
     );
     const careData = React.useMemo(
-        () => buildVacationRanges(vacations, new Set(['care']), fromYear),
-        [fromYear, vacations]
+        () => buildVacationRanges(vacations, new Set(['care']), fromYear, isNetDay),
+        [fromYear, isNetDay, vacations]
     );
 
     const renderRangeRow = (range) => {
@@ -2294,7 +2372,10 @@ const ParentSettingsPanel = ({
         return (
             <div key={`${range.start}-${range.end}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                 <div className="min-w-0 break-words">{label}</div>
-                <div className="shrink-0 font-semibold">{range.days} Tage</div>
+                <div className="shrink-0 text-right">
+                    <div className="font-semibold">{range.calendarDays} Kal.</div>
+                    <div className="text-[11px] opacity-80">{range.netDays} Netto</div>
+                </div>
             </div>
         );
     };
@@ -2319,7 +2400,7 @@ const ParentSettingsPanel = ({
                         <summary className="cursor-pointer select-none list-none">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Urlaubstage (ab {fromYear})</div>
-                                <div className="text-xs font-bold text-slate-900 dark:text-white">{p1Data.total} Tage</div>
+                                <div className="text-xs font-bold text-slate-900 dark:text-white">{p1Data.totalCalendar} Kal. / {p1Data.totalNet} Netto</div>
                             </div>
                         </summary>
                         <div className="mt-2 space-y-2">
@@ -2347,7 +2428,7 @@ const ParentSettingsPanel = ({
                         <summary className="cursor-pointer select-none list-none">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Urlaubstage (ab {fromYear})</div>
-                                <div className="text-xs font-bold text-slate-900 dark:text-white">{p2Data.total} Tage</div>
+                                <div className="text-xs font-bold text-slate-900 dark:text-white">{p2Data.totalCalendar} Kal. / {p2Data.totalNet} Netto</div>
                             </div>
                         </summary>
                         <div className="mt-2 space-y-2">
@@ -2376,7 +2457,7 @@ const ParentSettingsPanel = ({
                         <summary className="cursor-pointer select-none list-none">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Betreuungstage (ab {fromYear})</div>
-                                <div className="text-xs font-bold text-slate-900 dark:text-white">{careData.total} Tage</div>
+                                <div className="text-xs font-bold text-slate-900 dark:text-white">{careData.totalCalendar} Kal. / {careData.totalNet} Netto</div>
                             </div>
                         </summary>
                         <div className="mt-2 space-y-2">
@@ -2575,6 +2656,7 @@ export const UtilitySidebar = ({
                         careColor={careColor}
                         setCareColor={setCareColor}
                         vacations={vacations}
+                        stateCode={stateCode}
                         p1RecurringRules={p1RecurringRules}
                         setP1RecurringRules={setP1RecurringRules}
                         p2RecurringRules={p2RecurringRules}
