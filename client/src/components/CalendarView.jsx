@@ -211,6 +211,7 @@ const CalendarView = ({
     onApiStatusChange,
     onStatsChange,
     onHolidayBreakdownChange,
+    onVacationsChange,
     onCopyShareLink,
     onExitShareMode
 }) => {
@@ -559,6 +560,12 @@ const CalendarView = ({
             onHolidayBreakdownChange(holidayBreakdown);
         }
     }, [holidayBreakdown, onHolidayBreakdownChange]);
+
+    useEffect(() => {
+        if (onVacationsChange) {
+            onVacationsChange(vacations);
+        }
+    }, [onVacationsChange, vacations]);
 
     // Calculate Month Stats (Care coverage per month)
     const monthStats = useMemo(() => {

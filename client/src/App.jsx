@@ -163,6 +163,7 @@ function App() {
   });
   const [totalNetHolidays, setTotalNetHolidays] = useState(0);
   const [holidayBreakdown, setHolidayBreakdown] = useState([]);
+  const [vacations, setVacations] = useState([]);
   const [apiOnline, setApiOnline] = useState(true);
   const [children, setChildren] = useState([]);
   const [childFreeDays, setChildFreeDays] = useState([]);
@@ -910,6 +911,7 @@ function App() {
             onApiStatusChange={setApiOnline}
             onStatsChange={(stats) => setTotalNetHolidays(stats.totalNetHolidays)}
             onHolidayBreakdownChange={setHolidayBreakdown}
+            onVacationsChange={setVacations}
             onCopyShareLink={copyShareLink}
             onExitShareMode={() => setShareMode(false)}
           />
@@ -938,6 +940,7 @@ function App() {
             setHolidayTableOpen={setHolidayTableOpen}
             totalNetHolidays={totalNetHolidays}
             holidayBreakdown={holidayBreakdown}
+            vacations={vacations}
             children={children}
             childFreeDays={childFreeDays}
             onRefreshFamilyData={loadFamilyData}

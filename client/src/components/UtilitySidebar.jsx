@@ -13,6 +13,77 @@ const formatGermanDate = (value) => {
     return `${day}.${month}.${year}`;
 };
 
+const parseIsoDateOnly = (value) => {
+    if (typeof value !== 'string') return null;
+    const match = value.match(/^\d{4}-\d{2}-\d{2}$/);
+    if (!match) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date;
+};
+
+const formatGermanDateOnly = (value) => {
+    const date = parseIsoDateOnly(value);
+    if (!date) return value;
+    return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+};
+
+const buildVacationRanges = (vacations = [], allowedUserIds = new Set(), fromYear) => {
+    const fromDate = new Date(fromYear, 0, 1);
+    const dateStrings = Array.from(
+        new Set(
+            vacations
+                .filter((v) => v && typeof v === 'object')
+                .filter((v) => allowedUserIds.has(v.userId))
+                .map((v) => String(v.date || ''))
+                .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+                .filter((d) => {
+                    const parsed = parseIsoDateOnly(d);
+                    return parsed && parsed >= fromDate;
+                })
+        )
+    ).sort();
+
+    const ranges = [];
+    let start = null;
+    let prev = null;
+    let days = 0;
+
+    const flush = () => {
+        if (!start || !prev) return;
+        ranges.push({ start, end: prev, days });
+    };
+
+    for (const dateString of dateStrings) {
+        if (!start) {
+            start = dateString;
+            prev = dateString;
+            days = 1;
+            continue;
+        }
+
+        const prevDate = parseIsoDateOnly(prev);
+        const curDate = parseIsoDateOnly(dateString);
+        const isNextDay = prevDate && curDate && (curDate.getTime() - prevDate.getTime() === 24 * 60 * 60 * 1000);
+
+        if (isNextDay) {
+            prev = dateString;
+            days += 1;
+            continue;
+        }
+
+        flush();
+        start = dateString;
+        prev = dateString;
+        days = 1;
+    }
+
+    flush();
+
+    const total = ranges.reduce((acc, r) => acc + (r.days || 0), 0);
+    return { total, ranges };
+};
+
 const InfoTip = ({ text }) => {
     const [open, setOpen] = React.useState(false);
     const buttonRef = React.useRef(null);
@@ -2196,34 +2267,108 @@ const ParentSettingsPanel = ({
     setP2Color,
     careColor,
     setCareColor,
+    vacations,
     p1RecurringRules,
     setP1RecurringRules,
     p2RecurringRules,
     setP2RecurringRules
-}) => (
-    <div className="space-y-4">
-        <SidebarSection title="Eltern" subtitle="Farben und regelmäßige freie Tage für Papa und Mama.">
-            <div className="space-y-3">
-                {[
-                    { label: 'Papa', color: p1Color, setColor: setP1Color },
-                    { label: 'Mama', color: p2Color, setColor: setP2Color },
-                    { label: 'Betreuung', color: careColor, setColor: setCareColor },
-                ].map(item => (
-                    <div key={item.label} className="settings-row flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
+}) => {
+    const fromYear = new Date().getFullYear();
+    const p1Data = React.useMemo(
+        () => buildVacationRanges(vacations, new Set(['p1', 'both']), fromYear),
+        [fromYear, vacations]
+    );
+    const p2Data = React.useMemo(
+        () => buildVacationRanges(vacations, new Set(['p2', 'both']), fromYear),
+        [fromYear, vacations]
+    );
+
+    const renderRangeRow = (range) => {
+        const startLabel = formatGermanDateOnly(range.start);
+        const endLabel = formatGermanDateOnly(range.end);
+        const label = range.start === range.end ? startLabel : `${startLabel} – ${endLabel}`;
+        return (
+            <div key={`${range.start}-${range.end}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                <div className="min-w-0 break-words">{label}</div>
+                <div className="shrink-0 font-semibold">{range.days} Tage</div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="space-y-4">
+            <SidebarSection title="Eltern" subtitle="Farben und regelmäßige freie Tage für Papa und Mama.">
+                <div className="space-y-3">
+                    <div className="settings-row flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
                         <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full shadow-sm" style={{ backgroundColor: item.color }}></div>
-                            <span className="settings-label font-medium text-slate-700 dark:text-gray-200">{item.label}</span>
+                            <div className="h-8 w-8 rounded-full shadow-sm" style={{ backgroundColor: p1Color }}></div>
+                            <span className="settings-label font-medium text-slate-700 dark:text-gray-200">Papa</span>
                         </div>
                         <input
                             type="color"
-                            value={item.color}
-                            onChange={(e) => item.setColor(e.target.value)}
+                            value={p1Color}
+                            onChange={(e) => setP1Color(e.target.value)}
                             className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0"
                         />
                     </div>
-                ))}
-            </div>
-        </SidebarSection>
+                    <details className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+                        <summary className="cursor-pointer select-none list-none">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Urlaubstage (ab {fromYear})</div>
+                                <div className="text-xs font-bold text-slate-900 dark:text-white">{p1Data.total} Tage</div>
+                            </div>
+                        </summary>
+                        <div className="mt-2 space-y-2">
+                            {p1Data.ranges.length > 0 ? p1Data.ranges.map(renderRangeRow) : (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                                    Keine Urlaubstage eingetragen.
+                                </div>
+                            )}
+                        </div>
+                    </details>
+
+                    <div className="settings-row flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
+                        <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full shadow-sm" style={{ backgroundColor: p2Color }}></div>
+                            <span className="settings-label font-medium text-slate-700 dark:text-gray-200">Mama</span>
+                        </div>
+                        <input
+                            type="color"
+                            value={p2Color}
+                            onChange={(e) => setP2Color(e.target.value)}
+                            className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                        />
+                    </div>
+                    <details className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+                        <summary className="cursor-pointer select-none list-none">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Urlaubstage (ab {fromYear})</div>
+                                <div className="text-xs font-bold text-slate-900 dark:text-white">{p2Data.total} Tage</div>
+                            </div>
+                        </summary>
+                        <div className="mt-2 space-y-2">
+                            {p2Data.ranges.length > 0 ? p2Data.ranges.map(renderRangeRow) : (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                                    Keine Urlaubstage eingetragen.
+                                </div>
+                            )}
+                        </div>
+                    </details>
+
+                    <div className="settings-row flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
+                        <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full shadow-sm" style={{ backgroundColor: careColor }}></div>
+                            <span className="settings-label font-medium text-slate-700 dark:text-gray-200">Betreuung</span>
+                        </div>
+                        <input
+                            type="color"
+                            value={careColor}
+                            onChange={(e) => setCareColor(e.target.value)}
+                            className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                        />
+                    </div>
+                </div>
+            </SidebarSection>
 
         <SidebarSection title="Regelmäßige freie Tage" subtitle="Diese Tage gelten als betreut, verbrauchen aber keinen Urlaub. Rhythmus und Referenzdatum steuern die Wiederholung.">
             <div className="space-y-5">
@@ -2242,7 +2387,8 @@ const ParentSettingsPanel = ({
             </div>
         </SidebarSection>
     </div>
-);
+    );
+};
 
 const ChildSettingsPanel = ({ children, childFreeDays, onRefreshFamilyData }) => (
     <div className="space-y-4">
@@ -2345,6 +2491,7 @@ export const UtilitySidebar = ({
     setHolidayTableOpen,
     totalNetHolidays,
     holidayBreakdown,
+    vacations,
     children,
     childFreeDays,
     onRefreshFamilyData,
@@ -2407,6 +2554,7 @@ export const UtilitySidebar = ({
                         setP2Color={setP2Color}
                         careColor={careColor}
                         setCareColor={setCareColor}
+                        vacations={vacations}
                         p1RecurringRules={p1RecurringRules}
                         setP1RecurringRules={setP1RecurringRules}
                         p2RecurringRules={p2RecurringRules}
