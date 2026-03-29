@@ -13,6 +13,20 @@ Eine moderne Webanwendung zur einfachen Urlaubsplanung für Familien.
 - 📊 **Statistiken**: Sofortige Übersicht über verbrauchte Urlaubstage (netto/brutto) und Betreuungstage.
 - ⚠️ **Konflikt-Erkennung**: Warnung bei Schulferien ohne Betreuung.
 - 🇩🇪 **Deutsche Feiertage & Schulferien**: Automatische Integration (aktuell für Bayern optimiert).
+- 🔗 **Kalender teilen**: Einladungslinks erstellen und Rollen vergeben (Owner/Editor/Viewer).
+- 👥 **Mitgliederverwaltung**: Als Owner Mitglieder anzeigen und Freigaben wieder entfernen.
+- 🧹 **Self-Service Löschung**: Konto inkl. eigener Kalender und gespeicherter Daten im Profil löschen.
+- 📖 **Hilfe-Seite**: In-App Anleitung unter `/hilfe` (Footer-Link).
+
+## Rollen & Berechtigungen
+
+- **Globaler Admin**: Technische Rolle für die gesamte Anwendung (es gibt nur einen globalen Admin).
+- **Kalenderrollen** (pro Kalender):
+  - **Owner**: Besitzer eines Kalenders, verwaltet Einladungen und Mitglieder.
+  - **Editor**: Kann Inhalte bearbeiten (je nach Funktionsumfang).
+  - **Viewer**: Kann ansehen, aber nicht bearbeiten.
+
+Wichtig: **Owner bedeutet nicht globaler Admin**. Jeder neue Account kann Owner seines eigenen Familienkalenders sein, ohne globale Admin-Rechte zu besitzen.
 
 ## Technologie-Stack
 
@@ -53,6 +67,7 @@ Eine moderne Webanwendung zur einfachen Urlaubsplanung für Familien.
 ### Schnelltest
 
 - Backend Healthcheck: `http://localhost:3000/health`
+- Hilfe-Seite (Frontend): `http://localhost:5173/hilfe` (Dev) bzw. `http://localhost:3000/hilfe` (Production)
 
 ## Konfiguration (ENV)
 
