@@ -434,7 +434,6 @@ html.dark .settings-modal-heading {
   .dark,
   .dark * {
     color: #000 !important;
-    background-color: transparent !important;
     border-color: #999 !important;
     box-shadow: none !important;
     text-shadow: none !important;
