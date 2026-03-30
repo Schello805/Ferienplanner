@@ -5,7 +5,22 @@ const normalizeApiUrl = (value) => {
   return `http://${raw}`;
 };
 
-const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL) || (import.meta.env.DEV ? 'http://localhost:3000' : '');
+const resolveApiUrl = () => {
+  const configuredUrl = normalizeApiUrl(import.meta.env.VITE_API_URL);
+  if (configuredUrl) return configuredUrl;
+
+  if (typeof window === 'undefined') {
+    return import.meta.env.DEV ? 'http://localhost:3000' : '';
+  }
+
+  const { protocol, hostname, port, origin } = window.location;
+  if (!import.meta.env.DEV || port === '3000') {
+    return origin;
+  }
+
+  return `${protocol}//${hostname}:3000`;
+};
+
 const AUTH_TOKEN_KEY = 'ferienplanerAuthToken';
 const CALENDAR_SLUG_KEY = 'ferienplanerTargetSlug';
 
@@ -21,7 +36,7 @@ export class ApiError extends Error {
   }
 }
 
-export const getApiUrl = () => API_URL;
+export const getApiUrl = () => resolveApiUrl();
 
 export const getStoredAuthToken = () => {
   if (typeof window === 'undefined') return '';
@@ -105,6 +120,7 @@ export const getApiErrorMessage = (error, fallbackMessage = 'Anfrage fehlgeschla
   toApiError(error, fallbackMessage).message || fallbackMessage;
 
 export const authFetch = async (path, init = {}) => {
+  const apiUrl = resolveApiUrl();
   const token = getStoredAuthToken();
   const headers = new Headers(init.headers || {});
   if (token) {
@@ -116,7 +132,7 @@ export const authFetch = async (path, init = {}) => {
     headers.set('X-Calendar-Slug', calendarSlug);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${apiUrl}${path}`, {
     ...init,
     headers,
   });
