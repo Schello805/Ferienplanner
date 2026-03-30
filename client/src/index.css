@@ -495,7 +495,8 @@ html.dark .settings-modal-heading {
     height: auto !important;
     max-height: none !important;
     border: none !important;
-    background: none !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
     box-shadow: none !important;
     margin: 0 !important;
   }
@@ -521,6 +522,8 @@ html.dark .settings-modal-heading {
   .calendar-min-width-wrapper {
     min-width: 0 !important;
     width: 100% !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
   }
 
   /* --- GRID LAYOUT --- */
@@ -569,6 +572,8 @@ html.dark .settings-modal-heading {
     border-bottom: 1px solid #ccc !important;
     page-break-inside: avoid;
     height: 18px !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
     overflow: hidden !important;
   }
 
