@@ -432,6 +432,46 @@ html.dark .settings-modal-heading {
     text-shadow: none !important;
   }
 
+  /* Explicit light surfaces (Safari can otherwise keep dark backgrounds) */
+  .calendar-container,
+  .calendar-grid,
+  .calendar-grid > div,
+  .calendar-corner-header,
+  .calendar-header-cell,
+  .calendar-day-column {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+  }
+
+  .sticky.top-0,
+  .sticky.left-0 {
+    background: #f1f5f9 !important;
+    background-color: #f1f5f9 !important;
+  }
+
+  /* DayCell explicit backgrounds for print */
+  .day-cell-weekend {
+    background: #f1f5f9 !important;
+    background-color: #f1f5f9 !important;
+  }
+  .day-cell-school-holiday {
+    background: #fffbeb !important;
+    background-color: #fffbeb !important;
+  }
+  .day-cell-public-holiday {
+    background: #fee2e2 !important;
+    background-color: #fee2e2 !important;
+  }
+  .day-cell-unattended {
+    background: #fff1f2 !important;
+    background-color: #fff1f2 !important;
+  }
+
+  .day-cell-weekday,
+  .day-cell-holiday-text {
+    color: #000 !important;
+  }
+
   /* --- MAIN LAYOUT --- */
   main {
     width: 100% !important;
