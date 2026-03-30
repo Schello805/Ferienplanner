@@ -553,7 +553,7 @@ html.dark .settings-modal-heading {
   .calendar-grid {
     display: grid !important;
     width: 100% !important;
-    border: 1px solid #000 !important;
+    border: 1.5px solid #111827 !important;
     font-size: 8px !important;
   }
 
@@ -562,7 +562,7 @@ html.dark .settings-modal-heading {
     position: static !important;
     background: #e2e8f0 !important;
     color: black !important;
-    border-bottom: 1px solid #000 !important;
+    border-bottom: 1.5px solid #111827 !important;
     font-weight: bold !important;
     height: auto !important;
     min-height: 20px !important;
@@ -580,7 +580,7 @@ html.dark .settings-modal-heading {
   .sticky.left-0 {
     position: static !important;
     background: #f1f5f9 !important;
-    border-right: 1px solid #000 !important;
+    border-right: 1.5px solid #111827 !important;
     color: black !important;
     font-weight: bold !important;
     display: flex !important;
@@ -592,7 +592,7 @@ html.dark .settings-modal-heading {
   /* Rows */
   .calendar-row {
     break-inside: avoid;
-    border-bottom: 1px solid #ccc !important;
+    border-bottom: 1px solid #cbd5e1 !important;
     page-break-inside: avoid;
     height: 17px !important;
     background: #ffffff !important;
@@ -614,9 +614,11 @@ html.dark .settings-modal-heading {
 
   /* Day Cell content */
   .calendar-row > div:not(.calendar-day-column) > div {
-    border: 1px solid #eee !important;
+    border: 1px solid #cbd5e1 !important;
     height: 100% !important;
     min-height: 17px !important;
+    background: #ffffff;
+    background-color: #ffffff;
   }
   
   /* Weekday Indicator */
@@ -626,13 +628,13 @@ html.dark .settings-modal-heading {
     right: 1px !important;
     opacity: 1 !important;
     color: #475569 !important;
-    font-size: 6px !important;
+    font-size: 7px !important;
     font-weight: normal !important;
   }
 
   /* Holiday Text */
   .day-cell-holiday-text {
-    font-size: 6px !important;
+    font-size: 7px !important;
     color: #000 !important;
     font-weight: normal !important;
     overflow: hidden !important;
@@ -658,7 +660,7 @@ html.dark .settings-modal-heading {
 
   /* Increase readability of Month Stats */
   .calendar-header-cell span {
-     font-size: 8px !important;
+     font-size: 9px !important;
   }
 
   .calendar-container {
