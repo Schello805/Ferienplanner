@@ -440,7 +440,6 @@ html.dark .settings-modal-heading {
   }
 
   /* Explicit light surfaces (Safari can otherwise keep dark backgrounds) */
-  .calendar-container,
   .calendar-grid,
   .calendar-grid > div,
   .calendar-corner-header,
@@ -510,9 +509,6 @@ html.dark .settings-modal-heading {
 
   .print-header {
     display: flex !important;
-  }
-
-  .print-header {
     margin-bottom: 6px !important;
     padding-bottom: 4px !important;
     border-bottom-width: 1px !important;
@@ -524,9 +520,6 @@ html.dark .settings-modal-heading {
 
   .print-footer {
     display: flex !important;
-  }
-
-  .print-footer {
     padding-top: 4px !important;
     border-top-width: 1px !important;
     font-size: 9px !important;
