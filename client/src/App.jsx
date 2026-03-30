@@ -46,6 +46,11 @@ const createRecurringRuleEntry = (overrides = {}) => ({
   anchorDate: overrides.anchorDate || formatLocalDateInput(new Date()),
 });
 
+const normalizeRecurringRules = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value.map((rule) => createRecurringRuleEntry(rule || {}));
+};
+
 const loadRecurringRules = (rulesKey, daysKey, singleRuleKey) => {
   if (typeof window === 'undefined') {
     return [createRecurringRuleEntry()];
@@ -270,14 +275,16 @@ function App() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'recurring rules request failed');
         if (data?.rules?.p1 && Array.isArray(data.rules.p1)) {
-          const p1Json = safeJsonStringify(data.rules.p1);
+          const normalized = normalizeRecurringRules(data.rules.p1);
+          const p1Json = safeJsonStringify(normalized);
           if (p1Json) lastSavedRecurringRef.current.p1 = p1Json;
-          setP1RecurringRules(data.rules.p1);
+          setP1RecurringRules(normalized);
         }
         if (data?.rules?.p2 && Array.isArray(data.rules.p2)) {
-          const p2Json = safeJsonStringify(data.rules.p2);
+          const normalized = normalizeRecurringRules(data.rules.p2);
+          const p2Json = safeJsonStringify(normalized);
           if (p2Json) lastSavedRecurringRef.current.p2 = p2Json;
-          setP2RecurringRules(data.rules.p2);
+          setP2RecurringRules(normalized);
         }
         recurringRulesLoadedRef.current = true;
       } catch (error) {

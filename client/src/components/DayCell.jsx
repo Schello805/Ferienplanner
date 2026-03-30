@@ -17,7 +17,7 @@ export const DayCell = ({
 
     // Logic for styling
     let bgClass = ""; // Default: Transparent (shows container bg)
-    let borderClass = "border-gray-100 dark:border-slate-800";
+    let borderClass = "border-gray-200 dark:border-slate-800";
     let inlineStyle = {};
 
     // 1. Weekends (Gray)

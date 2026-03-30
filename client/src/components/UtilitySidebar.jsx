@@ -1428,17 +1428,23 @@ const RecurringRulesGroup = ({ label, color, rules, setRules }) => (
         </div>
 
         <div className="space-y-3">
-            {rules.map((rule) => (
-                <RecurringRuleEditor
-                    key={rule.id}
-                    label={label}
-                    color={color}
-                    rule={rule}
-                    onChangeRule={(nextRule) => setRules((current) => current.map((item) => item.id === rule.id ? nextRule : item))}
-                    onRemoveRule={() => setRules((current) => (current.length > 1 ? current.filter((item) => item.id !== rule.id) : [createEmptyRule()]))}
-                    canRemove={rules.length > 1}
-                />
-            ))}
+            {rules.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                    Keine Regel gespeichert.
+                </div>
+            ) : (
+                rules.map((rule) => (
+                    <RecurringRuleEditor
+                        key={rule.id}
+                        label={label}
+                        color={color}
+                        rule={rule}
+                        onChangeRule={(nextRule) => setRules((current) => current.map((item) => item.id === rule.id ? nextRule : item))}
+                        onRemoveRule={() => setRules((current) => current.filter((item) => item.id !== rule.id))}
+                        canRemove={true}
+                    />
+                ))
+            )}
         </div>
     </div>
 );

@@ -853,6 +853,9 @@ const CalendarView = ({
     );
 
     if (isMobile) {
+        const p1RulesSummary = (p1RecurringRules || []).map(getRecurringRuleDetails).filter(Boolean);
+        const p2RulesSummary = (p2RecurringRules || []).map(getRecurringRuleDetails).filter(Boolean);
+
         return (
             <div className="flex h-full min-h-0 flex-col gap-2">
                 <div className="rounded-2xl border border-slate-200/80 bg-white/92 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/88">
@@ -881,6 +884,27 @@ const CalendarView = ({
                         <button type="button" {...mobileActionProps(jumpToToday)} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Heute</button>
                         <button type="button" {...mobileActionProps(jumpToNextHoliday)} className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">Nächste Ferien</button>
                         <button type="button" {...mobileActionProps(jumpToFirstGap)} className="rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-xs font-semibold text-red-800 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-100">Lücken</button>
+                    </div>
+
+                    <div className="mt-3 rounded-2xl border border-slate-200/80 bg-white/88 p-3 text-xs text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200">
+                        <div className="font-semibold text-slate-900 dark:text-white">Regelmäßige freie Tage</div>
+                        <div className="mt-2 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="font-semibold">Papa</div>
+                                <div className="min-w-0 text-right text-slate-500 dark:text-slate-400">
+                                    {p1RulesSummary.length > 0 ? p1RulesSummary.join(' · ') : 'keine Regel'}
+                                </div>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="font-semibold">Mama</div>
+                                <div className="min-w-0 text-right text-slate-500 dark:text-slate-400">
+                                    {p2RulesSummary.length > 0 ? p2RulesSummary.join(' · ') : 'keine Regel'}
+                                </div>
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                Bearbeiten unter: Mehr → Eltern → Regelmäßige freie Tage
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1129,7 +1153,7 @@ const CalendarView = ({
                 <div className="calendar-min-width-wrapper min-w-[760px] sm:min-w-[920px]">
 
                     {/* Sticky Header Row */}
-                    <div className="calendar-grid grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px sticky top-0 z-40 bg-white dark:bg-slate-900 shadow-md transition-colors h-auto min-h-[34px] items-stretch">
+                    <div className="calendar-grid grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px sticky top-0 z-40 bg-gray-200 dark:bg-slate-800 shadow-md transition-colors h-auto min-h-[34px] items-stretch">
                         <div className="calendar-corner-header font-bold text-center text-gray-500 dark:text-gray-400 flex items-end justify-center pb-1 text-[10px] bg-white dark:bg-slate-900">Tag</div>
                         {MONTHS.map((m, i) => {
                             const stats = monthStats[i];
@@ -1150,7 +1174,7 @@ const CalendarView = ({
 
                     {/* Days Rows */}
                     {DAYS.map(day => (
-                        <div key={day} className="calendar-row grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px mb-px group/row hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                        <div key={day} className="calendar-row grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px mb-px bg-gray-200 dark:bg-slate-800 group/row hover:bg-gray-300/60 dark:hover:bg-slate-700/40 transition-colors">
                             {/* Sticky Day Column */}
                             <div className="calendar-day-column sticky left-0 z-10 bg-white/95 dark:bg-slate-900 text-[10px] text-gray-500 dark:text-gray-400 flex items-center justify-center font-mono border-r border-gray-200 dark:border-slate-800 transition-colors">
                                 {day}

@@ -37,13 +37,13 @@ export const CalendarToolbar = ({
         {
             label: 'Papa',
             value: `${stats.p1} (${stats.p1Net})`,
-            tone: 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 text-slate-700 dark:text-gray-200',
+            tone: 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 text-slate-700 dark:text-gray-200',
             marker: <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p1Color }}></div>
         },
         {
             label: 'Mama',
             value: `${stats.p2} (${stats.p2Net})`,
-            tone: 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 text-slate-700 dark:text-gray-200',
+            tone: 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 text-slate-700 dark:text-gray-200',
             marker: <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p2Color }}></div>
         },
         {

@@ -1116,6 +1116,8 @@ async function sendVerificationEmail({ req, to, token }) {
 
   const appName = 'Mein Ferienplaner';
   const previewText = 'Bitte bestätige deine E-Mail-Adresse.';
+  const logoPath = path.join(__dirname, '..', 'Logo Ferienplaner.png');
+  const hasLogo = fs.existsSync(logoPath);
   const html = `<!doctype html>
 <html lang="de">
   <head>
@@ -1123,21 +1125,26 @@ async function sendVerificationEmail({ req, to, token }) {
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>${appName}</title>
   </head>
-  <body style="margin:0;padding:0;background:#0b1220;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
+  <body style="margin:0;padding:0;background:#f1f5f9;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${previewText}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1220;padding:24px 12px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0f172a;border:1px solid rgba(148,163,184,0.2);border-radius:16px;overflow:hidden">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">
             <tr>
-              <td style="padding:20px 20px 8px 20px;color:#e2e8f0">
-                <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em">${appName}</div>
-                <div style="margin-top:6px;font-size:13px;color:rgba(226,232,240,0.75)">E-Mail bestätigen</div>
+              <td style="padding:20px 20px 8px 20px;color:#0f172a">
+                <div style="display:flex;align-items:center;gap:10px">
+                  ${hasLogo ? `<img src="cid:ferienplaner-logo" width="36" height="36" alt="${appName}" style="display:block;border-radius:10px" />` : ''}
+                  <div>
+                    <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em">${appName}</div>
+                    <div style="margin-top:4px;font-size:13px;color:#64748b">E-Mail bestätigen</div>
+                  </div>
+                </div>
               </td>
             </tr>
             <tr>
-              <td style="padding:16px 20px 20px 20px;color:#e2e8f0">
-                <div style="font-size:14px;line-height:1.5;color:rgba(226,232,240,0.92)">
+              <td style="padding:16px 20px 20px 20px;color:#0f172a">
+                <div style="font-size:14px;line-height:1.5;color:#334155">
                   Bitte bestätige deine E-Mail-Adresse, damit dein Konto aktiviert bleibt.
                 </div>
                 <div style="height:16px"></div>
@@ -1151,18 +1158,18 @@ async function sendVerificationEmail({ req, to, token }) {
                   </tr>
                 </table>
                 <div style="height:16px"></div>
-                <div style="font-size:12px;line-height:1.5;color:rgba(226,232,240,0.7)">
+                <div style="font-size:12px;line-height:1.5;color:#475569">
                   Falls der Button nicht funktioniert, öffne diesen Link:
                   <div style="margin-top:8px;word-break:break-all">
-                    <a href="${verifyUrl}" style="color:#93c5fd;text-decoration:underline">${verifyUrl}</a>
+                    <a href="${verifyUrl}" style="color:#0284c7;text-decoration:underline">${verifyUrl}</a>
                   </div>
                 </div>
                 <div style="height:16px"></div>
-                <div style="font-size:12px;color:rgba(226,232,240,0.6)">Der Link ist 24 Stunden gültig.</div>
+                <div style="font-size:12px;color:#64748b">Der Link ist 24 Stunden gültig.</div>
               </td>
             </tr>
           </table>
-          <div style="max-width:560px;margin-top:10px;color:rgba(226,232,240,0.45);font-size:11px;line-height:1.4">
+          <div style="max-width:560px;margin-top:10px;color:#64748b;font-size:11px;line-height:1.4">
             Du erhältst diese E-Mail, weil du eine Adresse für ${appName} bestätigt hast.
           </div>
         </td>
@@ -1177,6 +1184,15 @@ async function sendVerificationEmail({ req, to, token }) {
     subject: 'Mein Ferienplaner: E-Mail bestätigen',
     text: `Bitte bestätige deine E-Mail-Adresse über diesen Link:\n\n${verifyUrl}\n\nDer Link ist 24 Stunden gültig.`,
     html,
+    attachments: hasLogo
+      ? [
+        {
+          filename: 'logo.png',
+          path: logoPath,
+          cid: 'ferienplaner-logo',
+        },
+      ]
+      : [],
   });
 }
 
