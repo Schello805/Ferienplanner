@@ -600,6 +600,17 @@ html.dark .settings-modal-heading {
     overflow: hidden !important;
   }
 
+  /* Default cell canvas (Safari can render transparent cells as dark in print) */
+  .calendar-row > div:not(.calendar-day-column) {
+    background: #ffffff;
+    background-color: #ffffff;
+  }
+
+  .calendar-row > .bg-transparent {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+  }
+
   /* Cells */
   .calendar-header-cell, 
   .calendar-day-column {
