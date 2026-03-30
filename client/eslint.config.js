@@ -30,7 +30,29 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.js'],
+    files: ['vite.config.js', 'playwright.config.js', 'scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
+    files: ['src/**/*.test.{js,jsx}', 'src/test/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        afterEach: 'readonly',
+        beforeEach: 'readonly',
+        describe: 'readonly',
+        expect: 'readonly',
+        it: 'readonly',
+        vi: 'readonly',
+      },
+    },
+  },
+  {
+    files: ['e2e/**/*.js'],
     languageOptions: {
       globals: {
         ...globals.node,

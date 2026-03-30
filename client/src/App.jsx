@@ -8,7 +8,7 @@ import { ChangelogModal } from './components/ChangelogModal.jsx'
 import { Toaster } from 'sonner'
 import { toast } from 'sonner'
 import { GERMAN_STATE_MAP } from './constants/germanStates'
-import { authFetch, clearStoredAuthToken, setStoredAuthToken } from './lib/api'
+import { authFetch, clearStoredAuthToken, getApiErrorMessage, requestJson, setStoredAuthToken, toApiError } from './lib/api'
 
 const formatLocalDateInput = (date) => {
   const year = date.getFullYear();
@@ -170,6 +170,7 @@ function App() {
   const [holidayBreakdown, setHolidayBreakdown] = useState([]);
   const [vacations, setVacations] = useState([]);
   const [apiOnline, setApiOnline] = useState(true);
+  const [authNotice, setAuthNotice] = useState(null);
   const [children, setChildren] = useState([]);
   const [childFreeDays, setChildFreeDays] = useState([]);
   const [authReady, setAuthReady] = useState(false);
@@ -182,6 +183,7 @@ function App() {
   );
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const unauthorizedHandledRef = useRef(false);
 
   // Theme Effect
   useEffect(() => {
@@ -414,11 +416,9 @@ function App() {
 
   const refreshAuthStatus = useCallback(async () => {
     try {
-      const response = await authFetch('/api/auth/status');
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || `auth status failed: ${response.status}`);
-      }
+      const data = await requestJson('/api/auth/status', {}, 'Anmeldestatus konnte nicht geladen werden');
+      setApiOnline(true);
+      setAuthNotice(null);
       setSetupRequired(Boolean(data.setupRequired));
       setCurrentUser(data.authenticated ? normalizeUser(data.user) : null);
       setCurrentCalendar(data.authenticated ? data.calendar : null);
@@ -430,14 +430,27 @@ function App() {
         }
       }
     } catch (error) {
-      console.error('Failed to load auth status', error);
-      clearStoredAuthToken();
-      setCurrentUser(null);
-      setCurrentCalendar(null);
+      const apiError = toApiError(error, 'Anmeldestatus konnte nicht geladen werden');
+      console.error('Failed to load auth status', apiError);
+      if (apiError.isUnauthorized) {
+        clearStoredAuthToken();
+        setCurrentUser(null);
+        setCurrentCalendar(null);
+        setAuthNotice(null);
+      } else {
+        setApiOnline(false);
+        setAuthNotice({
+          tone: 'error',
+          title: 'Server aktuell nicht erreichbar',
+          message: currentUser
+            ? 'Deine aktuelle Ansicht bleibt geöffnet. Einige Daten sind möglicherweise nicht aktuell.'
+            : apiError.message,
+        });
+      }
     } finally {
       setAuthReady(true);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     refreshAuthStatus();
@@ -445,37 +458,59 @@ function App() {
 
   const loadFamilyData = useCallback(async () => {
     try {
-      const [childrenRes, freeDaysRes] = await Promise.all([
-        authFetch('/api/children'),
-        authFetch('/api/child-free-days'),
-      ]);
-
-      if (childrenRes.status === 401 || freeDaysRes.status === 401) {
-        clearStoredAuthToken();
-        setCurrentUser(null);
-        await refreshAuthStatus();
-        return;
-      }
-
-      if (!childrenRes.ok) {
-        throw new Error(`children request failed: ${childrenRes.status}`);
-      }
-      if (!freeDaysRes.ok) {
-        throw new Error(`child-free-days request failed: ${freeDaysRes.status}`);
-      }
-
       const [childrenData, freeDaysData] = await Promise.all([
-        childrenRes.json(),
-        freeDaysRes.json(),
+        requestJson('/api/children', {}, 'Kinderdaten konnten nicht geladen werden'),
+        requestJson('/api/child-free-days', {}, 'Freie Tage konnten nicht geladen werden'),
       ]);
-
+      setApiOnline(true);
+      setAuthNotice(null);
       setChildren(childrenData);
       setChildFreeDays(freeDaysData);
     } catch (error) {
-      console.error('Failed to load family data', error);
-      toast.error('Kinderdaten konnten nicht geladen werden');
+      const apiError = toApiError(error, 'Kinderdaten konnten nicht geladen werden');
+      console.error('Failed to load family data', apiError);
+      if (apiError.isUnauthorized) {
+        clearStoredAuthToken();
+        setCurrentUser(null);
+        setCurrentCalendar(null);
+        await refreshAuthStatus();
+        return;
+      }
+      setApiOnline(false);
+      toast.error(apiError.message);
     }
   }, [refreshAuthStatus]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleOffline = () => {
+      setApiOnline(false);
+      setAuthNotice((current) => current || {
+        tone: 'warning',
+        title: 'Gerät ist offline',
+        message: 'Sobald wieder eine Verbindung besteht, kann die App erneut mit dem Server synchronisieren.',
+      });
+    };
+
+    const handleOnline = () => {
+      setApiOnline(true);
+      setAuthNotice(null);
+      void refreshAuthStatus();
+      if (currentUser) {
+        void loadFamilyData();
+      }
+      toast.success('Verbindung wiederhergestellt');
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [currentUser, loadFamilyData, refreshAuthStatus]);
 
   const applyingSetupDraftRef = useRef(false);
 
@@ -512,17 +547,13 @@ function App() {
         const slugRaw = String(draft.calendarSlug).trim();
         if (slugRaw) {
           try {
-            const response = await authFetch('/api/calendar/slug', {
+            await requestJson('/api/calendar/slug', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ slug: slugRaw }),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-              toast.warning(data.error || 'Kalender-Name konnte nicht übernommen werden');
-            }
+            }, 'Kalender-Name konnte nicht übernommen werden');
           } catch (error) {
-            toast.warning(error?.message || 'Kalender-Name konnte nicht übernommen werden');
+            toast.warning(getApiErrorMessage(error, 'Kalender-Name konnte nicht übernommen werden'));
           }
         }
       }
@@ -544,11 +575,7 @@ function App() {
         .filter((c) => c.name);
 
       if (draftChildren.length > 0) {
-        const existingRes = await authFetch('/api/children');
-        const existingData = await existingRes.json();
-        if (!existingRes.ok) {
-          throw new Error(existingData.error || `children request failed: ${existingRes.status}`);
-        }
+        const existingData = await requestJson('/api/children', {}, 'Kinder konnten nicht geladen werden');
         const existing = Array.isArray(existingData) ? existingData : [];
 
         const existingKeySet = new Set(
@@ -561,7 +588,7 @@ function App() {
           const key = `${child.name.trim().toLowerCase()}::${child.type}`;
           if (existingKeySet.has(key)) continue;
 
-          const response = await authFetch('/api/children', {
+          await requestJson('/api/children', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -570,11 +597,7 @@ function App() {
               color: child.color,
               usesSchoolHolidays: child.usesSchoolHolidays,
             }),
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.error || 'Onboarding: Kind konnte nicht angelegt werden');
-          }
+          }, 'Onboarding: Kind konnte nicht angelegt werden');
           existingKeySet.add(key);
         }
       }
@@ -588,17 +611,13 @@ function App() {
           digestThresholdDays: Number(draft.notificationSettings.digestThresholdDays ?? 3) || 0,
         };
         try {
-          const response = await authFetch('/api/notifications/settings', {
+          await requestJson('/api/notifications/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            toast.warning(data.error || 'Benachrichtigungen konnten nicht übernommen werden');
-          }
+          }, 'Benachrichtigungen konnten nicht übernommen werden');
         } catch (error) {
-          toast.warning(error?.message || 'Benachrichtigungen konnten nicht übernommen werden');
+          toast.warning(getApiErrorMessage(error, 'Benachrichtigungen konnten nicht übernommen werden'));
         }
       }
 
@@ -608,7 +627,7 @@ function App() {
       await loadFamilyData();
     } catch (error) {
       console.error('Failed to apply setup draft', error);
-      toast.error(error.message || 'Einrichtung konnte nicht übernommen werden');
+      toast.error(getApiErrorMessage(error, 'Einrichtung konnte nicht übernommen werden'));
     } finally {
       applyingSetupDraftRef.current = false;
     }
@@ -622,19 +641,15 @@ function App() {
       if (!token) return;
 
       try {
-        const response = await authFetch('/api/auth/verify-email', {
+        await requestJson('/api/auth/verify-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || `E-Mail Verifikation fehlgeschlagen (${response.status})`);
-        }
+        }, 'E-Mail konnte nicht bestätigt werden');
         toast.success('E-Mail bestätigt. Du kannst dich jetzt anmelden.');
       } catch (error) {
         console.error('Failed to verify email', error);
-        toast.error(error.message || 'E-Mail konnte nicht bestätigt werden');
+        toast.error(getApiErrorMessage(error, 'E-Mail konnte nicht bestätigt werden'));
       } finally {
         const url = new URL(window.location.href);
         url.searchParams.delete('verifyEmail');
@@ -657,6 +672,8 @@ function App() {
 
   useEffect(() => {
     const handleUnauthorized = async () => {
+      if (unauthorizedHandledRef.current) return;
+      unauthorizedHandledRef.current = true;
       clearStoredAuthToken();
       setCurrentUser(null);
       setCurrentCalendar(null);
@@ -664,6 +681,7 @@ function App() {
       setChildFreeDays([]);
       await refreshAuthStatus();
       toast.error('Sitzung abgelaufen. Bitte erneut anmelden.');
+      unauthorizedHandledRef.current = false;
     };
 
     window.addEventListener('ferienplaner:unauthorized', handleUnauthorized);
@@ -676,16 +694,11 @@ function App() {
 
       setInviteAccepting(true);
       try {
-        const response = await authFetch('/api/invitations/accept', {
+        await requestJson('/api/invitations/accept', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: pendingInviteToken }),
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || `Invite konnte nicht angenommen werden (${response.status})`);
-        }
+        }, 'Einladung konnte nicht angenommen werden');
 
         toast.success('Einladung angenommen');
         setPendingInviteToken('');
@@ -700,7 +713,7 @@ function App() {
         await loadFamilyData();
       } catch (error) {
         console.error('Failed to accept invitation', error);
-        toast.error(error.message || 'Einladung konnte nicht angenommen werden');
+        toast.error(getApiErrorMessage(error, 'Einladung konnte nicht angenommen werden'));
       } finally {
         setInviteAccepting(false);
       }
@@ -728,15 +741,13 @@ function App() {
         : effectiveMode === 'register'
           ? '/api/auth/register'
           : '/api/auth/login';
-      const response = await authFetch(path, {
+      const data = await requestJson(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, email }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Anmeldung fehlgeschlagen');
-      }
+      }, effectiveMode === 'register' ? 'Registrierung fehlgeschlagen' : 'Anmeldung fehlgeschlagen');
+      setApiOnline(true);
+      setAuthNotice(null);
 
       if (effectiveMode === 'register') {
         toast.success('Registriert. Bitte E-Mail bestätigen.');
@@ -753,8 +764,17 @@ function App() {
         toast.message('Einladung wird angenommen …');
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.message || 'Anmeldung fehlgeschlagen');
+      const apiError = toApiError(error, 'Anmeldung fehlgeschlagen');
+      console.error(apiError);
+      if (apiError.isNetworkError) {
+        setApiOnline(false);
+        setAuthNotice({
+          tone: 'error',
+          title: 'Anmeldung gerade nicht möglich',
+          message: apiError.message,
+        });
+      }
+      toast.error(apiError.message || 'Anmeldung fehlgeschlagen');
     } finally {
       setAuthSubmitting(false);
     }
@@ -881,6 +901,7 @@ function App() {
           setupRequired={setupRequired}
           onSubmit={handleAuthSubmit}
           loading={authSubmitting}
+          statusNotice={authNotice}
         />
       </>
     );

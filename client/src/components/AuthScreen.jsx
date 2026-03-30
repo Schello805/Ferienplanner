@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
+export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = null }) => {
   const [mode, setMode] = useState(setupRequired ? 'setup' : 'login');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -66,6 +66,16 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading }) => {
         </div>
 
         <div className="mb-5 space-y-2">
+          {statusNotice && (
+            <div className={`rounded-2xl px-3 py-2 text-xs ${
+              statusNotice.tone === 'warning'
+                ? 'border border-amber-200/80 bg-amber-50/80 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100'
+                : 'border border-red-200/80 bg-red-50/80 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-100'
+            }`}>
+              <div className="font-semibold">{statusNotice.title || 'Hinweis'}</div>
+              {statusNotice.message && <div className="mt-1 opacity-80">{statusNotice.message}</div>}
+            </div>
+          )}
           <div className="rounded-2xl border border-sky-200/80 bg-sky-50/80 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100">
             <div className="font-semibold">Dein Konto schützt deinen Kalender</div>
             <div className="mt-1 opacity-80">

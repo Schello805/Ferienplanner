@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner';
 import { CalendarToolbar } from './CalendarToolbar';
 import { DayCell } from './DayCell';
-import { authFetch } from '../lib/api';
+import { authFetch, requestJson, toApiError } from '../lib/api';
 
 const MONTHS = [
     'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -316,7 +316,6 @@ const CalendarView = ({
         // Don't set loading true here to avoid flickering on updates
         // setLoading(true); 
         try {
-            setApiOnline(true);
             // Check cache first
             const cacheKey = `${year}-${stateCode}`;
             if (holidayCache.current[cacheKey]) {
@@ -324,28 +323,26 @@ const CalendarView = ({
                 setHolidays(cachedHolidayData);
                 setApiNotice(buildNotice(cachedHolidayData.meta));
             } else {
-                const holidayRes = await authFetch(`/api/holidays?year=${year}&state=${stateCode}`);
-                if (!holidayRes.ok) throw new Error(`holidays request failed: ${holidayRes.status}`);
-                const holidayData = await holidayRes.json();
+                const holidayData = await requestJson(`/api/holidays?year=${year}&state=${stateCode}`, {}, 'Ferien konnten nicht geladen werden');
                 setHolidays(holidayData);
                 setApiNotice(buildNotice(holidayData.meta));
                 // Update cache
                 holidayCache.current[cacheKey] = holidayData;
             }
 
-            const vacationRes = await authFetch('/api/vacations');
-            if (!vacationRes.ok) throw new Error(`vacations request failed: ${vacationRes.status}`);
-            const vacationData = await vacationRes.json();
+            const vacationData = await requestJson('/api/vacations', {}, 'Urlaubsdaten konnten nicht geladen werden');
             setVacations(vacationData);
+            setApiOnline(true);
         } catch (err) {
-            console.error("Failed to fetch data", err);
+            const apiError = toApiError(err, 'Daten konnten nicht geladen werden');
+            console.error("Failed to fetch data", apiError);
             setApiOnline(false);
             setApiNotice({
                 tone: 'error',
                 title: 'Keine API-Daten erhalten',
-                message: 'Die Webapp konnte keine Daten vom Server laden. Bitte Seite neu laden oder Server-Verbindung prüfen.',
+                message: apiError.message,
             });
-            toast.error("Fehler beim Laden der Daten");
+            toast.error(apiError.message);
         } finally {
             setLoading(false);
         }
@@ -397,7 +394,10 @@ const CalendarView = ({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ startDate: range.s, endDate: range.e, userId: rangeUserId })
             });
-            if (!res.ok) throw new Error(`Failed to save: ${res.status}`);
+            if (!res.ok) {
+                throw new Error(`Speichern fehlgeschlagen (${res.status})`);
+            }
+            setApiOnline(true);
 
             toast.success('Urlaub eingetragen', {
                 action: {
@@ -424,13 +424,15 @@ const CalendarView = ({
                 }
             });
         } catch (err) {
-            console.error(err);
+            const apiError = toApiError(err, 'Der markierte Bereich konnte nicht gespeichert werden');
+            console.error(apiError);
             setApiNotice({
                 tone: 'error',
                 title: 'Speichern fehlgeschlagen',
-                message: 'Der markierte Bereich konnte nicht gespeichert werden. Die lokale Änderung wurde zurückgesetzt.',
+                message: `${apiError.message} Die lokale Änderung wurde zurückgesetzt.`,
             });
-            toast.error('Fehler beim Speichern');
+            setApiOnline(false);
+            toast.error(apiError.message);
             setVacations(previousVacations);
         } finally {
             if (fetchData) fetchData();
@@ -722,16 +724,18 @@ const CalendarView = ({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ date: dateString, userId: newUserId })
             });
-            if (!res.ok) throw new Error(`Failed to save: ${res.status}`);
+            if (!res.ok) throw new Error(`Speichern fehlgeschlagen (${res.status})`);
+            setApiOnline(true);
         } catch (err) {
-            console.error("Failed to save vacation", err);
+            const apiError = toApiError(err, 'Der ausgewählte Tag konnte nicht gespeichert werden');
+            console.error("Failed to save vacation", apiError);
             setApiOnline(false);
             setApiNotice({
                 tone: 'error',
                 title: 'Speichern fehlgeschlagen',
-                message: 'Der ausgewählte Tag konnte nicht gespeichert werden. Bitte Server-Verbindung prüfen.',
+                message: apiError.message,
             });
-            toast.error("Speichern fehlgeschlagen!");
+            toast.error(apiError.message);
             setVacations(previousVacations); 
         } finally {
             setSavingDate(null);

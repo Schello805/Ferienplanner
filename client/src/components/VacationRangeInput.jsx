@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { authFetch } from '../lib/api';
+import { getApiErrorMessage, requestJson } from '../lib/api';
 
 export const VacationRangeInput = ({ 
     startDate, 
@@ -35,20 +35,18 @@ export const VacationRangeInput = ({
             if (onSubmitRange) {
                 await onSubmitRange({ startDate, endDate, userId });
             } else {
-                const res = await authFetch('/api/vacations/range', {
+                await requestJson('/api/vacations/range', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ startDate, endDate, userId })
-                });
-
-                if (!res.ok) throw new Error('Failed to save');
+                }, 'Urlaubsbereich konnte nicht gespeichert werden');
 
                 toast.success('Urlaub eingetragen');
                 if (onUpdate) onUpdate();
             }
         } catch (err) {
             console.error(err);
-            toast.error('Fehler beim Speichern');
+            toast.error(getApiErrorMessage(err, 'Fehler beim Speichern'));
         } finally {
             setLoading(false);
         }

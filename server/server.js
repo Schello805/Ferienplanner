@@ -3442,8 +3442,8 @@ if (fs.existsSync(CLIENT_DIST) && process.env.NODE_ENV !== 'test') {
   });
 }
 
-export function startServer(port = PORT) {
-  const server = app.listen(port, () => {
+export function startServer(port = PORT, host) {
+  const server = app.listen(port, host, () => {
     const address = server.address();
     const actualPort =
       typeof address === 'object' && address && 'port' in address ? address.port : port;
