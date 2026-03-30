@@ -189,6 +189,32 @@ function App() {
     }
   }, [darkMode]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let hadDark = false;
+
+    const handleBeforePrint = () => {
+      const root = document.documentElement;
+      hadDark = root.classList.contains('dark');
+      if (hadDark) root.classList.remove('dark');
+    };
+
+    const handleAfterPrint = () => {
+      if (!hadDark) return;
+      if (!darkMode) return;
+      document.documentElement.classList.add('dark');
+    };
+
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    return () => {
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, [darkMode]);
+
   // Color Persistence Effect
   useEffect(() => {
     localStorage.setItem('p1Color', p1Color);
