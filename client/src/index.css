@@ -388,7 +388,7 @@ html.dark .settings-modal-heading {
 @media print {
   @page {
     size: A4 landscape;
-    margin: 5mm; /* Minimal safe margin */
+    margin: 3mm; /* Minimal safe margin */
   }
 
   html, body {
@@ -403,7 +403,7 @@ html.dark .settings-modal-heading {
   }
 
   /* --- HIDE ELEMENTS --- */
-  body > div > header, /* App Header */
+  header, /* App Header */
   footer,
   .app-footer,
   button,
@@ -440,15 +440,7 @@ html.dark .settings-modal-heading {
   .print-header,
   .print-summary,
   .print-footer {
-    display: flex !important;
-  }
-
-  .print-summary {
-    display: grid !important;
-  }
-
-  .print-footer {
-    margin-top: 4mm !important;
+    display: none !important;
   }
 
   /* Reset Min Widths using specific class */
@@ -462,7 +454,7 @@ html.dark .settings-modal-heading {
     display: grid !important;
     width: 100% !important;
     border: 1px solid #000 !important;
-    font-size: 9px !important;
+    font-size: 8px !important;
   }
 
   /* Header Row (Months) */
@@ -494,7 +486,7 @@ html.dark .settings-modal-heading {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 20px !important;
+    width: 18px !important;
   }
 
   /* Rows */
@@ -502,7 +494,7 @@ html.dark .settings-modal-heading {
     break-inside: avoid;
     border-bottom: 1px solid #ccc !important;
     page-break-inside: avoid;
-    height: 16px !important;
+    height: 14px !important;
     overflow: hidden !important;
   }
 
@@ -514,15 +506,15 @@ html.dark .settings-modal-heading {
 
   /* Override Height Utilities for Print */
   .h-8, .sm\:h-10, .h-6, .sm\:h-7 {
-    height: 16px !important;
-    min-height: 16px !important; 
+    height: 14px !important;
+    min-height: 14px !important; 
   }
 
   /* Day Cell content */
   .calendar-row > div:not(.calendar-day-column) > div {
     border: 1px solid #eee !important;
     height: 100% !important;
-    min-height: 16px !important;
+    min-height: 14px !important;
   }
   
   /* Weekday Indicator */
@@ -532,13 +524,13 @@ html.dark .settings-modal-heading {
     right: 1px !important;
     opacity: 1 !important;
     color: #475569 !important;
-    font-size: 7px !important;
+    font-size: 6px !important;
     font-weight: normal !important;
   }
 
   /* Holiday Text */
   .day-cell-holiday-text {
-    font-size: 7px !important;
+    font-size: 6px !important;
     color: #000 !important;
     font-weight: normal !important;
     overflow: hidden !important;
@@ -564,7 +556,16 @@ html.dark .settings-modal-heading {
 
   /* Increase readability of Month Stats */
   .calendar-header-cell span {
-     font-size: 9px !important;
+     font-size: 8px !important;
+  }
+
+  .calendar-container {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .calendar-min-width-wrapper {
+    zoom: 0.88;
   }
 
   /* Ensure background colors print */
