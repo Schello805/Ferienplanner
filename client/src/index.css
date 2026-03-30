@@ -507,7 +507,7 @@ html.dark .settings-modal-heading {
     break-inside: avoid;
     border-bottom: 1px solid #ccc !important;
     page-break-inside: avoid;
-    height: 14px !important;
+    height: 20px !important;
     overflow: hidden !important;
   }
 
@@ -519,15 +519,15 @@ html.dark .settings-modal-heading {
 
   /* Override Height Utilities for Print */
   .h-8, .sm\:h-10, .h-6, .sm\:h-7 {
-    height: 14px !important;
-    min-height: 14px !important; 
+    height: 20px !important;
+    min-height: 20px !important; 
   }
 
   /* Day Cell content */
   .calendar-row > div:not(.calendar-day-column) > div {
     border: 1px solid #eee !important;
     height: 100% !important;
-    min-height: 14px !important;
+    min-height: 20px !important;
   }
   
   /* Weekday Indicator */
@@ -578,7 +578,7 @@ html.dark .settings-modal-heading {
   }
 
   .calendar-min-width-wrapper {
-    zoom: 0.84;
+    zoom: 1;
   }
 
   /* Ensure background colors print */
