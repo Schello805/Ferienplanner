@@ -393,13 +393,18 @@ html.dark .settings-modal-heading {
 
   html, body {
     width: 100%;
-    height: 100%;
+    height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
     color: black !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  #root {
+    height: auto !important;
+    min-height: 0 !important;
   }
 
   /* --- HIDE ELEMENTS --- */
@@ -424,6 +429,14 @@ html.dark .settings-modal-heading {
     margin: 0 !important;
     padding: 0 !important;
     display: block !important;
+  }
+
+  /* Avoid flex-based stretching that can trigger a second blank page */
+  .h-full {
+    height: auto !important;
+  }
+  .flex-1 {
+    flex: none !important;
   }
 
   /* --- CALENDAR CONTAINER --- */
@@ -565,7 +578,7 @@ html.dark .settings-modal-heading {
   }
 
   .calendar-min-width-wrapper {
-    zoom: 0.88;
+    zoom: 0.84;
   }
 
   /* Ensure background colors print */
