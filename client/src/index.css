@@ -403,6 +403,14 @@ html.dark .settings-modal-heading {
     print-color-adjust: exact !important;
   }
 
+  html,
+  body,
+  #root,
+  main {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+  }
+
   #root {
     height: auto !important;
     min-height: 0 !important;
@@ -505,12 +513,28 @@ html.dark .settings-modal-heading {
     display: flex !important;
   }
 
+  .print-header {
+    margin-bottom: 6px !important;
+    padding-bottom: 4px !important;
+    border-bottom-width: 1px !important;
+  }
+
   .print-summary {
     display: none !important;
   }
 
   .print-footer {
     display: flex !important;
+  }
+
+  .print-footer {
+    padding-top: 4px !important;
+    border-top-width: 1px !important;
+    font-size: 9px !important;
+  }
+
+  .print-legend {
+    gap: 8px !important;
   }
 
   .print-header,
@@ -571,7 +595,7 @@ html.dark .settings-modal-heading {
     break-inside: avoid;
     border-bottom: 1px solid #ccc !important;
     page-break-inside: avoid;
-    height: 18px !important;
+    height: 17px !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
     overflow: hidden !important;
@@ -585,15 +609,15 @@ html.dark .settings-modal-heading {
 
   /* Override Height Utilities for Print */
   .h-8, .sm\:h-10, .h-6, .sm\:h-7 {
-    height: 18px !important;
-    min-height: 18px !important; 
+    height: 17px !important;
+    min-height: 17px !important; 
   }
 
   /* Day Cell content */
   .calendar-row > div:not(.calendar-day-column) > div {
     border: 1px solid #eee !important;
     height: 100% !important;
-    min-height: 18px !important;
+    min-height: 17px !important;
   }
   
   /* Weekday Indicator */
