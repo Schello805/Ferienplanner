@@ -104,6 +104,7 @@ const corsOptions = {
 };
 
 export const app = express();
+app.set('trust proxy', true);
 app.use(cors(corsOptions));
 app.use(express.json());
 app.disable('x-powered-by');
@@ -933,6 +934,54 @@ function getPublicBaseUrl(req) {
   return `http://localhost:${PORT}`;
 }
 
+function shouldUseSecureCookies(req) {
+  const forwardedProto = String(req.get('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+  if (forwardedProto === 'https') return true;
+  if (req.secure) return true;
+
+  const publicBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim();
+  if (publicBaseUrl) {
+    try {
+      return new URL(publicBaseUrl).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function appendCookie(res, name, value, options = {}) {
+  const parts = [`${name}=${encodeURIComponent(String(value ?? ''))}`];
+  parts.push(`Path=${options.path || '/'}`);
+  if (options.maxAge === 0) {
+    parts.push('Max-Age=0');
+  } else if (Number.isFinite(options.maxAge) && options.maxAge > 0) {
+    parts.push(`Max-Age=${Math.floor(options.maxAge)}`);
+  }
+  parts.push(`SameSite=${options.sameSite || 'Lax'}`);
+  if (options.secure) parts.push('Secure');
+  if (options.httpOnly) parts.push('HttpOnly');
+  res.append('Set-Cookie', parts.join('; '));
+}
+
+function clearSessionCookies(req, res) {
+  const secure = shouldUseSecureCookies(req);
+  appendCookie(res, 'ferienplanerAuthToken', '', { maxAge: 0, secure });
+  appendCookie(res, 'ferienplanerTargetSlug', '', { maxAge: 0, secure });
+}
+
+function setSessionCookies(req, res, authState) {
+  const secure = shouldUseSecureCookies(req);
+  const maxAgeSeconds = Math.floor(SESSION_TTL_MS / 1000);
+  if (authState?.token) {
+    appendCookie(res, 'ferienplanerAuthToken', authState.token, { maxAge: maxAgeSeconds, secure });
+  }
+  if (authState?.calendar?.slug) {
+    appendCookie(res, 'ferienplanerTargetSlug', authState.calendar.slug, { maxAge: maxAgeSeconds, secure });
+  }
+}
+
 function getAppSecretKeyBytes() {
   let secret = process.env.APP_SECRET_KEY;
   if (!secret) {
@@ -1529,6 +1578,11 @@ app.get('/health', (req, res) => {
 app.get('/api/auth/status', async (req, res) => {
   try {
     const authState = await getAuthState(req);
+    if (authState.authenticated) {
+      setSessionCookies(req, res, authState);
+    } else {
+      clearSessionCookies(req, res);
+    }
     res.json({
       setupRequired: authState.setupRequired,
       authenticated: authState.authenticated,
@@ -1581,12 +1635,14 @@ app.post('/api/auth/bootstrap', async (req, res) => {
 
     const session = await createSessionForUser(result.lastID);
     clearAuthFailures(req, username);
+    const calendar = await ensureUserCalendarContext(result.lastID);
+    setSessionCookies(req, res, { token: session.token, calendar });
     pushAdminLog('auth.bootstrap', `Bootstrap admin created: ${String(username).trim()}`, { username: String(username).trim(), userId: result.lastID });
     return res.json({
       success: true,
       token: session.token,
       user: { id: result.lastID, username: String(username).trim(), email: normalizedEmail || '', emailVerified: true, isAdmin: true },
-      calendar: await ensureUserCalendarContext(result.lastID),
+      calendar,
     });
   } catch (error) {
     db.close();
@@ -1625,11 +1681,13 @@ app.post('/api/auth/login', async (req, res) => {
 
     const session = await createSessionForUser(user.id);
     clearAuthFailures(req, username);
+    const calendar = await ensureUserCalendarContext(user.id);
+    setSessionCookies(req, res, { token: session.token, calendar });
     return res.json({
       success: true,
       token: session.token,
       user: { id: user.id, username: user.username, email: user.email || '', emailVerified: Boolean(user.emailVerified), isAdmin: Boolean(user.isAdmin) },
-      calendar: await ensureUserCalendarContext(user.id),
+      calendar,
     });
   } catch (error) {
     db.close();
@@ -1642,6 +1700,7 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
   const db = openDb();
   try {
     await dbRun(db, 'DELETE FROM sessions WHERE token = ?', [req.auth.token]);
+    clearSessionCookies(req, res);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
