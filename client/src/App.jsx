@@ -457,10 +457,8 @@ function App() {
 
   const loadFamilyData = useCallback(async () => {
     try {
-      const [childrenData, freeDaysData] = await Promise.all([
-        requestJson('/api/children', {}, 'Kinderdaten konnten nicht geladen werden'),
-        requestJson('/api/child-free-days', {}, 'Freie Tage konnten nicht geladen werden'),
-      ]);
+      const childrenData = await requestJson('/api/children', {}, 'Kinderdaten konnten nicht geladen werden');
+      const freeDaysData = await requestJson('/api/child-free-days', {}, 'Freie Tage konnten nicht geladen werden');
       setApiOnline(true);
       setAuthNotice(null);
       setChildren(childrenData);
