@@ -720,10 +720,16 @@ function App() {
   }, [pendingInviteToken, currentUser, inviteAccepting, refreshAuthStatus, loadFamilyData]);
 
   useEffect(() => {
-    if (currentUser) {
-      loadFamilyData();
-    }
-  }, [currentUser, loadFamilyData]);
+    if (!authReady || !currentUser || !currentCalendar) return;
+
+    const timeoutId = window.setTimeout(() => {
+      void loadFamilyData();
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [authReady, currentUser, currentCalendar, loadFamilyData]);
 
   useEffect(() => {
     applySetupDraftIfPresent();

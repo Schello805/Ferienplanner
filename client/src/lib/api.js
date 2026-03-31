@@ -202,17 +202,24 @@ export const authFetch = async (path, init = {}) => {
     requestInit.headers = headers;
   }
 
-  try {
-    return withUnauthorizedEvent(await fetch(requestUrl, requestInit));
-  } catch (error) {
-    if (!(error instanceof TypeError) || !sameOrigin || !isGetRequest(init)) {
-      throw error;
-    }
+  const maxAttempts = sameOrigin && isGetRequest(init) ? 3 : 1;
+  let attempt = 0;
+  let lastError = null;
 
-    await delay(250);
-    return withUnauthorizedEvent(await fetch(requestUrl, requestInit));
+  while (attempt < maxAttempts) {
+    try {
+      return withUnauthorizedEvent(await fetch(requestUrl, requestInit));
+    } catch (error) {
+      lastError = error;
+      attempt += 1;
+      if (!(error instanceof TypeError) || attempt >= maxAttempts) {
+        throw error;
+      }
+      await delay(250 * attempt);
+    }
   }
 
+  throw lastError;
 };
 
 export const requestJson = async (path, init = {}, fallbackMessage = 'Anfrage fehlgeschlagen') => {
