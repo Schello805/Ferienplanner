@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   authFetch,
@@ -22,6 +22,11 @@ export const useAuthState = ({ pendingInviteToken }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentCalendar, setCurrentCalendar] = useState(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const currentUserRef = useRef(currentUser);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   const refreshAuthStatus = useCallback(async () => {
     try {
@@ -51,7 +56,7 @@ export const useAuthState = ({ pendingInviteToken }) => {
         setAuthNotice({
           tone: 'error',
           title: 'Server aktuell nicht erreichbar',
-          message: currentUser
+          message: currentUserRef.current
             ? 'Deine aktuelle Ansicht bleibt geöffnet. Einige Daten sind möglicherweise nicht aktuell.'
             : apiError.message,
         });
@@ -59,7 +64,7 @@ export const useAuthState = ({ pendingInviteToken }) => {
     } finally {
       setAuthReady(true);
     }
-  }, [currentUser]);
+  }, []);
 
   const handleAuthSubmit = useCallback(async ({ mode, username, email, password }) => {
     setAuthSubmitting(true);
