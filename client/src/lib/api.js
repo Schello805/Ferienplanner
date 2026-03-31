@@ -165,21 +165,12 @@ function withUnauthorizedEvent(response) {
   return response;
 }
 
-const isAuthStatusPath = (path) => String(path || '').startsWith('/api/auth/status');
-
-const debugAuthStatus = (...args) => {
-  if (typeof window === 'undefined') return;
-  console.info('[ferienplaner][auth-status]', ...args);
-};
-
 export const authFetch = async (path, init = {}) => {
   const apiUrl = resolveApiUrl();
   const headers = new Headers(init.headers || {});
   const sameOrigin = isSameOriginRequest(apiUrl);
   const requestPath = appendCalendarSlug(path, getStoredCalendarSlug());
   const requestUrl = sameOrigin ? requestPath : `${apiUrl}${requestPath}`;
-  const debugRequest = isAuthStatusPath(path);
-  const startedAt = debugRequest ? Date.now() : 0;
   const requestInit = {
     ...init,
     credentials: sameOrigin ? 'same-origin' : 'include',
@@ -195,38 +186,10 @@ export const authFetch = async (path, init = {}) => {
 
   while (attempt < maxAttempts) {
     try {
-      const currentAttempt = attempt + 1;
-      if (debugRequest) {
-        debugAuthStatus('fetch:start', {
-          requestUrl,
-          sameOrigin,
-          credentials: requestInit.credentials,
-          attempt: currentAttempt,
-          maxAttempts,
-        });
-      }
-      const response = withUnauthorizedEvent(await fetch(requestUrl, requestInit));
-      if (debugRequest) {
-        debugAuthStatus('fetch:success', {
-          status: response.status,
-          ok: response.ok,
-          attempt: currentAttempt,
-          durationMs: Date.now() - startedAt,
-        });
-      }
-      return response;
+      return withUnauthorizedEvent(await fetch(requestUrl, requestInit));
     } catch (error) {
       lastError = error;
       attempt += 1;
-      if (debugRequest) {
-        debugAuthStatus('fetch:error', {
-          attempt,
-          maxAttempts,
-          name: error?.name || 'Error',
-          message: error?.message || String(error),
-          durationMs: Date.now() - startedAt,
-        });
-      }
       if (!(error instanceof TypeError) || attempt >= maxAttempts) {
         throw error;
       }
@@ -239,17 +202,10 @@ export const authFetch = async (path, init = {}) => {
 
 export const requestJson = async (path, init = {}, fallbackMessage = 'Anfrage fehlgeschlagen') => {
   let response;
-  const debugRequest = isAuthStatusPath(path);
 
   try {
     response = await authFetch(path, init);
   } catch (error) {
-    if (debugRequest) {
-      debugAuthStatus('requestJson:transport-error', {
-        name: error?.name || 'Error',
-        message: error?.message || String(error),
-      });
-    }
     throw toApiError(error, fallbackMessage);
   }
 
@@ -257,13 +213,6 @@ export const requestJson = async (path, init = {}, fallbackMessage = 'Anfrage fe
   try {
     data = await readResponseData(response);
   } catch (error) {
-    if (debugRequest) {
-      debugAuthStatus('requestJson:parse-error', {
-        status: response.status,
-        name: error?.name || 'Error',
-        message: error?.message || String(error),
-      });
-    }
     throw new ApiError('Serverantwort konnte nicht gelesen werden.', {
       status: response.status,
       cause: error,
@@ -274,24 +223,11 @@ export const requestJson = async (path, init = {}, fallbackMessage = 'Anfrage fe
   }
 
   if (!response.ok) {
-    if (debugRequest) {
-      debugAuthStatus('requestJson:http-error', {
-        status: response.status,
-        data,
-      });
-    }
     throw new ApiError(extractErrorMessage(response, data, fallbackMessage), {
       status: response.status,
       data,
       kind: 'http',
       isUnauthorized: response.status === 401,
-    });
-  }
-
-  if (debugRequest) {
-    debugAuthStatus('requestJson:ok', {
-      status: response.status,
-      authenticated: typeof data === 'object' ? data?.authenticated : undefined,
     });
   }
 
