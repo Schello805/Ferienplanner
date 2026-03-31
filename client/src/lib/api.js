@@ -161,6 +161,19 @@ export const toApiError = (error, fallbackMessage = 'Anfrage fehlgeschlagen') =>
 export const getApiErrorMessage = (error, fallbackMessage = 'Anfrage fehlgeschlagen') =>
   toApiError(error, fallbackMessage).message || fallbackMessage;
 
+const isGetRequest = (init = {}) => String(init.method || 'GET').toUpperCase() === 'GET';
+
+const delay = (ms) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+function withUnauthorizedEvent(response) {
+  if (response.status === 401 && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ferienplaner:unauthorized'));
+  }
+  return response;
+}
+
 export const authFetch = async (path, init = {}) => {
   const apiUrl = resolveApiUrl();
   const headers = new Headers(init.headers || {});
@@ -180,17 +193,26 @@ export const authFetch = async (path, init = {}) => {
   }
 
   const requestUrl = sameOrigin ? path : `${apiUrl}${path}`;
-  const response = await fetch(requestUrl, {
+  const requestInit = {
     ...init,
     credentials: cookieAuth ? 'same-origin' : init.credentials,
-    headers,
-  });
+  };
 
-  if (response.status === 401 && typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('ferienplaner:unauthorized'));
+  if (headers.size > 0) {
+    requestInit.headers = headers;
   }
 
-  return response;
+  try {
+    return withUnauthorizedEvent(await fetch(requestUrl, requestInit));
+  } catch (error) {
+    if (!(error instanceof TypeError) || !sameOrigin || !isGetRequest(init)) {
+      throw error;
+    }
+
+    await delay(250);
+    return withUnauthorizedEvent(await fetch(requestUrl, requestInit));
+  }
+
 };
 
 export const requestJson = async (path, init = {}, fallbackMessage = 'Anfrage fehlgeschlagen') => {

@@ -5,7 +5,7 @@ describe('requestJson', () => {
     vi.restoreAllMocks();
   });
 
-  it('keeps auth and slug headers on local http same-origin', async () => {
+  it('uses cookie-based same-origin requests without custom auth headers on https', async () => {
     setStoredAuthToken('token-123');
     setStoredCalendarSlug('familie-muster');
 
@@ -19,9 +19,9 @@ describe('requestJson', () => {
 
     await expect(requestJson('/api/auth/status')).resolves.toEqual({ ok: true });
 
-    const [, options] = fetchMock.mock.calls[0];
-    expect(options.headers.get('Authorization')).toBe('Bearer token-123');
-    expect(options.headers.get('X-Calendar-Slug')).toBe('familie-muster');
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/auth/status');
+    expect(options.headers).toBeUndefined();
   });
 
   it('turns network failures into ApiError with network flag', async () => {
