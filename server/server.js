@@ -8,6 +8,15 @@ import Holidays from 'date-holidays';
 import axios from 'axios';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import {
+  buildAllowedOrigins,
+  clearSessionCookies,
+  createCorsOptions,
+  getPublicBaseUrl,
+  securityHeadersMiddleware,
+  setSessionCookies,
+} from './lib/http.js';
+import { getBearerToken, getRequestedCalendarSlug } from './lib/auth-context.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,45 +72,8 @@ function ensureAppSecretKeyFile() {
 
 ensureAppSecretKeyFile();
 
-function buildAllowedOrigins() {
-  const origins = new Set([
-    `http://localhost:${PORT}`,
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:5173',
-    'https://mein-ferienplaner.de',
-  ]);
-
-  const publicBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim();
-  if (publicBaseUrl) {
-    try {
-      origins.add(new URL(publicBaseUrl).origin);
-    } catch {
-      // ignore invalid PUBLIC_BASE_URL
-    }
-  }
-
-  return origins;
-}
-
-const allowedOrigins = buildAllowedOrigins();
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-    if (allowedOrigins.has(origin)) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error(`Origin not allowed by CORS: ${origin}`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Calendar-Slug'],
-};
+const allowedOrigins = buildAllowedOrigins({ port: PORT, publicBaseUrl: process.env.PUBLIC_BASE_URL });
+const corsOptions = createCorsOptions(allowedOrigins);
 
 export const app = express();
 app.set('trust proxy', true);
@@ -109,18 +81,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.disable('x-powered-by');
 
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Resource-Policy', req.path.startsWith('/api/') ? 'cross-origin' : 'same-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  if (process.env.NODE_ENV !== 'development') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  }
-  next();
-});
+app.use(securityHeadersMiddleware);
 
 app.use('/api', async (req, res, next) => {
   try {
@@ -338,7 +299,7 @@ app.delete('/api/calendar/members/:userId', requireAuth, requireCalendarRole('ow
         subline: 'Kalenderfreigabe',
         bodyHtml: `Dein Zugriff auf den Kalender <strong>${String(calendarRow?.name || 'Kalender')}</strong> wurde entfernt.`
           + (targetUsername ? `<div style="height:10px"></div><div>Benutzer: <strong>${String(targetUsername).replace(/</g, '&lt;')}</strong></div>` : ''),
-        ctaUrl: `${getPublicBaseUrl(req)}/hilfe`,
+        ctaUrl: `${getPublicBaseUrl(req, PORT)}/hilfe`,
         ctaText: 'Hilfe öffnen',
         footerReason: 'Du erhältst diese E-Mail, weil du Benachrichtigungen zu Kalenderfreigaben aktiviert hast.',
       });
@@ -879,42 +840,6 @@ function ensureAuthNotRateLimited(req, res, username = '') {
   return true;
 }
 
-function getBearerToken(req) {
-  const authHeader = req.headers.authorization || '';
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (match) return match[1];
-  return getCookieValue(req, 'ferienplanerAuthToken');
-}
-
-function getCookieValue(req, name) {
-  const cookieHeader = String(req.headers.cookie || '');
-  if (!cookieHeader) return null;
-
-  const cookies = cookieHeader.split(';');
-  for (const entry of cookies) {
-    const [rawName, ...rawValueParts] = entry.split('=');
-    if (String(rawName || '').trim() !== name) continue;
-    const rawValue = rawValueParts.join('=').trim();
-    if (!rawValue) return null;
-    try {
-      return decodeURIComponent(rawValue);
-    } catch {
-      return rawValue;
-    }
-  }
-
-  return null;
-}
-
-function getRequestedCalendarSlug(req) {
-  return (
-    req.get('X-Calendar-Slug')
-    || req.query?.calendarSlug
-    || getCookieValue(req, 'ferienplanerTargetSlug')
-    || ''
-  );
-}
-
 function normalizeEmail(value) {
   if (typeof value !== 'string') return '';
   return value.trim().toLowerCase();
@@ -924,62 +849,6 @@ function isValidEmail(email) {
   if (!email) return false;
   if (email.length > 254) return false;
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
-}
-
-function getPublicBaseUrl(req) {
-  const configured = process.env.PUBLIC_BASE_URL;
-  if (configured) return String(configured).replace(/\/$/, '');
-  const origin = req.get('origin');
-  if (origin) return String(origin).replace(/\/$/, '');
-  return `http://localhost:${PORT}`;
-}
-
-function shouldUseSecureCookies(req) {
-  const forwardedProto = String(req.get('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
-  if (forwardedProto === 'https') return true;
-  if (req.secure) return true;
-
-  const publicBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim();
-  if (publicBaseUrl) {
-    try {
-      return new URL(publicBaseUrl).protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }
-
-  return false;
-}
-
-function appendCookie(res, name, value, options = {}) {
-  const parts = [`${name}=${encodeURIComponent(String(value ?? ''))}`];
-  parts.push(`Path=${options.path || '/'}`);
-  if (options.maxAge === 0) {
-    parts.push('Max-Age=0');
-  } else if (Number.isFinite(options.maxAge) && options.maxAge > 0) {
-    parts.push(`Max-Age=${Math.floor(options.maxAge)}`);
-  }
-  parts.push(`SameSite=${options.sameSite || 'Lax'}`);
-  if (options.secure) parts.push('Secure');
-  if (options.httpOnly) parts.push('HttpOnly');
-  res.append('Set-Cookie', parts.join('; '));
-}
-
-function clearSessionCookies(req, res) {
-  const secure = shouldUseSecureCookies(req);
-  appendCookie(res, 'ferienplanerAuthToken', '', { maxAge: 0, secure });
-  appendCookie(res, 'ferienplanerTargetSlug', '', { maxAge: 0, secure });
-}
-
-function setSessionCookies(req, res, authState) {
-  const secure = shouldUseSecureCookies(req);
-  const maxAgeSeconds = Math.floor(SESSION_TTL_MS / 1000);
-  if (authState?.token) {
-    appendCookie(res, 'ferienplanerAuthToken', authState.token, { maxAge: maxAgeSeconds, secure });
-  }
-  if (authState?.calendar?.slug) {
-    appendCookie(res, 'ferienplanerTargetSlug', authState.calendar.slug, { maxAge: maxAgeSeconds, secure });
-  }
 }
 
 function getAppSecretKeyBytes() {
@@ -1095,7 +964,7 @@ function getMailerTransport() {
 
 async function sendBrandedEmail({ req, to, subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason }) {
   const smtp = await getEffectiveSmtpSettings();
-  const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req);
+  const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req, PORT);
   const safeBaseUrl = String(baseUrl).replace(/\/$/, '');
   const logoUrl = `${safeBaseUrl}/app-icon.png`;
   const helpUrl = `${safeBaseUrl}/hilfe`;
@@ -1217,7 +1086,7 @@ function computeInvitationExpiresAt({ mode, days }) {
 
 async function sendVerificationEmail({ req, to, token }) {
   const smtp = await getEffectiveSmtpSettings();
-  const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req);
+  const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req, PORT);
   const verifyUrl = `${baseUrl}/?verifyEmail=${token}`;
 
   if (!smtp) {
@@ -1579,7 +1448,7 @@ app.get('/api/auth/status', async (req, res) => {
   try {
     const authState = await getAuthState(req);
     if (authState.authenticated) {
-      setSessionCookies(req, res, authState);
+      setSessionCookies(req, res, authState, SESSION_TTL_MS);
     } else {
       clearSessionCookies(req, res);
     }
@@ -1636,7 +1505,7 @@ app.post('/api/auth/bootstrap', async (req, res) => {
     const session = await createSessionForUser(result.lastID);
     clearAuthFailures(req, username);
     const calendar = await ensureUserCalendarContext(result.lastID);
-    setSessionCookies(req, res, { token: session.token, calendar });
+    setSessionCookies(req, res, { token: session.token, calendar }, SESSION_TTL_MS);
     pushAdminLog('auth.bootstrap', `Bootstrap admin created: ${String(username).trim()}`, { username: String(username).trim(), userId: result.lastID });
     return res.json({
       success: true,
@@ -1682,7 +1551,7 @@ app.post('/api/auth/login', async (req, res) => {
     const session = await createSessionForUser(user.id);
     clearAuthFailures(req, username);
     const calendar = await ensureUserCalendarContext(user.id);
-    setSessionCookies(req, res, { token: session.token, calendar });
+    setSessionCookies(req, res, { token: session.token, calendar }, SESSION_TTL_MS);
     return res.json({
       success: true,
       token: session.token,
@@ -2511,7 +2380,7 @@ async function sendDigestForCalendar({ req, db, calendarId, startDate, endDate, 
       headline: 'Betreuungs-Übersicht',
       subline: calendarName,
       bodyHtml: `<div>Zeitraum: <strong>${rangeLabel}</strong></div><div style="height:12px"></div>${listHtml}${hintHtml}`,
-      ctaUrl: `${getPublicBaseUrl(req)}/app`,
+      ctaUrl: `${getPublicBaseUrl(req, PORT)}/app`,
       ctaText: 'Kalender öffnen',
       footerReason: 'Du erhältst diese E-Mail, weil du Benachrichtigungen (Jahresübersicht) aktiviert hast.',
     });
@@ -3215,7 +3084,7 @@ app.post('/api/invitations/accept', async (req, res) => {
           bodyHtml: `Du hast Zugriff auf den Kalender <strong>${String(calendarRow?.name || 'Kalender')}</strong> erhalten.`
             + `<div style="height:10px"></div>`
             + `<div>Rolle: <strong>${membershipRole === 'editor' ? 'Editor' : membershipRole}</strong></div>`,
-          ctaUrl: `${getPublicBaseUrl(req)}/app`,
+          ctaUrl: `${getPublicBaseUrl(req, PORT)}/app`,
           ctaText: 'Kalender öffnen',
           footerReason: 'Du erhältst diese E-Mail, weil du Benachrichtigungen zu Kalenderfreigaben aktiviert hast.',
         });

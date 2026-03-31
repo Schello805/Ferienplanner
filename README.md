@@ -38,7 +38,7 @@ Wichtig: **Owner bedeutet nicht globaler Admin**. Jeder neue Account kann Owner 
 
 ### Voraussetzungen
 
-- Node.js (empfohlen: 18+)
+- Node.js (erforderlich: >= 20.19, empfohlen: aktuelle 22.x LTS)
 - npm
 
 1. **Repository klonen**
@@ -63,6 +63,13 @@ Wichtig: **Owner bedeutet nicht globaler Admin**. Jeder neue Account kann Owner 
    npm run dev
    ```
    Die App ist unter `http://localhost:5173` erreichbar.
+
+Optional direkt aus dem Repo-Root:
+
+```bash
+npm start
+npm run dev:client
+```
 
 ### Schnelltest
 
@@ -118,12 +125,12 @@ Das Frontend wird einmalig gebaut und vom Backend aus `client/dist` als Static/S
 
 Wichtig:
 
-- Frontend Build ist auf **Node 18 kompatibel** (Vite 5).
+- Frontend/Tooling erfordern **Node >= 20.19**.
 - Die SQLite DB liegt **außerhalb** des Repos unter `/var/lib/ferienplaner/database.sqlite`, damit `git pull` Updates nicht an die DB kommen.
 
 ### Voraussetzungen
 
-- Node.js (Node 18 oder 20+)
+- Node.js (>= 20.19, empfohlen: 22.x LTS)
 - build tools für `sqlite3`
 
 Beispiel für Ubuntu:
@@ -279,5 +286,3 @@ Dieses Projekt ist unter der MIT Lizenz veröffentlicht. Siehe [LICENSE](LICENSE
 <img width="1648" height="726" alt="Bildschirmfoto 2026-03-23 um 20 18 46" src="https://github.com/user-attachments/assets/4954a2da-dd1b-4059-9a6f-f7174b3c43c1" />
 
 <img width="1644" height="729" alt="Bildschirmfoto 2026-03-23 um 20 19 02" src="https://github.com/user-attachments/assets/115a4513-3a72-4e0b-9885-14f1ace35254" />
-
-

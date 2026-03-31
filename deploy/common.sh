@@ -51,9 +51,14 @@ node_major_version() {
 
 ensure_supported_node() {
   local major
+  local minor
+  local raw
+  raw="$(node --version 2>/dev/null || true)"
+  raw="${raw#v}"
   major="$(node_major_version)"
-  if (( major < 18 )); then
-    fail "Node.js Version zu alt: v${major}.x erkannt. Bitte Node.js >= 18 installieren (empfohlen: 18 LTS)."
+  minor="$(printf '%s' "${raw}" | cut -d '.' -f2)"
+  if (( major < 20 )) || { (( major == 20 )) && (( minor < 19 )); }; then
+    fail "Node.js Version zu alt: v${raw} erkannt. Bitte Node.js >= 20.19 installieren (empfohlen: aktuelle 22.x LTS)."
   fi
 }
 

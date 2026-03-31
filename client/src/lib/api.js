@@ -24,21 +24,6 @@ const resolveApiUrl = () => {
 const AUTH_TOKEN_KEY = 'ferienplanerAuthToken';
 const CALENDAR_SLUG_KEY = 'ferienplanerTargetSlug';
 
-const shouldUseSecureCookies = () =>
-  typeof window !== 'undefined' && window.location.protocol === 'https:';
-
-const writeCookie = (name, value) => {
-  if (typeof document === 'undefined') return;
-  const secure = shouldUseSecureCookies() ? '; Secure' : '';
-  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax${secure}`;
-};
-
-const clearCookie = (name) => {
-  if (typeof document === 'undefined') return;
-  const secure = shouldUseSecureCookies() ? '; Secure' : '';
-  document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
-};
-
 const isSameOriginRequest = (apiUrl) => {
   if (typeof window === 'undefined') return false;
   try {
@@ -48,15 +33,13 @@ const isSameOriginRequest = (apiUrl) => {
   }
 };
 
-const shouldUseCookieAuth = (apiUrl) =>
-  isSameOriginRequest(apiUrl) && shouldUseSecureCookies();
-
 export class ApiError extends Error {
   constructor(message, options = {}) {
     super(message);
     this.name = 'ApiError';
     this.status = Number(options.status || 0);
     this.data = options.data ?? null;
+    this.kind = options.kind || 'unknown';
     this.isNetworkError = Boolean(options.isNetworkError);
     this.isUnauthorized = Boolean(options.isUnauthorized ?? this.status === 401);
     this.cause = options.cause;
@@ -66,25 +49,21 @@ export class ApiError extends Error {
 export const getApiUrl = () => resolveApiUrl();
 
 export const getStoredAuthToken = () => {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem(AUTH_TOKEN_KEY) || '';
+  return '';
 };
 
 export const setStoredAuthToken = (token) => {
   if (typeof window === 'undefined') return;
   if (token) {
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
-    writeCookie(AUTH_TOKEN_KEY, token);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
   } else {
     localStorage.removeItem(AUTH_TOKEN_KEY);
-    clearCookie(AUTH_TOKEN_KEY);
   }
 };
 
 export const clearStoredAuthToken = () => {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(AUTH_TOKEN_KEY);
-  clearCookie(AUTH_TOKEN_KEY);
 };
 
 export const getStoredCalendarSlug = () => {
@@ -97,11 +76,17 @@ export const setStoredCalendarSlug = (slug) => {
   if (slug) {
     const normalized = String(slug);
     localStorage.setItem(CALENDAR_SLUG_KEY, normalized);
-    writeCookie(CALENDAR_SLUG_KEY, normalized);
   } else {
     localStorage.removeItem(CALENDAR_SLUG_KEY);
-    clearCookie(CALENDAR_SLUG_KEY);
   }
+};
+
+const appendCalendarSlug = (path, calendarSlug) => {
+  if (!calendarSlug || !String(path || '').startsWith('/api/')) return path;
+  const normalizedSlug = String(calendarSlug).trim();
+  if (!normalizedSlug) return path;
+  if (String(path).includes('calendarSlug=')) return path;
+  return `${path}${String(path).includes('?') ? '&' : '?'}calendarSlug=${encodeURIComponent(normalizedSlug)}`;
 };
 
 const readResponseData = async (response) => {
@@ -145,17 +130,23 @@ export const toApiError = (error, fallbackMessage = 'Anfrage fehlgeschlagen') =>
   }
 
   if (error instanceof TypeError) {
+    const causeMessage = String(error.message || '').toLowerCase();
+    const kind = causeMessage.includes('abort') ? 'aborted' : 'network';
     return new ApiError('Server nicht erreichbar. Bitte Verbindung prüfen und erneut versuchen.', {
       cause: error,
       isNetworkError: true,
+      kind,
     });
   }
 
   if (error instanceof Error) {
-    return new ApiError(error.message || fallbackMessage, { cause: error });
+    return new ApiError(error.message || fallbackMessage, {
+      cause: error,
+      kind: 'unknown',
+    });
   }
 
-  return new ApiError(fallbackMessage);
+  return new ApiError(fallbackMessage, { kind: 'unknown' });
 };
 
 export const getApiErrorMessage = (error, fallbackMessage = 'Anfrage fehlgeschlagen') =>
@@ -177,25 +168,12 @@ function withUnauthorizedEvent(response) {
 export const authFetch = async (path, init = {}) => {
   const apiUrl = resolveApiUrl();
   const headers = new Headers(init.headers || {});
-  const cookieAuth = shouldUseCookieAuth(apiUrl);
   const sameOrigin = isSameOriginRequest(apiUrl);
-
-  if (!cookieAuth) {
-    const token = getStoredAuthToken();
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
-
-    const calendarSlug = getStoredCalendarSlug();
-    if (calendarSlug) {
-      headers.set('X-Calendar-Slug', calendarSlug);
-    }
-  }
-
-  const requestUrl = sameOrigin ? path : `${apiUrl}${path}`;
+  const requestPath = appendCalendarSlug(path, getStoredCalendarSlug());
+  const requestUrl = sameOrigin ? requestPath : `${apiUrl}${requestPath}`;
   const requestInit = {
     ...init,
-    credentials: cookieAuth ? 'same-origin' : init.credentials,
+    credentials: sameOrigin ? 'same-origin' : 'include',
   };
 
   if (headers.size > 0) {
@@ -239,6 +217,7 @@ export const requestJson = async (path, init = {}, fallbackMessage = 'Anfrage fe
       status: response.status,
       cause: error,
       data: null,
+      kind: 'parse',
       isUnauthorized: response.status === 401,
     });
   }
@@ -247,6 +226,7 @@ export const requestJson = async (path, init = {}, fallbackMessage = 'Anfrage fe
     throw new ApiError(extractErrorMessage(response, data, fallbackMessage), {
       status: response.status,
       data,
+      kind: 'http',
       isUnauthorized: response.status === 401,
     });
   }

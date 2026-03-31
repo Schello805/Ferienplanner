@@ -8,19 +8,15 @@ import { ChangelogModal } from './components/ChangelogModal.jsx'
 import { Toaster } from 'sonner'
 import { toast } from 'sonner'
 import { GERMAN_STATE_MAP } from './constants/germanStates'
-import { authFetch, clearStoredAuthToken, getApiErrorMessage, requestJson, setStoredAuthToken, setStoredCalendarSlug, toApiError } from './lib/api'
+import { authFetch, clearStoredAuthToken, getApiErrorMessage, requestJson } from './lib/api'
+import { useAuthState } from './hooks/useAuthState'
+import { useFamilyData } from './hooks/useFamilyData'
 
 const formatLocalDateInput = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-};
-
-const normalizeUser = (user) => {
-  if (!user) return null;
-  const isAdmin = Boolean(user.isAdmin ?? user.is_admin ?? user.admin);
-  return { ...user, isAdmin };
 };
 
 const SETUP_DRAFT_KEY = 'ferienplanerSetupDraft';
@@ -168,21 +164,45 @@ function App() {
   const [totalNetHolidays, setTotalNetHolidays] = useState(0);
   const [holidayBreakdown, setHolidayBreakdown] = useState([]);
   const [vacations, setVacations] = useState([]);
-  const [apiOnline, setApiOnline] = useState(true);
-  const [authNotice, setAuthNotice] = useState(null);
-  const [children, setChildren] = useState([]);
-  const [childFreeDays, setChildFreeDays] = useState([]);
-  const [authReady, setAuthReady] = useState(false);
-  const [setupRequired, setSetupRequired] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [currentCalendar, setCurrentCalendar] = useState(null);
-  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 1024 : false
   );
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const unauthorizedHandledRef = useRef(false);
+
+  const {
+    apiOnline,
+    setApiOnline,
+    authNotice,
+    setAuthNotice,
+    authReady,
+    setupRequired,
+    setCurrentUser,
+    currentUser,
+    setCurrentCalendar,
+    currentCalendar,
+    authSubmitting,
+    refreshAuthStatus,
+    handleAuthSubmit,
+    handleLogout,
+  } = useAuthState({ pendingInviteToken });
+
+  const {
+    children,
+    setChildren,
+    childFreeDays,
+    setChildFreeDays,
+    loadFamilyData,
+  } = useFamilyData({
+    authReady,
+    currentUser,
+    currentCalendar,
+    refreshAuthStatus,
+    setApiOnline,
+    setAuthNotice,
+    setCurrentCalendar,
+  });
 
   // Theme Effect
   useEffect(() => {
@@ -413,70 +433,9 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const refreshAuthStatus = useCallback(async () => {
-    try {
-      const data = await requestJson('/api/auth/status', {}, 'Anmeldestatus konnte nicht geladen werden');
-      setApiOnline(true);
-      setAuthNotice(null);
-      setSetupRequired(Boolean(data.setupRequired));
-      setCurrentUser(data.authenticated ? normalizeUser(data.user) : null);
-      setCurrentCalendar(data.authenticated ? data.calendar : null);
-      if (data.authenticated && data.calendar?.slug) {
-        try {
-          setStoredCalendarSlug(String(data.calendar.slug));
-        } catch {
-          // ignore storage errors
-        }
-      }
-    } catch (error) {
-      const apiError = toApiError(error, 'Anmeldestatus konnte nicht geladen werden');
-      console.error('Failed to load auth status', apiError);
-      if (apiError.isUnauthorized) {
-        clearStoredAuthToken();
-        setCurrentUser(null);
-        setCurrentCalendar(null);
-        setAuthNotice(null);
-      } else {
-        setApiOnline(false);
-        setAuthNotice({
-          tone: 'error',
-          title: 'Server aktuell nicht erreichbar',
-          message: currentUser
-            ? 'Deine aktuelle Ansicht bleibt geöffnet. Einige Daten sind möglicherweise nicht aktuell.'
-            : apiError.message,
-        });
-      }
-    } finally {
-      setAuthReady(true);
-    }
-  }, [currentUser]);
-
   useEffect(() => {
     refreshAuthStatus();
-  }, [refreshAuthStatus]);
-
-  const loadFamilyData = useCallback(async () => {
-    try {
-      const childrenData = await requestJson('/api/children', {}, 'Kinderdaten konnten nicht geladen werden');
-      const freeDaysData = await requestJson('/api/child-free-days', {}, 'Freie Tage konnten nicht geladen werden');
-      setApiOnline(true);
-      setAuthNotice(null);
-      setChildren(childrenData);
-      setChildFreeDays(freeDaysData);
-    } catch (error) {
-      const apiError = toApiError(error, 'Kinderdaten konnten nicht geladen werden');
-      console.error('Failed to load family data', apiError);
-      if (apiError.isUnauthorized) {
-        clearStoredAuthToken();
-        setCurrentUser(null);
-        setCurrentCalendar(null);
-        await refreshAuthStatus();
-        return;
-      }
-      setApiOnline(false);
-      toast.error(apiError.message);
-    }
-  }, [refreshAuthStatus]);
+  }, [refreshAuthStatus, setChildFreeDays, setChildren, setCurrentCalendar, setCurrentUser]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -507,7 +466,7 @@ function App() {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
     };
-  }, [currentUser, loadFamilyData, refreshAuthStatus]);
+  }, [currentUser, loadFamilyData, refreshAuthStatus, setApiOnline, setAuthNotice]);
 
   const applyingSetupDraftRef = useRef(false);
 
@@ -656,7 +615,7 @@ function App() {
     };
 
     verifyEmail();
-  }, [refreshAuthStatus]);
+  }, [refreshAuthStatus, setChildFreeDays, setChildren, setCurrentCalendar, setCurrentUser]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -683,7 +642,7 @@ function App() {
 
     window.addEventListener('ferienplaner:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('ferienplaner:unauthorized', handleUnauthorized);
-  }, [refreshAuthStatus]);
+  }, [refreshAuthStatus, setChildFreeDays, setChildren, setCurrentCalendar, setCurrentUser]);
 
   useEffect(() => {
     const acceptInvite = async () => {
@@ -720,84 +679,8 @@ function App() {
   }, [pendingInviteToken, currentUser, inviteAccepting, refreshAuthStatus, loadFamilyData]);
 
   useEffect(() => {
-    if (!authReady || !currentUser || !currentCalendar) return;
-
-    const timeoutId = window.setTimeout(() => {
-      void loadFamilyData();
-    }, 150);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [authReady, currentUser, currentCalendar, loadFamilyData]);
-
-  useEffect(() => {
     applySetupDraftIfPresent();
   }, [applySetupDraftIfPresent]);
-
-  const handleAuthSubmit = async ({ mode, username, email, password }) => {
-    setAuthSubmitting(true);
-    try {
-      const effectiveMode = setupRequired ? 'setup' : (mode || 'login');
-      const path = effectiveMode === 'setup'
-        ? '/api/auth/bootstrap'
-        : effectiveMode === 'register'
-          ? '/api/auth/register'
-          : '/api/auth/login';
-      const data = await requestJson(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, email }),
-      }, effectiveMode === 'register' ? 'Registrierung fehlgeschlagen' : 'Anmeldung fehlgeschlagen');
-      setApiOnline(true);
-      setAuthNotice(null);
-
-      if (effectiveMode === 'register') {
-        toast.success('Registriert. Bitte E-Mail bestätigen.');
-        return;
-      }
-
-      setStoredAuthToken(data.token);
-      setCurrentUser(normalizeUser(data.user));
-      setCurrentCalendar(data.calendar || null);
-      setSetupRequired(false);
-      toast.success(effectiveMode === 'setup' ? 'Benutzer angelegt' : 'Angemeldet');
-
-      if (pendingInviteToken) {
-        toast.message('Einladung wird angenommen …');
-      }
-    } catch (error) {
-      const apiError = toApiError(error, 'Anmeldung fehlgeschlagen');
-      console.error(apiError);
-      if (apiError.isNetworkError) {
-        setApiOnline(false);
-        setAuthNotice({
-          tone: 'error',
-          title: 'Anmeldung gerade nicht möglich',
-          message: apiError.message,
-        });
-      }
-      toast.error(apiError.message || 'Anmeldung fehlgeschlagen');
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await authFetch('/api/auth/logout', { method: 'POST' });
-    } catch (error) {
-      console.error('Logout failed', error);
-    } finally {
-      clearStoredAuthToken();
-      setCurrentUser(null);
-      setCurrentCalendar(null);
-      setChildren([]);
-      setChildFreeDays([]);
-      await refreshAuthStatus();
-      toast.success('Abgemeldet');
-    }
-  };
 
   const mobileNavItems = [
     {

@@ -192,3 +192,17 @@ test('auth status accepts token and calendar slug from cookies', async () => {
   assert.equal(response.data.authenticated, true);
   assert.equal(response.data.calendar?.slug, 'schellenberger');
 });
+
+test('login sets httpOnly auth cookie and readable calendar slug cookie', async () => {
+  const login = await request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'updated12345' }),
+  });
+
+  assert.equal(login.response.status, 200);
+  const setCookieHeader = login.response.headers.get('set-cookie') || '';
+  assert.match(setCookieHeader, /ferienplanerAuthToken=/);
+  assert.match(setCookieHeader, /HttpOnly/i);
+  assert.match(setCookieHeader, /ferienplanerTargetSlug=/);
+});

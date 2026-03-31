@@ -1,12 +1,11 @@
-import { requestJson, setStoredAuthToken, setStoredCalendarSlug } from './api';
+import { requestJson, setStoredCalendarSlug } from './api';
 
 describe('requestJson', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('uses cookie-based same-origin requests without custom auth headers on https', async () => {
-    setStoredAuthToken('token-123');
+  it('uses cookie-based requests without custom auth headers and appends calendar slug context', async () => {
     setStoredCalendarSlug('familie-muster');
 
     const fetchMock = vi.fn().mockResolvedValue(
@@ -20,7 +19,8 @@ describe('requestJson', () => {
     await expect(requestJson('/api/auth/status')).resolves.toEqual({ ok: true });
 
     const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toBe('/api/auth/status');
+    expect(url).toBe('/api/auth/status?calendarSlug=familie-muster');
+    expect(options.credentials).toBe('same-origin');
     expect(options.headers).toBeUndefined();
   });
 
