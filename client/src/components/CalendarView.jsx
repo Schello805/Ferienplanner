@@ -857,9 +857,6 @@ const CalendarView = ({
     );
 
     if (isMobile) {
-        const p1RulesSummary = (p1RecurringRules || []).map(getRecurringRuleDetails).filter(Boolean);
-        const p2RulesSummary = (p2RecurringRules || []).map(getRecurringRuleDetails).filter(Boolean);
-
         return (
             <div className="flex h-full min-h-0 flex-col gap-2">
                 <div className="rounded-2xl border border-slate-200/80 bg-white/92 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/88">
@@ -888,27 +885,6 @@ const CalendarView = ({
                         <button type="button" {...mobileActionProps(jumpToToday)} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Heute</button>
                         <button type="button" {...mobileActionProps(jumpToNextHoliday)} className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">Nächste Ferien</button>
                         <button type="button" {...mobileActionProps(jumpToFirstGap)} className="rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-xs font-semibold text-red-800 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-100">Lücken</button>
-                    </div>
-
-                    <div className="mt-3 rounded-2xl border border-slate-200/80 bg-white/88 p-3 text-xs text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200">
-                        <div className="font-semibold text-slate-900 dark:text-white">Regelmäßige freie Tage</div>
-                        <div className="mt-2 space-y-2">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="font-semibold">Papa</div>
-                                <div className="min-w-0 text-right text-slate-500 dark:text-slate-400">
-                                    {p1RulesSummary.length > 0 ? p1RulesSummary.join(' · ') : 'keine Regel'}
-                                </div>
-                            </div>
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="font-semibold">Mama</div>
-                                <div className="min-w-0 text-right text-slate-500 dark:text-slate-400">
-                                    {p2RulesSummary.length > 0 ? p2RulesSummary.join(' · ') : 'keine Regel'}
-                                </div>
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                                Bearbeiten unter: Mehr → Eltern → Regelmäßige freie Tage
-                            </div>
-                        </div>
                     </div>
                 </div>
 

@@ -165,6 +165,7 @@ export const authFetch = async (path, init = {}) => {
   const apiUrl = resolveApiUrl();
   const headers = new Headers(init.headers || {});
   const cookieAuth = shouldUseCookieAuth(apiUrl);
+  const sameOrigin = isSameOriginRequest(apiUrl);
 
   if (!cookieAuth) {
     const token = getStoredAuthToken();
@@ -178,7 +179,8 @@ export const authFetch = async (path, init = {}) => {
     }
   }
 
-  const response = await fetch(`${apiUrl}${path}`, {
+  const requestUrl = sameOrigin ? path : `${apiUrl}${path}`;
+  const response = await fetch(requestUrl, {
     ...init,
     credentials: cookieAuth ? 'same-origin' : init.credentials,
     headers,
