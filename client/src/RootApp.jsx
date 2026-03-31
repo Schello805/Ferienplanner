@@ -6,13 +6,14 @@ import { PrivacyPage } from './components/PrivacyPage.jsx';
 import { CookiePage } from './components/CookiePage.jsx';
 import { HelpPage } from './components/HelpPage.jsx';
 import App from './App.jsx';
+import { setStoredCalendarSlug } from './lib/api.js';
 
 const CalendarSlugRoute = () => {
   const { slug } = useParams();
 
   if (typeof window !== 'undefined' && slug) {
     try {
-      localStorage.setItem('ferienplanerTargetSlug', String(slug));
+      setStoredCalendarSlug(String(slug));
     } catch {
       // ignore storage errors
     }

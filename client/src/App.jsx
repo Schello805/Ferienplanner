@@ -8,7 +8,7 @@ import { ChangelogModal } from './components/ChangelogModal.jsx'
 import { Toaster } from 'sonner'
 import { toast } from 'sonner'
 import { GERMAN_STATE_MAP } from './constants/germanStates'
-import { authFetch, clearStoredAuthToken, getApiErrorMessage, requestJson, setStoredAuthToken, toApiError } from './lib/api'
+import { authFetch, clearStoredAuthToken, getApiErrorMessage, requestJson, setStoredAuthToken, setStoredCalendarSlug, toApiError } from './lib/api'
 
 const formatLocalDateInput = (date) => {
   const year = date.getFullYear();
@@ -23,7 +23,6 @@ const normalizeUser = (user) => {
   return { ...user, isAdmin };
 };
 
-const CALENDAR_SLUG_STORAGE_KEY = 'ferienplanerTargetSlug';
 const SETUP_DRAFT_KEY = 'ferienplanerSetupDraft';
 
 const safeJsonStringify = (value) => {
@@ -422,9 +421,9 @@ function App() {
       setSetupRequired(Boolean(data.setupRequired));
       setCurrentUser(data.authenticated ? normalizeUser(data.user) : null);
       setCurrentCalendar(data.authenticated ? data.calendar : null);
-      if (typeof window !== 'undefined' && data.authenticated && data.calendar?.slug) {
+      if (data.authenticated && data.calendar?.slug) {
         try {
-          localStorage.setItem(CALENDAR_SLUG_STORAGE_KEY, String(data.calendar.slug));
+          setStoredCalendarSlug(String(data.calendar.slug));
         } catch {
           // ignore storage errors
         }

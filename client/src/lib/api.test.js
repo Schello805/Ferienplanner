@@ -1,13 +1,13 @@
-import { requestJson } from './api';
+import { requestJson, setStoredAuthToken, setStoredCalendarSlug } from './api';
 
 describe('requestJson', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('sends auth and calendar headers and returns parsed json', async () => {
-    localStorage.setItem('ferienplanerAuthToken', 'token-123');
-    localStorage.setItem('ferienplanerTargetSlug', 'familie-muster');
+  it('keeps auth and slug headers on local http same-origin', async () => {
+    setStoredAuthToken('token-123');
+    setStoredCalendarSlug('familie-muster');
 
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -18,10 +18,6 @@ describe('requestJson', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(requestJson('/api/auth/status')).resolves.toEqual({ ok: true });
-
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/api/auth/status', expect.objectContaining({
-      headers: expect.any(Headers),
-    }));
 
     const [, options] = fetchMock.mock.calls[0];
     expect(options.headers.get('Authorization')).toBe('Bearer token-123');

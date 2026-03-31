@@ -73,7 +73,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', req.path.startsWith('/api/') ? 'cross-origin' : 'same-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   if (process.env.NODE_ENV !== 'development') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
@@ -841,7 +841,37 @@ function ensureAuthNotRateLimited(req, res, username = '') {
 function getBearerToken(req) {
   const authHeader = req.headers.authorization || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1] : null;
+  if (match) return match[1];
+  return getCookieValue(req, 'ferienplanerAuthToken');
+}
+
+function getCookieValue(req, name) {
+  const cookieHeader = String(req.headers.cookie || '');
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(';');
+  for (const entry of cookies) {
+    const [rawName, ...rawValueParts] = entry.split('=');
+    if (String(rawName || '').trim() !== name) continue;
+    const rawValue = rawValueParts.join('=').trim();
+    if (!rawValue) return null;
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return rawValue;
+    }
+  }
+
+  return null;
+}
+
+function getRequestedCalendarSlug(req) {
+  return (
+    req.get('X-Calendar-Slug')
+    || req.query?.calendarSlug
+    || getCookieValue(req, 'ferienplanerTargetSlug')
+    || ''
+  );
 }
 
 function normalizeEmail(value) {
@@ -1420,7 +1450,7 @@ async function getAuthState(req) {
         emailVerified: Boolean(row.emailVerified),
         isAdmin: Boolean(row.isAdmin),
       },
-      calendar: (await getCalendarContextBySlug(row.id, req.get('X-Calendar-Slug'))) || (await ensureUserCalendarContext(row.id)),
+      calendar: (await getCalendarContextBySlug(row.id, getRequestedCalendarSlug(req))) || (await ensureUserCalendarContext(row.id)),
     };
   } finally {
     db.close();

@@ -161,3 +161,34 @@ test('password change invalidates other sessions of the same user', async () => 
   });
   assert.equal(currentSession.response.status, 200);
 });
+
+test('auth status accepts token and calendar slug from cookies', async () => {
+  const login = await request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'updated12345' }),
+  });
+
+  const token = login.data.token;
+  assert.ok(token);
+
+  const saveSlug = await request('/api/calendar/slug', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ slug: 'schellenberger' }),
+  });
+  assert.equal(saveSlug.response.status, 200);
+
+  const response = await request('/api/auth/status', {
+    headers: {
+      Cookie: `ferienplanerAuthToken=${encodeURIComponent(token)}; ferienplanerTargetSlug=schellenberger`,
+    },
+  });
+
+  assert.equal(response.response.status, 200);
+  assert.equal(response.data.authenticated, true);
+  assert.equal(response.data.calendar?.slug, 'schellenberger');
+});

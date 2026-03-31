@@ -24,6 +24,33 @@ const resolveApiUrl = () => {
 const AUTH_TOKEN_KEY = 'ferienplanerAuthToken';
 const CALENDAR_SLUG_KEY = 'ferienplanerTargetSlug';
 
+const shouldUseSecureCookies = () =>
+  typeof window !== 'undefined' && window.location.protocol === 'https:';
+
+const writeCookie = (name, value) => {
+  if (typeof document === 'undefined') return;
+  const secure = shouldUseSecureCookies() ? '; Secure' : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax${secure}`;
+};
+
+const clearCookie = (name) => {
+  if (typeof document === 'undefined') return;
+  const secure = shouldUseSecureCookies() ? '; Secure' : '';
+  document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+};
+
+const isSameOriginRequest = (apiUrl) => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return new URL(apiUrl, window.location.href).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+};
+
+const shouldUseCookieAuth = (apiUrl) =>
+  isSameOriginRequest(apiUrl) && shouldUseSecureCookies();
+
 export class ApiError extends Error {
   constructor(message, options = {}) {
     super(message);
@@ -47,19 +74,34 @@ export const setStoredAuthToken = (token) => {
   if (typeof window === 'undefined') return;
   if (token) {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
+    writeCookie(AUTH_TOKEN_KEY, token);
   } else {
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    clearCookie(AUTH_TOKEN_KEY);
   }
 };
 
 export const clearStoredAuthToken = () => {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(AUTH_TOKEN_KEY);
+  clearCookie(AUTH_TOKEN_KEY);
 };
 
 export const getStoredCalendarSlug = () => {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem(CALENDAR_SLUG_KEY) || '';
+};
+
+export const setStoredCalendarSlug = (slug) => {
+  if (typeof window === 'undefined') return;
+  if (slug) {
+    const normalized = String(slug);
+    localStorage.setItem(CALENDAR_SLUG_KEY, normalized);
+    writeCookie(CALENDAR_SLUG_KEY, normalized);
+  } else {
+    localStorage.removeItem(CALENDAR_SLUG_KEY);
+    clearCookie(CALENDAR_SLUG_KEY);
+  }
 };
 
 const readResponseData = async (response) => {
@@ -121,19 +163,24 @@ export const getApiErrorMessage = (error, fallbackMessage = 'Anfrage fehlgeschla
 
 export const authFetch = async (path, init = {}) => {
   const apiUrl = resolveApiUrl();
-  const token = getStoredAuthToken();
   const headers = new Headers(init.headers || {});
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
+  const cookieAuth = shouldUseCookieAuth(apiUrl);
 
-  const calendarSlug = getStoredCalendarSlug();
-  if (calendarSlug) {
-    headers.set('X-Calendar-Slug', calendarSlug);
+  if (!cookieAuth) {
+    const token = getStoredAuthToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const calendarSlug = getStoredCalendarSlug();
+    if (calendarSlug) {
+      headers.set('X-Calendar-Slug', calendarSlug);
+    }
   }
 
   const response = await fetch(`${apiUrl}${path}`, {
     ...init,
+    credentials: cookieAuth ? 'same-origin' : init.credentials,
     headers,
   });
 
