@@ -1447,6 +1447,16 @@ app.get('/health', (req, res) => {
 app.get('/api/auth/status', async (req, res) => {
   try {
     const authState = await getAuthState(req);
+    if (process.env.DEBUG_AUTH_STATUS === '1') {
+      console.log('[ferienplaner][auth-status]', JSON.stringify({
+        path: req.originalUrl,
+        origin: req.get('origin') || '',
+        forwardedProto: req.get('x-forwarded-proto') || '',
+        hasCookie: Boolean(req.headers.cookie),
+        authenticated: authState.authenticated,
+        calendarSlug: authState.calendar?.slug || null,
+      }));
+    }
     if (authState.authenticated) {
       setSessionCookies(req, res, authState, SESSION_TTL_MS);
     } else {
