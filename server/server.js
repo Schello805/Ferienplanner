@@ -63,8 +63,48 @@ function ensureAppSecretKeyFile() {
 
 ensureAppSecretKeyFile();
 
+function buildAllowedOrigins() {
+  const origins = new Set([
+    `http://localhost:${PORT}`,
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+    'https://mein-ferienplaner.de',
+  ]);
+
+  const publicBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim();
+  if (publicBaseUrl) {
+    try {
+      origins.add(new URL(publicBaseUrl).origin);
+    } catch {
+      // ignore invalid PUBLIC_BASE_URL
+    }
+  }
+
+  return origins;
+}
+
+const allowedOrigins = buildAllowedOrigins();
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    if (allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`Origin not allowed by CORS: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Calendar-Slug'],
+};
+
 export const app = express();
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.disable('x-powered-by');
 
