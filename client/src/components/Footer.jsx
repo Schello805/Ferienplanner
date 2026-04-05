@@ -17,27 +17,33 @@ export const Footer = () => {
                 >
                     Hilfe
                 </Link>
-                <Link
-                    to="/impressum"
+                <a
+                    href="/impressum"
+                    target="_blank"
+                    rel="noreferrer"
                     className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
                     title="Impressum öffnen"
                 >
                     Impressum
-                </Link>
-                <Link
-                    to="/datenschutz"
+                </a>
+                <a
+                    href="/datenschutz"
+                    target="_blank"
+                    rel="noreferrer"
                     className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
                     title="Datenschutzerklärung öffnen"
                 >
                     Datenschutz
-                </Link>
-                <Link
-                    to="/cookies"
+                </a>
+                <a
+                    href="/cookies"
+                    target="_blank"
+                    rel="noreferrer"
                     className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
                     title="Cookiehinweis öffnen"
                 >
                     Cookies
-                </Link>
+                </a>
                 <button
                     type="button"
                     onClick={() => setChangelogOpen(true)}
