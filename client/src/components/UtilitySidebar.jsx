@@ -873,7 +873,7 @@ const AdminToolsPanel = ({ currentUser }) => {
 
 const InvitationPanel = ({ currentCalendar }) => {
     const [role, setRole] = React.useState('editor');
-    const [expiresInDays, setExpiresInDays] = React.useState(14);
+    const [expiresInDays, setExpiresInDays] = React.useState(3);
     const [expiresMode, setExpiresMode] = React.useState('days');
     const [inviteUrl, setInviteUrl] = React.useState('');
     const [inviteEmail, setInviteEmail] = React.useState('');

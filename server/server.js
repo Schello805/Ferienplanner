@@ -2917,7 +2917,7 @@ app.delete('/api/children/:id', requireCalendarRole('editor'), (req, res) => {
 app.post('/api/invitations', requireCalendarRole('owner'), async (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const userId = req.auth?.user?.id;
-  const { role = 'viewer', expiresInDays = 14, expiresMode = 'days' } = req.body || {};
+  const { role = 'viewer', expiresInDays = 3, expiresMode = 'days' } = req.body || {};
 
   const normalizedRole = ['viewer', 'editor'].includes(role) ? role : 'viewer';
   const normalizedMode = ['days', 'year', 'unlimited'].includes(expiresMode) ? expiresMode : 'days';
@@ -3037,7 +3037,7 @@ app.delete('/api/invitations/:id', requireAuth, requireCalendarRole('owner'), as
 app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const userId = req.auth?.user?.id;
-  const { role = 'viewer', expiresInDays = 14, expiresMode = 'days', email } = req.body || {};
+  const { role = 'viewer', expiresInDays = 3, expiresMode = 'days', email } = req.body || {};
 
   if (!calendarId || !userId) {
     return res.status(400).json({ error: 'Calendar context missing' });
