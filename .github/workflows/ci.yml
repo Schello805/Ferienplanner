@@ -22,9 +22,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
 
-      - name: Install root dependencies
+      - name: Install server dependencies
         run: npm ci --no-audit --no-fund
+        working-directory: server
+
+      - name: Install client dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: client
 
       - name: Server tests
         run: npm --prefix server test
