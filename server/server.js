@@ -2419,6 +2419,7 @@ app.post('/api/admin/digest/run', requireAuth, requireAdmin, async (req, res) =>
   const db = openDb();
   try {
     const startedAt = new Date().toISOString();
+    pushAdminLog('admin.digest_run_started', `Digest run started at ${startedAt}`, { startedAt });
     const runRow = await dbRun(
       db,
       'INSERT INTO digest_runs (startedAt, success) VALUES (?, 0)',
@@ -2455,8 +2456,16 @@ app.post('/api/admin/digest/run', requireAuth, requireAdmin, async (req, res) =>
       // ignore
     }
 
+    pushAdminLog('admin.digest_run_success', `Digest run success year=${year} calendars=${results.length}`, {
+      startedAt,
+      finishedAt,
+      year,
+      calendars: results.length,
+    });
+
     return res.json({ success: true, year, range: { start: normalizeDateOnly(formatDateOnlyUtc(new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())))), end: `${year}-12-31` }, results });
   } catch (error) {
+    const startedAt = new Date().toISOString();
     try {
       const finishedAt = new Date().toISOString();
       const safeError = String(error?.message || error || 'unknown error').slice(0, 2000);
@@ -2469,6 +2478,11 @@ app.post('/api/admin/digest/run', requireAuth, requireAdmin, async (req, res) =>
           [finishedAt, safeError, digestRunId]
         );
       }
+
+      pushAdminLog('admin.digest_run_failed', `Digest run failed: ${safeError}`, {
+        startedAt,
+        finishedAt,
+      });
     } catch {
       // ignore
     }
@@ -2551,10 +2565,13 @@ app.get('/api/admin/diagnostics', requireAuth, requireAdmin, async (req, res) =>
       dbSizeBytes = null;
     }
 
+    const digestAdminTokenConfigured = Boolean(process.env.DIGEST_ADMIN_TOKEN);
+
     return res.json({
       generatedAt: nowIso,
       uptimeSeconds: Math.floor(process.uptime()),
       serverVersion: process.env.npm_package_version || null,
+      digestAdminTokenConfigured,
       dbSizeBytes,
       counts: {
         users: users.length,
