@@ -61,7 +61,7 @@ export const PrivacyPage = () => {
             </div>
             <div>
               Server-Logs (sofern vorhanden) werden nur so lange gespeichert, wie es für Betrieb und Sicherheit erforderlich ist.
-              Da aktuell kein bewusstes Logging-Setup konfiguriert wurde, kann die Speicherdauer je nach Systemstandard variieren.
+              Admin-Auditlogs sind nur für Administratoren dieser Installation einsehbar und werden nach 90 Tagen automatisch gelöscht.
             </div>
           </div>
         </div>

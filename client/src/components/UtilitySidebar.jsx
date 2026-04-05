@@ -2058,6 +2058,16 @@ const GeneralSettingsPanel = ({
 
     return (
     <div className="space-y-4">
+        <SidebarSection title="Drucken" subtitle="Erstellt eine A4-Querformat-Ansicht des gesamten Kalenders.">
+            <button
+                type="button"
+                onClick={() => window.print()}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            >
+                Drucken
+            </button>
+        </SidebarSection>
+
         <SidebarSection title="Kalenderkontext" subtitle="Wer arbeitet gerade in welchem Kalender?">
             <div className="rounded-2xl border border-violet-200 bg-violet-50/80 px-3 py-3 text-sm text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/30 dark:text-violet-100">
                 <div className="font-semibold">{currentCalendar?.name || 'Mein Kalender'}</div>

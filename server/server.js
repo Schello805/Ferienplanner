@@ -40,6 +40,7 @@ let cachedSmtpSettings = null;
 const hibpCache = new Map();
 
 const ADMIN_LOG_MAX_ENTRIES = 200;
+const ADMIN_LOG_RETENTION_MS = 1000 * 60 * 60 * 24 * 90;
 const adminLogEntries = [];
 
 const ROLE_ORDER = {
@@ -444,6 +445,16 @@ function openDb() {
 }
 
 function pushAdminLog(event, detail = '', meta = null) {
+  const cutoff = Date.now() - ADMIN_LOG_RETENTION_MS;
+  if (adminLogEntries.length > 0) {
+    for (let i = adminLogEntries.length - 1; i >= 0; i -= 1) {
+      const ts = Date.parse(adminLogEntries[i]?.ts);
+      if (!Number.isFinite(ts) || ts < cutoff) {
+        adminLogEntries.splice(i, 1);
+      }
+    }
+  }
+
   adminLogEntries.push({
     ts: new Date().toISOString(),
     event: String(event),
@@ -2139,6 +2150,15 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/logs', requireAuth, requireAdmin, (req, res) => {
+  const cutoff = Date.now() - ADMIN_LOG_RETENTION_MS;
+  if (adminLogEntries.length > 0) {
+    for (let i = adminLogEntries.length - 1; i >= 0; i -= 1) {
+      const ts = Date.parse(adminLogEntries[i]?.ts);
+      if (!Number.isFinite(ts) || ts < cutoff) {
+        adminLogEntries.splice(i, 1);
+      }
+    }
+  }
   res.json({ entries: adminLogEntries.slice(-ADMIN_LOG_MAX_ENTRIES) });
 });
 
