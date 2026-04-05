@@ -631,6 +631,18 @@ async function initializeDatabase() {
 
     await dbRun(
       db,
+      `CREATE TABLE IF NOT EXISTS digest_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        startedAt TEXT NOT NULL,
+        finishedAt TEXT,
+        success INTEGER NOT NULL DEFAULT 0,
+        error TEXT,
+        metaJson TEXT
+      )`
+    );
+
+    await dbRun(
+      db,
       `CREATE TABLE IF NOT EXISTS calendar_recurring_rules (
         calendarId INTEGER NOT NULL,
         userKey TEXT NOT NULL,
@@ -2406,6 +2418,14 @@ async function sendDigestForCalendar({ req, db, calendarId, startDate, endDate, 
 app.post('/api/admin/digest/run', requireAuth, requireAdmin, async (req, res) => {
   const db = openDb();
   try {
+    const startedAt = new Date().toISOString();
+    const runRow = await dbRun(
+      db,
+      'INSERT INTO digest_runs (startedAt, success) VALUES (?, 0)',
+      [startedAt]
+    );
+    const digestRunId = Number(runRow?.lastID);
+
     const today = new Date();
     const year = today.getFullYear();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -2420,7 +2440,70 @@ app.post('/api/admin/digest/run', requireAuth, requireAdmin, async (req, res) =>
       const result = await sendDigestForCalendar({ req, db, calendarId, startDate: start, endDate: end, includeNextYearHint });
       results.push({ calendarId, ...result });
     }
+
+    const finishedAt = new Date().toISOString();
+    try {
+      const metaJson = JSON.stringify({ year, calendars: results.length });
+      if (Number.isInteger(digestRunId) && digestRunId > 0) {
+        await dbRun(
+          db,
+          'UPDATE digest_runs SET finishedAt = ?, success = 1, error = NULL, metaJson = ? WHERE id = ?',
+          [finishedAt, metaJson, digestRunId]
+        );
+      }
+    } catch {
+      // ignore
+    }
+
     return res.json({ success: true, year, range: { start: normalizeDateOnly(formatDateOnlyUtc(new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())))), end: `${year}-12-31` }, results });
+  } catch (error) {
+    try {
+      const finishedAt = new Date().toISOString();
+      const safeError = String(error?.message || error || 'unknown error').slice(0, 2000);
+      const last = await dbGet(db, 'SELECT id FROM digest_runs ORDER BY id DESC LIMIT 1');
+      const digestRunId = Number(last?.id);
+      if (Number.isInteger(digestRunId) && digestRunId > 0) {
+        await dbRun(
+          db,
+          'UPDATE digest_runs SET finishedAt = ?, success = 0, error = ? WHERE id = ?',
+          [finishedAt, safeError, digestRunId]
+        );
+      }
+    } catch {
+      // ignore
+    }
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.get('/api/admin/digest/status', requireAuth, requireAdmin, async (req, res) => {
+  const db = openDb();
+  try {
+    const row = await dbGet(
+      db,
+      'SELECT id, startedAt, finishedAt, success, error, metaJson FROM digest_runs ORDER BY id DESC LIMIT 1'
+    );
+    if (!row) {
+      return res.json({ status: null });
+    }
+    let meta = null;
+    try {
+      meta = row.metaJson ? JSON.parse(String(row.metaJson)) : null;
+    } catch {
+      meta = null;
+    }
+    return res.json({
+      status: {
+        id: Number(row.id),
+        startedAt: row.startedAt || null,
+        finishedAt: row.finishedAt || null,
+        success: Boolean(row.success),
+        error: row.error || null,
+        meta,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   } finally {

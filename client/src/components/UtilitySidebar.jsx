@@ -362,6 +362,7 @@ const AdminToolsPanel = ({ currentUser }) => {
     const [stats, setStats] = React.useState(null);
     const [logs, setLogs] = React.useState([]);
     const [smtpStatus, setSmtpStatus] = React.useState(null);
+    const [digestStatus, setDigestStatus] = React.useState(null);
     const [diagnosticsExporting, setDiagnosticsExporting] = React.useState(false);
     const [browseResource, setBrowseResource] = React.useState('users');
     const [browseQuery, setBrowseQuery] = React.useState('');
@@ -385,19 +386,23 @@ const AdminToolsPanel = ({ currentUser }) => {
     const loadAdminData = React.useCallback(async () => {
         if (!isUserAdmin(currentUser)) return;
         try {
-            const [statsRes, logsRes] = await Promise.all([
+            const [statsRes, logsRes, digestRes] = await Promise.all([
                 authFetch('/api/admin/stats'),
                 authFetch('/api/admin/logs?limit=50'),
+                authFetch('/api/admin/digest/status'),
             ]);
 
             const statsData = await statsRes.json();
             const logsData = await logsRes.json();
+            const digestData = await digestRes.json();
 
             if (!statsRes.ok) throw new Error(statsData.error || 'Admin-Statistiken konnten nicht geladen werden');
             if (!logsRes.ok) throw new Error(logsData.error || 'Admin-Logs konnten nicht geladen werden');
+            if (!digestRes.ok) throw new Error(digestData.error || 'Digest-Status konnte nicht geladen werden');
 
             setStats(statsData);
             setLogs(Array.isArray(logsData.entries) ? logsData.entries.slice().reverse() : []);
+            setDigestStatus(digestData?.status ?? null);
         } catch (error) {
             console.error(error);
             toast.error(error.message || 'Admin-Daten konnten nicht geladen werden');
@@ -587,6 +592,32 @@ const AdminToolsPanel = ({ currentUser }) => {
                                 <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Updated: {stats.smtpUpdatedAt}</div>
                             )}
                         </div>
+                    </div>
+                )}
+            </SidebarSection>
+
+            <SidebarSection title="Digest" subtitle="Letzter Lauf des wöchentlichen Digest-Timers.">
+                {!digestStatus ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        Noch kein Lauf.
+                    </div>
+                ) : (
+                    <div className={`rounded-xl border px-3 py-3 text-xs ${digestStatus.success ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100' : 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="font-semibold">Status</div>
+                            <div className="text-sm font-bold">{digestStatus.success ? 'OK' : 'FEHLER'}</div>
+                        </div>
+                        <div className="mt-2 grid gap-1">
+                            <div>Start: <strong>{digestStatus.startedAt || '—'}</strong></div>
+                            <div>Ende: <strong>{digestStatus.finishedAt || '—'}</strong></div>
+                            {digestStatus?.meta?.year && <div>Jahr: <strong>{digestStatus.meta.year}</strong></div>}
+                            {Number.isFinite(Number(digestStatus?.meta?.calendars)) && <div>Kalender: <strong>{digestStatus.meta.calendars}</strong></div>}
+                        </div>
+                        {digestStatus.error && (
+                            <div className="mt-2 rounded-lg border border-current/20 bg-white/40 px-2 py-2 text-[11px] leading-snug dark:bg-black/10">
+                                {digestStatus.error}
+                            </div>
+                        )}
                     </div>
                 )}
             </SidebarSection>
