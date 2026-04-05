@@ -17,6 +17,27 @@ export const Footer = () => {
                 >
                     Hilfe
                 </Link>
+                <Link
+                    to="/impressum"
+                    className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
+                    title="Impressum öffnen"
+                >
+                    Impressum
+                </Link>
+                <Link
+                    to="/datenschutz"
+                    className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
+                    title="Datenschutzerklärung öffnen"
+                >
+                    Datenschutz
+                </Link>
+                <Link
+                    to="/cookies"
+                    className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
+                    title="Cookiehinweis öffnen"
+                >
+                    Cookies
+                </Link>
                 <button
                     type="button"
                     onClick={() => setChangelogOpen(true)}

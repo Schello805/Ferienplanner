@@ -970,6 +970,8 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
   const helpUrl = `${safeBaseUrl}/hilfe`;
   const imprintUrl = `${safeBaseUrl}/impressum`;
   const privacyUrl = `${safeBaseUrl}/datenschutz`;
+  const logoPath = path.join(__dirname, '..', 'Logo Ferienplaner.png');
+  const hasLogo = fs.existsSync(logoPath);
 
   if (!smtp) {
     process.stderr.write('SMTP not configured; cannot send email.\n');
@@ -985,6 +987,7 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
   });
 
   const appName = 'Mein Ferienplaner';
+  const resolvedLogoSrc = hasLogo ? 'cid:ferienplaner-logo' : logoUrl;
   const html = `<!doctype html>
 <html lang="de">
   <head>
@@ -992,28 +995,28 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>${appName}</title>
   </head>
-  <body style="margin:0;padding:0;background:#0b1220;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
+  <body style="margin:0;padding:0;background:#f1f5f9;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${String(previewText || '').replace(/</g, '&lt;')}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1220;padding:24px 12px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0f172a;border:1px solid rgba(148,163,184,0.2);border-radius:16px;overflow:hidden">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">
             <tr>
-              <td style="padding:20px 20px 8px 20px;color:#e2e8f0">
+              <td style="padding:20px 20px 8px 20px;color:#0f172a">
                 <div style="display:flex;align-items:center;gap:10px">
-                  <img src="${logoUrl}" width="40" height="40" alt="${appName}" style="display:block;border-radius:12px;border:1px solid rgba(148,163,184,0.25);background:#0b1220" />
+                  <img src="${resolvedLogoSrc}" width="40" height="40" alt="${appName}" style="display:block;border-radius:12px;border:1px solid #e2e8f0;background:#ffffff" />
                   <div style="min-width:0">
                     <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em">${appName}</div>
-                    <div style="margin-top:6px;font-size:13px;color:rgba(226,232,240,0.75)">${String(subline || '')}</div>
+                    <div style="margin-top:6px;font-size:13px;color:#64748b">${String(subline || '')}</div>
                   </div>
                 </div>
               </td>
             </tr>
             <tr>
-              <td style="padding:16px 20px 20px 20px;color:#e2e8f0">
+              <td style="padding:16px 20px 20px 20px;color:#0f172a">
                 <div style="font-weight:800;font-size:16px;letter-spacing:-0.01em">${String(headline || '')}</div>
                 <div style="height:10px"></div>
-                <div style="font-size:14px;line-height:1.55;color:rgba(226,232,240,0.92)">${bodyHtml || ''}</div>
+                <div style="font-size:14px;line-height:1.55;color:#334155">${bodyHtml || ''}</div>
                 ${ctaUrl ? `
                 <div style="height:16px"></div>
                 <table role="presentation" cellpadding="0" cellspacing="0">
@@ -1024,23 +1027,23 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
                   </tr>
                 </table>
                 <div style="height:16px"></div>
-                <div style="font-size:12px;line-height:1.5;color:rgba(226,232,240,0.7)">
+                <div style="font-size:12px;line-height:1.5;color:#475569">
                   Falls der Button nicht funktioniert, öffne diesen Link:
                   <div style="margin-top:8px;word-break:break-all">
-                    <a href="${ctaUrl}" style="color:#93c5fd;text-decoration:underline">${ctaUrl}</a>
+                    <a href="${ctaUrl}" style="color:#0284c7;text-decoration:underline">${ctaUrl}</a>
                   </div>
                 </div>` : ''}
               </td>
             </tr>
           </table>
-          <div style="max-width:560px;margin-top:10px;color:rgba(226,232,240,0.45);font-size:11px;line-height:1.4">
+          <div style="max-width:560px;margin-top:10px;color:#64748b;font-size:11px;line-height:1.4">
             <div>${String(footerReason || '').replace(/</g, '&lt;')}</div>
             <div style="margin-top:6px">
-              <a href="${helpUrl}" style="color:rgba(226,232,240,0.6);text-decoration:underline">Hilfe</a>
+              <a href="${helpUrl}" style="color:#64748b;text-decoration:underline">Hilfe</a>
               <span style="opacity:0.5"> · </span>
-              <a href="${imprintUrl}" style="color:rgba(226,232,240,0.6);text-decoration:underline">Impressum</a>
+              <a href="${imprintUrl}" style="color:#64748b;text-decoration:underline">Impressum</a>
               <span style="opacity:0.5"> · </span>
-              <a href="${privacyUrl}" style="color:rgba(226,232,240,0.6);text-decoration:underline">Datenschutz</a>
+              <a href="${privacyUrl}" style="color:#64748b;text-decoration:underline">Datenschutz</a>
             </div>
           </div>
         </td>
@@ -1061,6 +1064,15 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
     subject,
     text: plainText,
     html,
+    attachments: hasLogo
+      ? [
+        {
+          filename: 'logo.png',
+          path: logoPath,
+          cid: 'ferienplaner-logo',
+        },
+      ]
+      : [],
   });
 }
 
@@ -2961,6 +2973,27 @@ app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req
     const calendarUrl = calendarRow?.slug
       ? `${String(baseUrl).replace(/\/$/, '')}/k/${String(calendarRow.slug)}`
       : `${String(baseUrl).replace(/\/$/, '')}/app`;
+
+    const existingUser = await dbGet(db, 'SELECT id FROM users WHERE lower(email) = lower(?) LIMIT 1', [to]);
+    if (existingUser?.id) {
+      const settings = await getNotificationSettings(db, Number(existingUser.id));
+      if (!settings.enabled || !settings.inviteEmailsEnabled) {
+        pushAdminLog('calendar.invite_email_skipped', `Invite email skipped (disabled by recipient) calendarId=${calendarId}`, {
+          calendarId,
+          to,
+          recipientUserId: Number(existingUser.id),
+        });
+        return res.json({
+          success: true,
+          token,
+          inviteUrl,
+          role: normalizedRole,
+          expiresAt,
+          emailSkipped: true,
+          skipReason: 'recipient_disabled',
+        });
+      }
+    }
 
     const roleLabel = getGermanRoleLabel(normalizedRole);
     const inviterName = String(ownerRow?.username || '').replace(/</g, '&lt;');
