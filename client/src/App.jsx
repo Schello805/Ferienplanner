@@ -165,7 +165,7 @@ function App() {
   const [holidayBreakdown, setHolidayBreakdown] = useState([]);
   const [vacations, setVacations] = useState([]);
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+    typeof window !== 'undefined' ? window.innerWidth < 1280 : false
   );
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
@@ -428,7 +428,7 @@ function App() {
   }, [holidayTableOpen]);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    const handleResize = () => setIsMobile(window.innerWidth < 1280);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);

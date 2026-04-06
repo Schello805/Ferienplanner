@@ -2926,7 +2926,7 @@ export const UtilitySidebar = ({
     return (
         <>
             <div
-                className={`fixed inset-0 z-20 bg-slate-950/45 backdrop-blur-sm transition-opacity lg:hidden ${isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+                className={`fixed inset-0 z-20 bg-slate-950/45 backdrop-blur-sm transition-opacity xl:hidden ${isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
                 onClick={onClose}
             />
 
@@ -2935,12 +2935,12 @@ export const UtilitySidebar = ({
                     utility-sidebar fixed z-30 flex flex-col border-slate-200 bg-white/96 shadow-2xl shadow-slate-300/40 transition-transform dark:border-slate-700 dark:bg-slate-950/96 dark:shadow-black/30
                     ${isMobile ? 'inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] top-auto h-[80svh] rounded-t-3xl border-t' : 'inset-y-0 right-0 w-[min(94vw,520px)] border-l'}
                     ${isOpen ? 'translate-x-0 translate-y-0' : isMobile ? 'translate-y-full' : 'translate-x-full'}
-                    lg:static lg:z-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:shadow-xl
-                    ${isOpen ? 'lg:w-[480px]' : 'lg:w-[64px]'}
+                    xl:static xl:z-auto xl:translate-x-0 xl:rounded-2xl xl:border xl:shadow-xl
+                    ${isOpen ? 'xl:w-[480px]' : 'xl:w-[64px]'}
                 `}
             >
                 <div className={`flex items-center justify-between border-b border-slate-200 px-3 dark:border-slate-700 ${isMobile ? 'py-2' : 'py-3'}`}>
-                    <div className={`overflow-hidden transition-all ${isOpen ? 'w-auto opacity-100' : 'w-0 opacity-0 lg:hidden'}`}>
+                    <div className={`overflow-hidden transition-all ${isOpen ? 'w-auto opacity-100' : 'w-0 opacity-0 xl:hidden'}`}>
                         {!isMobile && (
                             <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Utility Sidebar</div>
                         )}
@@ -3099,7 +3099,7 @@ export const UtilitySidebar = ({
                         )}
                     </nav>
                     )}
-                    <div className={`min-h-0 flex-1 overflow-y-auto p-3 overscroll-contain pb-4 [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden lg:hidden'}`}>
+                    <div className={`min-h-0 flex-1 overflow-y-auto p-3 overscroll-contain pb-4 [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden xl:hidden'}`}>
                         {renderContent()}
                     </div>
 
