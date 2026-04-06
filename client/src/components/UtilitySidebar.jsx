@@ -1048,7 +1048,7 @@ const InvitationPanel = ({ currentCalendar }) => {
     return (
         <SidebarSection title="Einladung" subtitle="Erstelle einen Link, damit andere Konten diesem Kalender beitreten können.">
             <div className="space-y-3">
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2">
                     <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
                         Rolle
                         <select
@@ -1580,7 +1580,7 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
     return (
         <div className="space-y-3">
             <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-                <div className="grid gap-2 sm:grid-cols-[1.4fr_1fr]">
+                <div className="grid gap-2">
                     <input
                         type="text"
                         value={draft.name}
@@ -1724,7 +1724,7 @@ const ChildFreeDayManager = ({ children, childFreeDays, onRefreshFamilyData }) =
     return (
         <div className="space-y-3">
             <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-                <div className="grid gap-2 sm:grid-cols-[1.1fr_1fr_1fr]">
+                <div className="grid gap-2">
                     <select
                         value={draft.childId}
                         onChange={(event) => setDraft((current) => ({ ...current, childId: event.target.value }))}
@@ -2273,7 +2273,7 @@ const GeneralSettingsPanel = ({
 const SharePanel = ({ currentCalendar, onCopyShareLink, onEnterShareMode }) => (
     <div className="space-y-4">
         <SidebarSection title="Ansichtslink" subtitle="Erzeuge eine reduzierte, schreibgeschützte Ansicht für dein aktuelles Konto.">
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2">
                 <button
                     type="button"
                     onClick={onEnterShareMode}
