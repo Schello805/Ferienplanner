@@ -831,8 +831,8 @@ function App() {
         </div>
       )}
 
-      <main className={`flex min-h-0 flex-1 gap-3 ${isMobile && !shareMode ? 'pb-28' : ''}`}>
-        <div className="min-h-0 flex-1">
+      <main className={`flex min-h-0 min-w-0 flex-1 gap-3 ${isMobile && !shareMode ? 'pb-28' : ''}`}>
+        <div className="min-h-0 min-w-0 flex-1">
           <CalendarView
             year={viewYear}
             setYear={setViewYear}
