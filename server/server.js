@@ -493,6 +493,32 @@ function dbRun(db, sql, params = []) {
   });
 }
 
+function formatGermanDate(value) {
+  if (!value) return '';
+  if (value instanceof Date) {
+    const day = String(value.getDate()).padStart(2, '0');
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const year = String(value.getFullYear());
+    return `${day}.${month}.${year}`;
+  }
+
+  const str = String(value);
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[3]}.${match[2]}.${match[1]}`;
+  }
+
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const year = String(parsed.getFullYear());
+    return `${day}.${month}.${year}`;
+  }
+
+  return str;
+}
+
 async function initializeDatabase() {
   const db = openDb();
   try {
@@ -1027,7 +1053,7 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
             <tr>
               <td style="padding:20px 20px 8px 20px;color:#0f172a">
                 <div style="display:flex;align-items:center;gap:10px">
-                  <img src="${resolvedLogoSrc}" width="40" height="40" alt="${appName}" style="display:block;border-radius:12px;border:1px solid #e2e8f0;background:#ffffff" />
+                  <img src="${resolvedLogoSrc}" width="32" height="32" alt="${appName}" style="display:block;width:32px;height:32px;max-width:32px;max-height:32px;border-radius:10px;border:1px solid #e2e8f0;background:#ffffff" />
                   <div style="min-width:0">
                     <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em">${appName}</div>
                     <div style="margin-top:6px;font-size:13px;color:#64748b">${String(subline || '')}</div>
@@ -2401,7 +2427,7 @@ async function sendDigestForCalendar({ req, db, calendarId, startDate, endDate, 
       continue;
     }
 
-    const rangeLabel = `${startDate.toLocaleDateString('de-DE')} bis ${endDate.toLocaleDateString('de-DE')}`;
+    const rangeLabel = `${formatGermanDate(startDate)} bis ${formatGermanDate(endDate)}`;
     const unattendedPreview = unattendedDates.slice(0, 25);
     const extraCount = unattendedDates.length - unattendedPreview.length;
 
@@ -2409,7 +2435,7 @@ async function sendDigestForCalendar({ req, db, calendarId, startDate, endDate, 
       ? '<div>Keine unbetreuten Tage gefunden. 👍</div>'
       : `<div>Unbetreute Tage: <strong>${unattendedDates.length}</strong></div>`
         + '<div style="height:10px"></div>'
-        + `<ul style="margin:0;padding-left:18px">${unattendedPreview.map((d) => `<li>${d}</li>`).join('')}</ul>`
+        + `<ul style="margin:0;padding-left:18px">${unattendedPreview.map((d) => `<li>${formatGermanDate(d)}</li>`).join('')}</ul>`
         + (extraCount > 0 ? `<div style="height:10px"></div><div>… und ${extraCount} weitere.</div>` : '');
 
     const hintHtml = includeNextYearHint
@@ -3119,7 +3145,7 @@ app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req
     const inviterName = String(ownerRow?.username || '').replace(/</g, '&lt;');
     const inviterEmail = normalizeEmail(ownerRow?.email || '');
     const inviterLabel = inviterEmail ? `${inviterName} &lt;${String(inviterEmail).replace(/</g, '&lt;')}&gt;` : inviterName;
-    const validUntilLabel = expiresAt ? String(expiresAt).slice(0, 10) : 'unbegrenzt';
+    const validUntilLabel = expiresAt ? formatGermanDate(expiresAt) : 'unbegrenzt';
 
     await sendBrandedEmail({
       req,
