@@ -70,6 +70,29 @@ export const LandingPage = () => {
     },
   ];
 
+  const helpAnchors = [
+    {
+      href: '/hilfe#hilfe-schnellstart',
+      title: 'Schnellstart',
+      text: 'Wie ihr in wenigen Schritten mit Bundesland, Kindern und erster Planung startet.',
+    },
+    {
+      href: '/hilfe#hilfe-rollen',
+      title: 'Rollenmodell',
+      text: 'Was Owner, Editor und Viewer im Familienkalender genau dürfen.',
+    },
+    {
+      href: '/hilfe#hilfe-teilen',
+      title: 'Teilen & Einladen',
+      text: 'Wie ihr Partner oder weitere Personen in eure Planung einbindet.',
+    },
+    {
+      href: '/hilfe#hilfe-benachrichtigungen',
+      title: 'Benachrichtigungen',
+      text: 'Welche E-Mails es gibt und wie ihr Digest und Hinweise steuert.',
+    },
+  ];
+
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -96,8 +119,8 @@ export const LandingPage = () => {
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 sm:gap-12">
-        <section className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-10">
-          <div className="order-2 lg:order-1">
+        <section className="flex flex-col gap-8 lg:gap-10">
+          <div>
             <div className="flex items-center gap-3">
               <img src="/app-icon.png" alt="Mein Ferienplaner Logo" className="h-12 w-12 rounded-2xl border border-white/70 bg-white p-1 shadow-sm" />
               <div className="min-w-0">
@@ -120,16 +143,6 @@ export const LandingPage = () => {
               Mein Ferienplaner ist ein One-Stop-Familienkalender für Eltern, die Schule, Beruf und Betreuung zusammen denken müssen. Ihr seht auf einen Blick, wann Schulferien stattfinden, wo Urlaub schon eingeplant ist und an welchen Tagen Betreuung noch fehlt.
             </p>
 
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              {quickBenefits.map((item) => (
-                <article key={item.title} className="rounded-[1.75rem] border border-white/70 bg-white/85 px-4 py-5 shadow-[0_12px_36px_rgba(15,23,42,0.06)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/55 sm:px-5">
-                  <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">{item.kicker}</div>
-                  <h2 className="mt-3 text-sm font-extrabold text-slate-950 dark:text-white">{item.title}</h2>
-                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{item.text}</p>
-                </article>
-              ))}
-            </div>
-
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 to="/setup"
@@ -150,7 +163,18 @@ export const LandingPage = () => {
             </p>
           </div>
 
-          <section className="order-1 rounded-[2rem] border border-white/70 bg-white/90 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/55 lg:order-2 lg:p-5" aria-labelledby="landing-mobile-preview">
+          <div className="grid gap-4 lg:grid-cols-[0.72fr_1fr] lg:items-start">
+            <section className="grid gap-4">
+              {quickBenefits.map((item) => (
+                <article key={`${item.kicker}-stacked`} className="rounded-[1.75rem] border border-white/70 bg-white/88 px-5 py-5 shadow-[0_12px_36px_rgba(15,23,42,0.06)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/55">
+                  <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">{item.kicker}</div>
+                  <h2 className="mt-3 text-lg font-extrabold text-slate-950 dark:text-white">{item.title}</h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{item.text}</p>
+                </article>
+              ))}
+            </section>
+
+            <section className="rounded-[2rem] border border-white/70 bg-white/90 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/55 lg:p-5" aria-labelledby="landing-mobile-preview">
             <div className="rounded-[1.75rem] bg-slate-950 p-4 text-slate-50 shadow-inner sm:p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -206,6 +230,35 @@ export const LandingPage = () => {
                     </ul>
                   </div>
                 </div>
+              </div>
+            </div>
+          </section>
+          </div>
+
+          <section className="rounded-[2rem] border border-sky-200 bg-sky-50/80 p-6 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/20" aria-labelledby="landing-top-cta">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">Nächster Schritt</div>
+                <h2 id="landing-top-cta" className="mt-2 text-2xl font-black tracking-tight">
+                  Erst Überblick schaffen, dann Betreuung konkret planen.
+                </h2>
+                <p className="mt-2 text-sm leading-7 text-slate-700 dark:text-slate-200">
+                  Genau dafür ist der Einstieg gedacht: Interesse wecken, Nutzen zeigen und euch dann mit einer klaren Aktion in die eigentliche Planung führen.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  to="/setup"
+                  className="inline-flex items-center justify-center rounded-2xl bg-sky-500 px-5 py-3 text-sm font-extrabold text-slate-950 shadow-sm transition-colors hover:bg-sky-400"
+                >
+                  Jetzt Betreuung planen
+                </Link>
+                <Link
+                  to="/hilfe"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-extrabold text-slate-800 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+                >
+                  Erst Funktionen ansehen
+                </Link>
               </div>
             </div>
           </section>
@@ -302,6 +355,40 @@ export const LandingPage = () => {
               </Link>
             </div>
           </section>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/70 bg-white/88 p-6 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/55" aria-labelledby="landing-help-links">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">Mehr Funktionen ansehen</div>
+              <h2 id="landing-help-links" className="mt-2 text-2xl font-black tracking-tight">
+                Wenn ihr vor dem Start noch genauer wissen wollt, wie die App funktioniert
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                Unten findet ihr die wichtigsten Themen direkt mit Sprungmarken auf die Hilfeseite. So könnt ihr genau dort weiterlesen, wo eure offene Frage gerade liegt.
+              </p>
+            </div>
+            <a
+              href="/hilfe"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-extrabold text-slate-800 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+            >
+              Ganze Hilfe öffnen
+            </a>
+          </div>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {helpAnchors.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 text-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-950/40 dark:hover:bg-slate-900"
+              >
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">Hilfe</div>
+                <h3 className="mt-2 text-base font-extrabold text-slate-950 dark:text-white">{item.title}</h3>
+                <p className="mt-2 leading-6 text-slate-600 dark:text-slate-300">{item.text}</p>
+              </a>
+            ))}
+          </div>
         </section>
 
         <footer className="mt-2 border-t border-slate-200 pt-6 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
