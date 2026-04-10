@@ -2,7 +2,11 @@ import { LegalPage } from './LegalPage.jsx';
 
 export const PrivacyPage = () => {
   return (
-    <LegalPage title="Datenschutzerklärung">
+    <LegalPage
+      title="Datenschutzerklärung"
+      description="Datenschutzhinweise zur Verarbeitung von Kontodaten, Kalenderdaten und E-Mail-Versand in Mein Ferienplaner."
+      path="/datenschutz"
+    >
       <div className="space-y-4">
         <div className="text-xs text-slate-500 dark:text-slate-400">
           Hinweis: Diese Datenschutzerklärung ist eine praxisnahe Vorlage und ersetzt keine Rechtsberatung.

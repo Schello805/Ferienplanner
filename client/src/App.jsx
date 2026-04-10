@@ -5,6 +5,7 @@ import { Footer } from './components/Footer'
 import { UtilitySidebar } from './components/UtilitySidebar'
 import { AuthScreen } from './components/AuthScreen'
 import { ChangelogModal } from './components/ChangelogModal.jsx'
+import { SeoHead } from './components/SeoHead.jsx'
 import { Toaster } from 'sonner'
 import { toast } from 'sonner'
 import { GERMAN_STATE_MAP } from './constants/germanStates'
@@ -782,6 +783,12 @@ function App() {
   if (!currentUser) {
     return (
       <>
+        <SeoHead
+          title="Anmeldung"
+          description="Melde dich bei deinem Familienkalender in Mein Ferienplaner an."
+          path="/app"
+          robots="noindex,nofollow"
+        />
         <Toaster position="top-center" richColors theme={darkMode ? 'dark' : 'light'} />
         <AuthScreen
           setupRequired={setupRequired}
@@ -795,6 +802,12 @@ function App() {
 
   return (
     <div className="mx-auto flex h-screen max-w-[1800px] flex-col overflow-hidden px-2 py-2 transition-colors duration-300 sm:px-3 sm:py-3">
+      <SeoHead
+        title="Kalender"
+        description="Persönlicher Familienkalender für Schulferien, Urlaub, Betreuung und freie Tage."
+        path="/app"
+        robots="noindex,nofollow"
+      />
       <Toaster position="top-center" richColors theme={darkMode ? 'dark' : 'light'} />
 
       <Header

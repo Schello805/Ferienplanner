@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GERMAN_STATES } from '../constants/germanStates';
+import { SeoHead } from './SeoHead.jsx';
 
 const DRAFT_KEY = 'ferienplanerSetupDraft';
 
@@ -265,6 +266,12 @@ export const SetupWizard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <SeoHead
+        title="Einrichtung"
+        description="Richte Bundesland, Farben, Kinder und Benachrichtigungen für deinen Familienkalender in Mein Ferienplaner ein."
+        path="/setup"
+        robots="noindex,nofollow"
+      />
       <div className="mx-auto w-full max-w-3xl">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">

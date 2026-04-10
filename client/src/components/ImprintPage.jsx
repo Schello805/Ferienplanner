@@ -2,7 +2,11 @@ import { LegalPage } from './LegalPage.jsx';
 
 export const ImprintPage = () => {
   return (
-    <LegalPage title="Impressum">
+    <LegalPage
+      title="Impressum"
+      description="Impressum und Kontaktangaben zu Mein Ferienplaner."
+      path="/impressum"
+    >
       <div className="space-y-4">
         <div>
           <div className="font-extrabold">Angaben gemäß § 5 TMG</div>

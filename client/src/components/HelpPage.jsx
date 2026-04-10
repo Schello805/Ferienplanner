@@ -2,7 +2,11 @@ import { LegalPage } from './LegalPage.jsx';
 
 export const HelpPage = () => {
   return (
-    <LegalPage title="Hilfe">
+    <LegalPage
+      title="Hilfe"
+      description="Hilfe zu Registrierung, Kalenderrollen, Einladungen, Benachrichtigungen und Kontoverwaltung in Mein Ferienplaner."
+      path="/hilfe"
+    >
       <div className="space-y-8">
         <section className="space-y-2" aria-labelledby="hilfe-ueberblick">
           <div id="hilfe-ueberblick" className="text-base font-extrabold">

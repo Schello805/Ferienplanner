@@ -1,10 +1,33 @@
 import { Link } from 'react-router-dom';
+import { SeoHead } from './SeoHead.jsx';
 
 export const LandingPage = () => {
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Mein Ferienplaner',
+    applicationCategory: 'ProductivityApplication',
+    operatingSystem: 'Web',
+    description: 'Familienkalender für Schulferien, Urlaub, Betreuung und freie Tage mit persönlichem Kalender-Link.',
+    url: 'https://mein-ferienplaner.de/',
+    image: 'https://mein-ferienplaner.de/icon-512.png',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'EUR',
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <SeoHead
+        title="Familienkalender für Schulferien, Urlaub und Betreuung"
+        description="Mein Ferienplaner ist ein Familienkalender für Schulferien, Urlaub, Betreuung und freie Tage mit persönlichem Kalender-Link."
+        path="/"
+        structuredData={structuredData}
+      />
       <div className="mx-auto w-full max-w-5xl">
-        <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+        <section className="grid gap-8 lg:grid-cols-2 lg:items-center">
           <div>
             <div className="flex items-center gap-3">
               <img src="/app-icon.png" alt="Mein Ferienplaner Logo" className="h-12 w-12 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" />
@@ -16,9 +39,9 @@ export const LandingPage = () => {
               </div>
             </div>
 
-            <div className="mt-6 text-4xl font-black tracking-tight">
+            <h1 className="mt-6 text-4xl font-black tracking-tight">
               Ein Kalender für Ferienplanung, Urlaub und Betreuung.
-            </div>
+            </h1>
             <div className="mt-3 text-base text-slate-700 dark:text-slate-200">
               Richte deine Familie einmal ein (Bundesland, Papa/Mama, Kinder, Farben) – danach planst du jedes Jahr schnell weiter.
             </div>
@@ -43,23 +66,23 @@ export const LandingPage = () => {
             </div>
           </div>
 
-          <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
-            <div className="text-base font-bold">So funktioniert’s</div>
+          <section className="grid gap-3 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/40" aria-labelledby="landing-funktioniert">
+            <h2 id="landing-funktioniert" className="text-base font-bold">So funktioniert’s</h2>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950/40">
-                <div className="font-semibold">Stammdaten</div>
+                <h3 className="font-semibold">Stammdaten</h3>
                 <div className="mt-1 text-slate-600 dark:text-slate-300">Kinder, Papa/Mama, Farben, Regeln</div>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950/40">
-                <div className="font-semibold">Jahresdaten</div>
+                <h3 className="font-semibold">Jahresdaten</h3>
                 <div className="mt-1 text-slate-600 dark:text-slate-300">Urlaub, freie Tage, Betreuung</div>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950/40">
-                <div className="font-semibold">Teilen</div>
+                <h3 className="font-semibold">Teilen</h3>
                 <div className="mt-1 text-slate-600 dark:text-slate-300">Einladungen & Ansicht-Links</div>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950/40">
-                <div className="font-semibold">Drucken</div>
+                <h3 className="font-semibold">Drucken</h3>
                 <div className="mt-1 text-slate-600 dark:text-slate-300">A4 Übersicht für die Wand</div>
               </div>
             </div>
@@ -74,8 +97,8 @@ export const LandingPage = () => {
                 mein-ferienplaner.de
               </a>
             </div>
-          </div>
-        </div>
+          </section>
+        </section>
 
         <footer className="mt-10 border-t border-slate-200 pt-6 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -89,6 +112,6 @@ export const LandingPage = () => {
           </div>
         </footer>
       </div>
-    </div>
+    </main>
   );
 };
