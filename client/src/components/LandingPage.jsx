@@ -95,8 +95,8 @@ export const LandingPage = () => {
         structuredData={structuredData}
       />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 sm:gap-10">
-        <section className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 sm:gap-12">
+        <section className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-10">
           <div className="order-2 lg:order-1">
             <div className="flex items-center gap-3">
               <img src="/app-icon.png" alt="Mein Ferienplaner Logo" className="h-12 w-12 rounded-2xl border border-white/70 bg-white p-1 shadow-sm" />
@@ -108,29 +108,29 @@ export const LandingPage = () => {
               </div>
             </div>
 
-            <div className="mt-6 inline-flex items-center rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-800 shadow-sm backdrop-blur dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+            <div className="mt-7 inline-flex items-center rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-800 shadow-sm backdrop-blur dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
               Für berufstätige Eltern
             </div>
 
-            <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl sm:leading-[1.02] dark:text-white">
+            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl sm:leading-[1.02] dark:text-white">
               Betreuung planen, bevor Ferien, Urlaub und Alltag kollidieren.
             </h1>
 
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-700 dark:text-slate-200">
+            <p className="mt-5 max-w-2xl text-base leading-8 text-slate-700 dark:text-slate-200">
               Mein Ferienplaner ist ein One-Stop-Familienkalender für Eltern, die Schule, Beruf und Betreuung zusammen denken müssen. Ihr seht auf einen Blick, wann Schulferien stattfinden, wo Urlaub schon eingeplant ist und an welchen Tagen Betreuung noch fehlt.
             </p>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {quickBenefits.map((item) => (
-                <article key={item.title} className="rounded-[1.75rem] border border-white/70 bg-white/85 px-4 py-4 shadow-[0_12px_36px_rgba(15,23,42,0.06)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/55">
+                <article key={item.title} className="rounded-[1.75rem] border border-white/70 bg-white/85 px-4 py-5 shadow-[0_12px_36px_rgba(15,23,42,0.06)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/55 sm:px-5">
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">{item.kicker}</div>
-                  <h2 className="mt-2 text-sm font-extrabold text-slate-950 dark:text-white">{item.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{item.text}</p>
+                  <h2 className="mt-3 text-sm font-extrabold text-slate-950 dark:text-white">{item.title}</h2>
+                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{item.text}</p>
                 </article>
               ))}
             </div>
 
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 to="/setup"
                 className="inline-flex items-center justify-center rounded-2xl bg-sky-500 px-5 py-3 text-sm font-extrabold text-slate-950 shadow-sm transition-colors hover:bg-sky-400"
@@ -145,28 +145,28 @@ export const LandingPage = () => {
               </Link>
             </div>
 
-            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">
               Ihr bekommt einen persönlichen Kalender-Link, über den ihr später direkt wieder einsteigen könnt. So bleibt die Ferien- und Betreuungsplanung nicht an einer Person hängen.
             </p>
           </div>
 
-          <section className="order-1 rounded-[2rem] border border-white/70 bg-white/90 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/55 lg:order-2" aria-labelledby="landing-mobile-preview">
-            <div className="rounded-[1.75rem] bg-slate-950 p-4 text-slate-50 shadow-inner">
+          <section className="order-1 rounded-[2rem] border border-white/70 bg-white/90 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/55 lg:order-2 lg:p-5" aria-labelledby="landing-mobile-preview">
+            <div className="rounded-[1.75rem] bg-slate-950 p-4 text-slate-50 shadow-inner sm:p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Mobile Übersicht</div>
                   <h2 id="landing-mobile-preview" className="mt-2 text-xl font-black">Betreuung im Blick</h2>
                 </div>
                 <div className="rounded-2xl bg-white/10 px-3 py-2 text-right">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-300">Status</div>
-                  <div className="text-sm font-extrabold text-amber-300">2 Tage offen</div>
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-300">Vorschau</div>
+                  <div className="text-sm font-extrabold text-sky-200">Planungsansicht</div>
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3">
-                <div className="rounded-3xl bg-white/8 p-4">
+              <div className="mt-5 grid gap-4">
+                <div className="rounded-3xl bg-white/8 p-4 sm:p-5">
                   <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-300">Diese Woche</div>
-                  <div className="mt-2 grid gap-2">
+                  <div className="mt-3 grid gap-3">
                     <div className="flex items-center justify-between rounded-2xl bg-white/8 px-3 py-3">
                       <div>
                         <div className="text-sm font-bold">Osterferien</div>
@@ -185,7 +185,7 @@ export const LandingPage = () => {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-3xl bg-sky-400/12 p-4">
+                  <div className="rounded-3xl bg-sky-400/12 p-4 sm:p-5">
                     <h3 className="text-sm font-extrabold text-sky-200">So plant ihr</h3>
                     <ul className="mt-3 grid gap-2 text-sm text-slate-200">
                       {planningFlow.map((step) => (
@@ -195,7 +195,7 @@ export const LandingPage = () => {
                       ))}
                     </ul>
                   </div>
-                  <div className="rounded-3xl bg-white/8 p-4">
+                  <div className="rounded-3xl bg-white/8 p-4 sm:p-5">
                     <h3 className="text-sm font-extrabold text-white">Typische Nutzung</h3>
                     <ul className="mt-3 grid gap-2 text-sm text-slate-200">
                       {useCases.slice(0, 4).map((item) => (
