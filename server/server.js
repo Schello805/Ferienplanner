@@ -1015,6 +1015,25 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
   const smtp = await getEffectiveSmtpSettings();
   const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req, PORT);
   const safeBaseUrl = String(baseUrl).replace(/\/$/, '');
+  const resolvedCtaUrl = (() => {
+    if (!ctaUrl) return '';
+    const raw = String(ctaUrl).trim();
+    if (!raw) return '';
+    if (raw.startsWith('/')) {
+      return `${safeBaseUrl}${raw}`;
+    }
+
+    try {
+      const parsed = new URL(raw);
+      const hostname = String(parsed.hostname || '').toLowerCase();
+      if ((hostname === 'localhost' || hostname === '127.0.0.1') && safeBaseUrl) {
+        return `${safeBaseUrl}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+      return parsed.toString();
+    } catch {
+      return raw;
+    }
+  })();
   const logoUrl = `${safeBaseUrl}/app-icon.png`;
   const helpUrl = `${safeBaseUrl}/hilfe`;
   const imprintUrl = `${safeBaseUrl}/impressum`;
@@ -1066,12 +1085,12 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
                 <div style="font-weight:800;font-size:16px;letter-spacing:-0.01em">${String(headline || '')}</div>
                 <div style="height:10px"></div>
                 <div style="font-size:14px;line-height:1.55;color:#334155">${bodyHtml || ''}</div>
-                ${ctaUrl ? `
+                ${resolvedCtaUrl ? `
                 <div style="height:16px"></div>
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td align="center" bgcolor="#38bdf8" style="border-radius:12px">
-                      <a href="${ctaUrl}" style="display:inline-block;padding:12px 16px;font-weight:800;font-size:14px;color:#0b1220;text-decoration:none">${String(ctaText || 'Öffnen')}</a>
+                      <a href="${resolvedCtaUrl}" style="display:inline-block;padding:12px 16px;font-weight:800;font-size:14px;color:#0b1220;text-decoration:none">${String(ctaText || 'Öffnen')}</a>
                     </td>
                   </tr>
                 </table>
@@ -1079,7 +1098,7 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
                 <div style="font-size:12px;line-height:1.5;color:#475569">
                   Falls der Button nicht funktioniert, öffne diesen Link:
                   <div style="margin-top:8px;word-break:break-all">
-                    <a href="${ctaUrl}" style="color:#0284c7;text-decoration:underline">${ctaUrl}</a>
+                    <a href="${resolvedCtaUrl}" style="color:#0284c7;text-decoration:underline">${resolvedCtaUrl}</a>
                   </div>
                 </div>` : ''}
               </td>
@@ -1101,7 +1120,7 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
   </body>
 </html>`;
 
-  const plainText = `${String(headline || '')}\n\n${String(previewText || '')}\n\n${ctaUrl ? `${ctaUrl}\n\n` : ''}${String(footerReason || '')}`;
+  const plainText = `${String(headline || '')}\n\n${String(previewText || '')}\n\n${resolvedCtaUrl ? `${resolvedCtaUrl}\n\n` : ''}${String(footerReason || '')}`;
 
   const fromValue = String(smtp.fromAddress || '').includes('<')
     ? smtp.fromAddress
