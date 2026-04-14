@@ -8,11 +8,6 @@ export const PrivacyPage = () => {
       path="/datenschutz"
     >
       <div className="space-y-4">
-        <div className="text-xs text-slate-500 dark:text-slate-400">
-          Hinweis: Diese Datenschutzerklärung ist eine praxisnahe Vorlage und ersetzt keine Rechtsberatung.
-          Sie wurde nach bestem Wissen für dieses Projekt konkretisiert.
-        </div>
-
         <div>
           <div className="font-extrabold">Verantwortlicher</div>
           <div className="mt-2 space-y-1">
@@ -32,6 +27,10 @@ export const PrivacyPage = () => {
             <div>
               Technisch notwendige Server-Logs können IP-Adresse, Zeitpunkt, aufgerufene URL und User-Agent enthalten
               (abhängig von deiner Server-/Proxy-Konfiguration).
+            </div>
+            <div>
+              Beim Aufruf der Website kann zusätzlich Matomo zur Reichweitenmessung eingesetzt werden. Dabei werden insbesondere
+              Seitenaufrufe, technische Browserinformationen, Referrer-Informationen und Nutzungsereignisse verarbeitet.
             </div>
           </div>
         </div>
@@ -53,7 +52,24 @@ export const PrivacyPage = () => {
         <div>
           <div className="font-extrabold">Zweck der Verarbeitung</div>
           <div className="mt-2 space-y-2">
-            <div>Betrieb der Webapp, Authentifizierung, Verwaltung persönlicher Kalender, Fehleranalyse und Sicherheit.</div>
+            <div>Betrieb der Webapp, Authentifizierung, Verwaltung persönlicher Kalender, Fehleranalyse, Sicherheit und Reichweitenmessung.</div>
+          </div>
+        </div>
+
+        <div>
+          <div className="font-extrabold">Rechtsgrundlagen</div>
+          <div className="mt-2 space-y-2">
+            <div>
+              Die Verarbeitung zur Bereitstellung der Webapp und zur Verwaltung von Benutzerkonten erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO,
+              soweit sie für die Nutzung des Dienstes erforderlich ist.
+            </div>
+            <div>
+              Technisch notwendige Sicherheits- und Betriebsmaßnahmen erfolgen auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO.
+            </div>
+            <div>
+              Soweit Matomo für statistische Auswertungen eingesetzt wird, erfolgt dies nur auf Grundlage einer zuvor erteilten Einwilligung
+              gemäß Art. 6 Abs. 1 lit. a DSGVO in Verbindung mit § 25 Abs. 1 TDDDG.
+            </div>
           </div>
         </div>
 
@@ -81,14 +97,27 @@ export const PrivacyPage = () => {
         </div>
 
         <div>
+          <div className="font-extrabold">Webanalyse mit Matomo</div>
+          <div className="mt-2 space-y-2">
+            <div>
+              Zur Analyse der Nutzung der Website kann Matomo eingesetzt werden. Anbieter der Erfassungsinstanz ist der Betreiber dieser Website
+              über die Domain analytics.schellenberger.biz.
+            </div>
+            <div>
+              Die Auswertung dient dazu, Reichweite, Nutzung und technische Verbesserung der Website besser zu verstehen.
+            </div>
+            <div>
+              Die Aktivierung von Matomo erfolgt nur nach Einwilligung. Eine erteilte Einwilligung kann jederzeit mit Wirkung für die Zukunft widerrufen werden.
+            </div>
+          </div>
+        </div>
+
+        <div>
           <div className="font-extrabold">Rechte der betroffenen Personen</div>
           <div className="mt-2 space-y-2">
             <div>Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit, Widerspruch.</div>
             <div>
               Die Löschung deines Kontos inklusive Kalender und gespeicherter Daten kannst du direkt in der App im Bereich <strong>Profil</strong> auslösen.
-            </div>
-            <div>
-              Wenn du möchtest, kann ich dir einen kleinen Admin-Export ergänzen, der Nutzer:innen ihre Kalenderdaten als JSON bereitstellt.
             </div>
           </div>
         </div>

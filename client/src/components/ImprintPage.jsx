@@ -33,9 +33,6 @@ export const ImprintPage = () => {
               Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links.
               Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.
             </div>
-            <div>
-              Dieses Impressum ist eine Vorlage und muss an deine tatsächlichen Angaben angepasst werden.
-            </div>
           </div>
         </div>
       </div>
