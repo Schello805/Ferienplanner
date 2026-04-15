@@ -17,7 +17,6 @@ import {
   setSessionCookies,
 } from './lib/http.js';
 import { getBearerToken, getRequestedCalendarSlug } from './lib/auth-context.js';
-import { createAdminLogStore } from './lib/admin-log.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,12 +34,12 @@ const HIBP_TIMEOUT_MS = 5000;
 const HIBP_CACHE_TTL_MS = 1000 * 60 * 60;
 
 const SMTP_CACHE_TTL_MS = 1000 * 60 * 5;
+const ADMIN_LOG_RETENTION_DAYS = 90;
+const ADMIN_LOG_DEFAULT_LIMIT = 200;
 
 let cachedSmtpSettings = null;
 
 const hibpCache = new Map();
-
-const adminLog = createAdminLogStore();
 const ADMIN_NOTIFICATION_EMAIL = 'info@schellenberger.biz';
 
 const ROLE_ORDER = {
@@ -444,10 +443,6 @@ function openDb() {
   });
 }
 
-function pushAdminLog(event, detail = '', meta = null) {
-  adminLog.push(event, detail, meta);
-}
-
 function dbGet(db, sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => {
@@ -473,6 +468,75 @@ function dbRun(db, sql, params = []) {
       else resolve(this);
     });
   });
+}
+
+function getAdminLogCutoffIso(now = Date.now()) {
+  return new Date(now - ADMIN_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function persistAdminLog(event, detail = '', meta = null) {
+  await dbReady;
+  const db = openDb();
+  try {
+    const ts = new Date().toISOString();
+    await dbRun(
+      db,
+      `INSERT INTO admin_logs (ts, event, detail, metaJson)
+       VALUES (?, ?, ?, ?)`,
+      [
+        ts,
+        String(event),
+        String(detail || ''),
+        meta == null ? null : JSON.stringify(meta),
+      ]
+    );
+    await dbRun(db, 'DELETE FROM admin_logs WHERE ts < ?', [getAdminLogCutoffIso()]);
+  } finally {
+    db.close();
+  }
+}
+
+function pushAdminLog(event, detail = '', meta = null) {
+  void persistAdminLog(event, detail, meta).catch((error) => {
+    process.stderr.write(`Failed to persist admin log: ${error?.message || error}\n`);
+  });
+}
+
+async function listAdminLogs(limit = ADMIN_LOG_DEFAULT_LIMIT) {
+  await dbReady;
+  const db = openDb();
+  try {
+    const normalizedLimit = Number.isFinite(Number(limit))
+      ? Math.max(1, Math.min(500, Math.floor(Number(limit))))
+      : ADMIN_LOG_DEFAULT_LIMIT;
+    await dbRun(db, 'DELETE FROM admin_logs WHERE ts < ?', [getAdminLogCutoffIso()]);
+    const rows = await dbAll(
+      db,
+      `SELECT ts, event, detail, metaJson
+       FROM admin_logs
+       ORDER BY ts DESC
+       LIMIT ?`,
+      [normalizedLimit]
+    );
+    return rows
+      .slice()
+      .reverse()
+      .map((row) => ({
+        ts: row.ts,
+        event: row.event,
+        detail: row.detail || '',
+        meta: (() => {
+          if (!row.metaJson) return null;
+          try {
+            return JSON.parse(row.metaJson);
+          } catch {
+            return null;
+          }
+        })(),
+      }));
+  } finally {
+    db.close();
+  }
 }
 
 function formatGermanDate(value) {
@@ -655,6 +719,22 @@ async function initializeDatabase() {
         newCalendarAdminEmailsEnabled INTEGER NOT NULL DEFAULT 0,
         updatedAt TEXT
       )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS admin_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts TEXT NOT NULL,
+        event TEXT NOT NULL,
+        detail TEXT,
+        metaJson TEXT
+      )`
+    );
+
+    await dbRun(
+      db,
+      'CREATE INDEX IF NOT EXISTS idx_admin_logs_ts ON admin_logs(ts)'
     );
 
     await dbRun(
@@ -2289,8 +2369,14 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/admin/logs', requireAuth, requireAdmin, (req, res) => {
-  res.json({ entries: adminLog.list() });
+app.get('/api/admin/logs', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const limit = req.query?.limit;
+    const entries = await listAdminLogs(limit);
+    return res.json({ entries });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/api/admin/settings', requireAuth, requireAdmin, async (req, res) => {

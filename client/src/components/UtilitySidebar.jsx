@@ -931,7 +931,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                 </div>
             </SidebarSection>
 
-            <SidebarSection title="Admin Log" subtitle="Letzte Ereignisse dieser Instanz (In-Memory, nicht persistent).">
+            <SidebarSection title="Admin Log" subtitle="Letzte Ereignisse dieser Instanz, persistent gespeichert für 90 Tage.">
                 {logs.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
                         Noch keine Einträge.
