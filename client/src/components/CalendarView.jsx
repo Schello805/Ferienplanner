@@ -1085,7 +1085,7 @@ const CalendarView = ({
             {/* Print Header (Visible only in print) */}
             <div className="print-header mb-4 hidden items-center justify-between border-b-2 border-slate-800 pb-2">
                 <div className="flex min-w-0 items-center gap-3">
-                    <img src="/app-icon.png" alt="Mein Ferienkalender" className="h-9 w-9 rounded-lg object-contain opacity-90" />
+                    <img src="/ferienplaner-logo-2026.png" alt="Mein Ferienkalender" className="h-9 w-9 rounded-lg object-contain opacity-90" />
                     <div className="min-w-0">
                         <h1 className="text-2xl font-bold text-slate-900">Mein Ferienkalender {year}</h1>
                         <div className="text-sm text-slate-600">{stateName}</div>

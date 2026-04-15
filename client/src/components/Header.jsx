@@ -9,7 +9,7 @@ export const Header = ({ darkMode, setDarkMode, stateName, currentUser, currentC
                     className="overflow-hidden rounded-xl border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/80 ring-1 ring-white transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:ring-slate-800 dark:hover:bg-slate-800"
                     title="mein-ferienplaner.de öffnen"
                 >
-                    <img src="/app-icon.png" alt="Mein Ferienplaner Logo" className="h-9 w-9 rounded-lg object-contain" />
+                    <img src="/ferienplaner-logo-2026.png" alt="Mein Ferienplaner Logo" className="h-9 w-9 rounded-lg object-contain" />
                 </a>
 
                 <div className="min-w-0">

@@ -275,7 +275,7 @@ export const SetupWizard = () => {
       <div className="mx-auto w-full max-w-3xl">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <img src="/app-icon.png" alt="Mein Ferienplaner Logo" className="h-11 w-11 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" />
+            <img src="/ferienplaner-logo-2026.png" alt="Mein Ferienplaner Logo" className="h-11 w-11 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" />
             <div>
               <div className="text-xl font-black tracking-tight">Einrichtung</div>
               <div className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">In wenigen Schritten startklar.</div>

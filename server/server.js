@@ -1015,7 +1015,7 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
       return raw;
     }
   })();
-  const logoUrl = `${safeBaseUrl}/app-icon.png`;
+  const logoUrl = `${safeBaseUrl}/ferienplaner-logo-2026.png`;
   const helpUrl = `${safeBaseUrl}/hilfe`;
   const imprintUrl = `${safeBaseUrl}/impressum`;
   const privacyUrl = `${safeBaseUrl}/datenschutz`;

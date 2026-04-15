@@ -122,7 +122,7 @@ export const LandingPage = () => {
         <section className="flex flex-col gap-8 lg:gap-10">
           <div>
             <div className="flex items-center gap-3">
-              <img src="/app-icon.png" alt="Mein Ferienplaner Logo" className="h-12 w-12 rounded-2xl border border-white/70 bg-white p-1 shadow-sm" />
+              <img src="/ferienplaner-logo-2026.png" alt="Mein Ferienplaner Logo" className="h-12 w-12 rounded-2xl border border-white/70 bg-white p-1 shadow-sm" />
               <div className="min-w-0">
                 <div className="text-2xl font-black tracking-tight">Mein Ferienplaner</div>
                 <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 const SITE_NAME = 'Mein Ferienplaner';
 const SITE_URL = 'https://mein-ferienplaner.de';
-const DEFAULT_IMAGE = `${SITE_URL}/icon-512.png`;
+const DEFAULT_IMAGE = `${SITE_URL}/ferienplaner-logo-512-2026.png`;
 
 const upsertMetaTag = (selector, attributes, content) => {
   let node = document.head.querySelector(selector);
