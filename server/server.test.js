@@ -206,3 +206,45 @@ test('login sets httpOnly auth cookie and readable calendar slug cookie', async 
   assert.match(setCookieHeader, /HttpOnly/i);
   assert.match(setCookieHeader, /ferienplanerTargetSlug=/);
 });
+
+test('admin can enable new calendar email notifications and calendar creation logs the trigger', async () => {
+  const loginAdmin = await request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'updated12345' }),
+  });
+  const adminToken = loginAdmin.data.token;
+  assert.ok(adminToken);
+
+  const saveSettings = await request('/api/admin/settings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({ newCalendarAdminEmailsEnabled: true }),
+  });
+
+  assert.equal(saveSettings.response.status, 200);
+  assert.equal(saveSettings.data.settings.newCalendarAdminEmailsEnabled, true);
+
+  const createUser = await request('/api/users', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({ username: 'notify-user', password: 'notify12345', isAdmin: false }),
+  });
+  assert.equal(createUser.response.status, 200);
+
+  const logsResponse = await request('/api/admin/logs?limit=50', {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+    },
+  });
+  assert.equal(logsResponse.response.status, 200);
+  const events = (logsResponse.data.entries || []).map((entry) => entry.event);
+  assert.ok(events.includes('admin.settings_update'));
+  assert.ok(events.includes('admin.calendar_created_email_skipped'));
+});

@@ -382,6 +382,11 @@ const AdminToolsPanel = ({ currentUser }) => {
     }));
     const [smtpSending, setSmtpSending] = React.useState(false);
     const [smtpSaving, setSmtpSaving] = React.useState(false);
+    const [adminSettingsDraft, setAdminSettingsDraft] = React.useState({
+        newCalendarAdminEmailsEnabled: false,
+        updatedAt: null,
+    });
+    const [adminSettingsSaving, setAdminSettingsSaving] = React.useState(false);
 
     const loadAdminData = React.useCallback(async () => {
         if (!isUserAdmin(currentUser)) return;
@@ -435,10 +440,27 @@ const AdminToolsPanel = ({ currentUser }) => {
         }
     }, [currentUser]);
 
+    const loadAdminSettings = React.useCallback(async () => {
+        if (!isUserAdmin(currentUser)) return;
+        try {
+            const response = await authFetch('/api/admin/settings');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Admin-Einstellungen konnten nicht geladen werden');
+            setAdminSettingsDraft({
+                newCalendarAdminEmailsEnabled: Boolean(data?.settings?.newCalendarAdminEmailsEnabled),
+                updatedAt: data?.settings?.updatedAt || null,
+            });
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Admin-Einstellungen konnten nicht geladen werden');
+        }
+    }, [currentUser]);
+
     React.useEffect(() => {
         loadAdminData();
         loadSmtpSettings();
-    }, [loadAdminData, loadSmtpSettings]);
+        loadAdminSettings();
+    }, [loadAdminData, loadSmtpSettings, loadAdminSettings]);
 
     if (!isUserAdmin(currentUser)) {
         return null;
@@ -540,6 +562,32 @@ const AdminToolsPanel = ({ currentUser }) => {
             toast.error(error.message || 'SMTP Test fehlgeschlagen');
         } finally {
             setSmtpSending(false);
+        }
+    };
+
+    const saveAdminSettings = async () => {
+        setAdminSettingsSaving(true);
+        try {
+            const response = await authFetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    newCalendarAdminEmailsEnabled: adminSettingsDraft.newCalendarAdminEmailsEnabled,
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Admin-Einstellungen speichern fehlgeschlagen');
+            setAdminSettingsDraft((current) => ({
+                ...current,
+                updatedAt: data?.settings?.updatedAt || current.updatedAt,
+            }));
+            toast.success('Admin-Einstellungen gespeichert');
+            await loadAdminData();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Admin-Einstellungen speichern fehlgeschlagen');
+        } finally {
+            setAdminSettingsSaving(false);
         }
     };
 
@@ -838,6 +886,48 @@ const AdminToolsPanel = ({ currentUser }) => {
                             {smtpSending ? 'Sende…' : 'Testmail senden'}
                         </button>
                     </div>
+                </div>
+            </SidebarSection>
+
+            <SidebarSection title="Admin-Benachrichtigungen" subtitle="Instanzweite Hinweise für Administratoren.">
+                <div className="space-y-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                        <div className="font-semibold">Empfänger</div>
+                        <div className="mt-1 text-sm font-bold text-slate-900 dark:text-white">info@schellenberger.biz</div>
+                        <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                            Diese Adresse wird benachrichtigt, sobald ein neuer Kalender in der Instanz angelegt wird.
+                        </div>
+                        {adminSettingsDraft.updatedAt && (
+                            <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Updated: {adminSettingsDraft.updatedAt}</div>
+                        )}
+                    </div>
+
+                    <label className="inline-flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                        <input
+                            type="checkbox"
+                            checked={Boolean(adminSettingsDraft.newCalendarAdminEmailsEnabled)}
+                            onChange={(event) => setAdminSettingsDraft((current) => ({
+                                ...current,
+                                newCalendarAdminEmailsEnabled: event.target.checked,
+                            }))}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        <span>
+                            <span className="block font-semibold text-slate-900 dark:text-white">E-Mail bei neuen Kalendern senden</span>
+                            <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+                                Wenn aktiviert, erhältst du als Admin bei jedem neu angelegten Kalender automatisch eine Info-Mail.
+                            </span>
+                        </span>
+                    </label>
+
+                    <button
+                        type="button"
+                        onClick={saveAdminSettings}
+                        disabled={adminSettingsSaving}
+                        className="w-full rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
+                    >
+                        {adminSettingsSaving ? 'Speichere…' : 'Benachrichtigung speichern'}
+                    </button>
                 </div>
             </SidebarSection>
 

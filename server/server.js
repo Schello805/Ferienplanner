@@ -41,6 +41,7 @@ let cachedSmtpSettings = null;
 const hibpCache = new Map();
 
 const adminLog = createAdminLogStore();
+const ADMIN_NOTIFICATION_EMAIL = 'info@schellenberger.biz';
 
 const ROLE_ORDER = {
   viewer: 0,
@@ -649,6 +650,15 @@ async function initializeDatabase() {
 
     await dbRun(
       db,
+      `CREATE TABLE IF NOT EXISTS admin_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        newCalendarAdminEmailsEnabled INTEGER NOT NULL DEFAULT 0,
+        updatedAt TEXT
+      )`
+    );
+
+    await dbRun(
+      db,
       `CREATE TABLE IF NOT EXISTS digest_runs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         startedAt TEXT NOT NULL,
@@ -937,6 +947,36 @@ async function loadSmtpSettingsFromDb() {
   }
 }
 
+async function loadAdminSettingsFromDb() {
+  const db = openDb();
+  try {
+    const row = await dbGet(db, 'SELECT * FROM admin_settings WHERE id = 1');
+    if (!row) return null;
+    return row;
+  } finally {
+    db.close();
+  }
+}
+
+async function getEffectiveAdminSettings() {
+  const row = await loadAdminSettingsFromDb();
+  return {
+    newCalendarAdminEmailsEnabled: Boolean(row?.newCalendarAdminEmailsEnabled),
+    updatedAt: row?.updatedAt || null,
+  };
+}
+
+function resolvePublicBaseUrl(req, smtp = null) {
+  const smtpBaseUrl = String(smtp?.publicBaseUrl || '').trim();
+  if (smtpBaseUrl) return smtpBaseUrl.replace(/\/$/, '');
+  const configured = String(process.env.PUBLIC_BASE_URL || '').trim();
+  if (configured) return configured.replace(/\/$/, '');
+  if (req && typeof req.get === 'function') {
+    return getPublicBaseUrl(req, PORT);
+  }
+  return `http://localhost:${PORT}`;
+}
+
 async function getEffectiveSmtpSettings() {
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
@@ -994,7 +1034,7 @@ function getMailerTransport() {
 
 async function sendBrandedEmail({ req, to, subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason }) {
   const smtp = await getEffectiveSmtpSettings();
-  const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req, PORT);
+  const baseUrl = resolvePublicBaseUrl(req, smtp);
   const safeBaseUrl = String(baseUrl).replace(/\/$/, '');
   const resolvedCtaUrl = (() => {
     if (!ctaUrl) return '';
@@ -1147,7 +1187,7 @@ function computeInvitationExpiresAt({ mode, days }) {
 
 async function sendVerificationEmail({ req, to, token }) {
   const smtp = await getEffectiveSmtpSettings();
-  const baseUrl = smtp?.publicBaseUrl || getPublicBaseUrl(req, PORT);
+  const baseUrl = resolvePublicBaseUrl(req, smtp);
   const verifyUrl = `${baseUrl}/?verifyEmail=${token}`;
 
   if (!smtp) {
@@ -1292,6 +1332,73 @@ async function createSessionForUser(userId) {
   }
 }
 
+async function maybeNotifyAdminAboutNewCalendar({ userId, calendarId }) {
+  const adminSettings = await getEffectiveAdminSettings();
+  if (!adminSettings.newCalendarAdminEmailsEnabled) {
+    return;
+  }
+
+  const db = openDb();
+  try {
+    const [userRow, calendarRow, smtp] = await Promise.all([
+      dbGet(db, 'SELECT username, email FROM users WHERE id = ? LIMIT 1', [userId]),
+      dbGet(db, 'SELECT name, slug, createdAt FROM calendars WHERE id = ? LIMIT 1', [calendarId]),
+      getEffectiveSmtpSettings(),
+    ]);
+
+    if (!smtp) {
+      pushAdminLog(
+        'admin.calendar_created_email_skipped',
+        `Hinweis zu neuem Kalender übersprungen: SMTP nicht konfiguriert (calendarId=${calendarId})`,
+        { userId, calendarId, recipient: ADMIN_NOTIFICATION_EMAIL }
+      );
+      return;
+    }
+
+    const baseUrl = resolvePublicBaseUrl(null, smtp);
+    const calendarLabel = calendarRow?.name || 'Mein Kalender';
+    const calendarUrl = `${baseUrl}/app${calendarRow?.slug ? `?calendar=${encodeURIComponent(calendarRow.slug)}` : ''}`;
+    const createdAt = calendarRow?.createdAt || new Date().toISOString();
+    const safeEmail = normalizeEmail(userRow?.email || '');
+
+    await sendBrandedEmail({
+      req: null,
+      to: ADMIN_NOTIFICATION_EMAIL,
+      subject: 'Mein Ferienplaner: Neuer Kalender erstellt',
+      previewText: `Ein neuer Kalender wurde von ${userRow?.username || 'einem Benutzer'} angelegt.`,
+      headline: 'Neuer Kalender in der Instanz',
+      subline: 'Admin-Benachrichtigung',
+      bodyHtml: `
+        <p>Es wurde ein neuer Kalender erstellt.</p>
+        <ul style="margin:12px 0 0 18px;padding:0">
+          <li><strong>Benutzer:</strong> ${String(userRow?.username || '—')}</li>
+          <li><strong>E-Mail:</strong> ${safeEmail || '—'}</li>
+          <li><strong>Kalender:</strong> ${String(calendarLabel)}</li>
+          <li><strong>Kalender-ID:</strong> ${String(calendarId)}</li>
+          <li><strong>Erstellt am:</strong> ${String(createdAt)}</li>
+        </ul>
+      `,
+      ctaUrl: calendarUrl,
+      ctaText: 'Zum Kalender',
+      footerReason: 'Du erhältst diese E-Mail, weil die Admin-Benachrichtigung für neue Kalender aktiviert ist.',
+    });
+
+    pushAdminLog(
+      'admin.calendar_created_email_sent',
+      `Hinweis zu neuem Kalender an ${ADMIN_NOTIFICATION_EMAIL} gesendet`,
+      { userId, calendarId, recipient: ADMIN_NOTIFICATION_EMAIL }
+    );
+  } catch (error) {
+    pushAdminLog(
+      'admin.calendar_created_email_failed',
+      `Hinweis zu neuem Kalender fehlgeschlagen: ${error.message}`,
+      { userId, calendarId, recipient: ADMIN_NOTIFICATION_EMAIL }
+    );
+  } finally {
+    db.close();
+  }
+}
+
 async function ensureUserCalendarContext(userId) {
   const db = openDb();
   try {
@@ -1305,6 +1412,8 @@ async function ensureUserCalendarContext(userId) {
        LIMIT 1`,
       [userId]
     );
+
+    let createdCalendarId = null;
 
     if (!membership) {
       const createdAt = new Date().toISOString();
@@ -1321,6 +1430,7 @@ async function ensureUserCalendarContext(userId) {
         [calendarResult.lastID, userId, createdAt]
       );
       membership = { id: calendarResult.lastID, name: 'Mein Kalender', role: 'owner' };
+      createdCalendarId = calendarResult.lastID;
     }
 
     const userCountRow = await dbGet(db, 'SELECT COUNT(*) AS count FROM users');
@@ -1347,6 +1457,10 @@ async function ensureUserCalendarContext(userId) {
         'UPDATE child_free_days SET calendarId = ? WHERE calendarId IS NULL',
         [membership.id]
       );
+    }
+
+    if (createdCalendarId) {
+      await maybeNotifyAdminAboutNewCalendar({ userId, calendarId: createdCalendarId });
     }
 
     return {
@@ -2177,6 +2291,47 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
 
 app.get('/api/admin/logs', requireAuth, requireAdmin, (req, res) => {
   res.json({ entries: adminLog.list() });
+});
+
+app.get('/api/admin/settings', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const settings = await getEffectiveAdminSettings();
+    return res.json({ settings });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/settings', requireAuth, requireAdmin, async (req, res) => {
+  const settings = req.body || {};
+  const newCalendarAdminEmailsEnabled = Boolean(settings.newCalendarAdminEmailsEnabled);
+  const db = openDb();
+  try {
+    const now = new Date().toISOString();
+    await dbRun(
+      db,
+      `INSERT INTO admin_settings (id, newCalendarAdminEmailsEnabled, updatedAt)
+       VALUES (1, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+        newCalendarAdminEmailsEnabled = excluded.newCalendarAdminEmailsEnabled,
+        updatedAt = excluded.updatedAt`,
+      [newCalendarAdminEmailsEnabled ? 1 : 0, now]
+    );
+    pushAdminLog('admin.settings_update', 'Admin-Benachrichtigungen aktualisiert', {
+      newCalendarAdminEmailsEnabled,
+    });
+    return res.json({
+      success: true,
+      settings: {
+        newCalendarAdminEmailsEnabled,
+        updatedAt: now,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
 });
 
 function formatDateOnlyUtc(date) {
