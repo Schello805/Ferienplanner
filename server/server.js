@@ -1713,7 +1713,10 @@ function requireAdmin(req, res, next) {
 
 
 app.get('/health', (req, res) => {
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    version: process.env.npm_package_version || null,
+  });
 });
 
 app.get('/api/auth/status', async (req, res) => {

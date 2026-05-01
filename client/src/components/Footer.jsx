@@ -4,7 +4,52 @@ import { ChangelogModal } from './ChangelogModal.jsx';
 
 export const Footer = () => {
     const [changelogOpen, setChangelogOpen] = React.useState(false);
+    const [updateAvailable, setUpdateAvailable] = React.useState(false);
     const version = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
+
+    React.useEffect(() => {
+        let cancelled = false;
+
+        const checkVersion = async () => {
+            try {
+                const response = await fetch('/health', {
+                    cache: 'no-store',
+                    headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                if (cancelled) return;
+                const serverVersion = typeof data?.version === 'string' ? data.version : null;
+                setUpdateAvailable(Boolean(serverVersion && serverVersion !== version));
+            } catch {
+                if (!cancelled) {
+                    setUpdateAvailable(false);
+                }
+            }
+        };
+
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                checkVersion();
+            }
+        };
+
+        checkVersion();
+        window.addEventListener('focus', checkVersion);
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+            cancelled = true;
+            window.removeEventListener('focus', checkVersion);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [version]);
+
+    const reloadForUpdate = () => {
+        if (typeof window !== 'undefined') {
+            window.location.reload();
+        }
+    };
 
     return (
         <footer className="mt-2 hidden border-t border-gray-100 py-2 text-center text-[11px] text-gray-400 dark:border-slate-800 dark:text-gray-600 md:block print:hidden">
@@ -52,6 +97,16 @@ export const Footer = () => {
                 >
                     Revision {version}
                 </button>
+                {updateAvailable && (
+                    <button
+                        type="button"
+                        onClick={reloadForUpdate}
+                        className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200 dark:hover:bg-amber-950/50"
+                        title="Neue Version laden"
+                    >
+                        Update verfuegbar
+                    </button>
+                )}
                 <a
                     href="https://github.com/Schello805/Ferienplanner"
                     target="_blank"
