@@ -14,7 +14,7 @@ export const CookieConsentBanner = () => {
             <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">Cookies & Statistik</div>
             <div className="mt-2 text-lg font-black tracking-tight">Nur notwendige Cookies sind sofort aktiv.</div>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Für Login und sichere Nutzung setzen wir notwendige Session-Cookies ein. Matomo zur Reichweitenmessung wird erst geladen,
+              Für Login und sichere Nutzung setze ich notwendige Session-Cookies ein. Matomo zur Reichweitenmessung wird erst geladen,
               wenn du zustimmst.
             </p>
           </div>

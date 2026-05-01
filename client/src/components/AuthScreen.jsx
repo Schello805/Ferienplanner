@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getSiteHostLabel, getSiteUrl } from '../lib/site.js';
 
 export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = null }) => {
   const [mode, setMode] = useState(setupRequired ? 'setup' : 'login');
@@ -43,11 +44,11 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
         <div className="mb-5">
           <div className="mb-4 flex items-center gap-3">
             <a
-              href="https://mein-ferienplaner.de/"
+              href={getSiteUrl()}
               target="_blank"
               rel="noreferrer"
               className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/80 ring-1 ring-white transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:ring-slate-800 dark:hover:bg-slate-800"
-              title="mein-ferienplaner.de öffnen"
+              title={`${getSiteHostLabel()} öffnen`}
             >
               <img src="/ferienplaner-logo-2026.png" alt="Mein Ferienplaner Logo" className="h-14 w-14 rounded-xl object-cover" />
             </a>

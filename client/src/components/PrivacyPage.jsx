@@ -18,7 +18,7 @@ export const PrivacyPage = () => {
         </div>
 
         <div>
-          <div className="font-extrabold">Welche Daten verarbeiten wir?</div>
+          <div className="font-extrabold">Welche Daten verarbeite ich?</div>
           <div className="mt-2 space-y-2">
             <div>
               Für die Nutzung der Webapp wird ein Benutzerkonto benötigt. Dabei werden z.B. Benutzername, E-Mail-Adresse

@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
+import { DEFAULT_SOCIAL_IMAGE, SITE_NAME, buildSiteUrl, getSiteUrl } from '../lib/site.js';
 
-const SITE_NAME = 'Mein Ferienplaner';
-const SITE_URL = 'https://mein-ferienplaner.de';
-const DEFAULT_IMAGE = `${SITE_URL}/ferienplaner-logo-512-2026.png`;
+const DEFAULT_IMAGE = DEFAULT_SOCIAL_IMAGE;
 
 const upsertMetaTag = (selector, attributes, content) => {
   let node = document.head.querySelector(selector);
@@ -49,9 +48,10 @@ export const SeoHead = ({
   structuredData = null,
 }) => {
   useEffect(() => {
-    const canonicalUrl = new URL(path, SITE_URL).toString();
+    const canonicalUrl = buildSiteUrl(path);
     const normalizedTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
     const normalizedDescription = description || 'Familienkalender für Schulferien, Urlaub, Betreuung und freie Tage.';
+    const normalizedImage = image || DEFAULT_IMAGE;
 
     document.title = normalizedTitle;
 
@@ -62,11 +62,11 @@ export const SeoHead = ({
     upsertMetaTag('meta[property="og:title"]', { property: 'og:title' }, normalizedTitle);
     upsertMetaTag('meta[property="og:description"]', { property: 'og:description' }, normalizedDescription);
     upsertMetaTag('meta[property="og:url"]', { property: 'og:url' }, canonicalUrl);
-    upsertMetaTag('meta[property="og:image"]', { property: 'og:image' }, image);
+    upsertMetaTag('meta[property="og:image"]', { property: 'og:image' }, normalizedImage);
     upsertMetaTag('meta[name="twitter:card"]', { name: 'twitter:card' }, 'summary');
     upsertMetaTag('meta[name="twitter:title"]', { name: 'twitter:title' }, normalizedTitle);
     upsertMetaTag('meta[name="twitter:description"]', { name: 'twitter:description' }, normalizedDescription);
-    upsertMetaTag('meta[name="twitter:image"]', { name: 'twitter:image' }, image);
+    upsertMetaTag('meta[name="twitter:image"]', { name: 'twitter:image' }, normalizedImage);
     upsertLinkTag('link[rel="canonical"]', { rel: 'canonical', href: canonicalUrl });
     upsertStructuredData(structuredData);
   }, [description, image, path, robots, structuredData, title]);

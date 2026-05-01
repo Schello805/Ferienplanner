@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { SeoHead } from './SeoHead.jsx';
+import { buildSiteUrl } from '../lib/site.js';
 
 export const LandingPage = () => {
   const quickBenefits = [
@@ -68,6 +69,14 @@ export const LandingPage = () => {
       question: 'Kann ich den Kalender teilen?',
       answer: 'Ja. Der Familienkalender kann mit Partner oder weiteren Beteiligten geteilt werden, damit die Planung nicht an einer Person hängen bleibt.',
     },
+    {
+      question: 'Ist Mein Ferienplaner kostenlos?',
+      answer: 'Ja. Der Einstieg ist kostenlos, sodass du Schulferien, Urlaub, freie Tage und Betreuung ohne Hürde gemeinsam planen kannst.',
+    },
+    {
+      question: 'Kann ich die App auch für Ferienbetreuung und Hortplanung nutzen?',
+      answer: 'Ja. Die App eignet sich auch, um Hort, Großeltern, Tagesbetreuung oder andere Formen der Ferienbetreuung in einer Jahresübersicht mitzudenken.',
+    },
   ];
 
   const helpAnchors = [
@@ -93,27 +102,47 @@ export const LandingPage = () => {
     },
   ];
 
-  const structuredData = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: 'Mein Ferienplaner',
-    applicationCategory: 'ProductivityApplication',
-    operatingSystem: 'Web',
-    description: 'Mein Ferienplaner hilft berufstätigen Eltern dabei, Betreuung in den Schulferien, Urlaub und freie Tage gemeinsam zu planen.',
-    url: 'https://mein-ferienplaner.de/',
-    image: 'https://mein-ferienplaner.de/Flyer-Mein-Ferienkalender.png',
-    offers: {
-      '@type': 'Offer',
-      price: '0',
-      priceCurrency: 'EUR',
+  const structuredData = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Mein Ferienplaner',
+      applicationCategory: 'ProductivityApplication',
+      operatingSystem: 'Web',
+      description: 'Mein Ferienplaner hilft berufstätigen Eltern dabei, Betreuung in den Schulferien, Urlaub und freie Tage gemeinsam zu planen.',
+      url: buildSiteUrl('/'),
+      image: buildSiteUrl('/Flyer-Mein-Ferienkalender.png'),
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'EUR',
+      },
     },
-  };
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer,
+        },
+      })),
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'Mein Ferienplaner',
+      url: buildSiteUrl('/'),
+    },
+  ];
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(125,211,252,0.16),_transparent_38%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_54%,_#f8fafc_100%)] px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:py-10">
       <SeoHead
         title="Betreuung planen für berufstätige Eltern"
-        description="Mein Ferienplaner hilft berufstätigen Eltern dabei, Betreuung in den Schulferien, Urlaub, freie Tage und Familienkalender gemeinsam zu planen."
+        description="Mein Ferienplaner hilft berufstätigen Eltern dabei, Schulferien, Ferienbetreuung, Urlaub und freie Tage kostenlos in einer gemeinsamen Familienübersicht zu planen."
         path="/"
         structuredData={structuredData}
       />
@@ -131,8 +160,13 @@ export const LandingPage = () => {
               </div>
             </div>
 
-            <div className="mt-7 inline-flex items-center rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-800 shadow-sm backdrop-blur dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
-              Für berufstätige Eltern
+            <div className="mt-7 flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-800 shadow-sm backdrop-blur dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+                Für berufstätige Eltern
+              </div>
+              <div className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50/90 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.2em] text-sky-800 shadow-sm backdrop-blur dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-200">
+                Kostenlos nutzen
+              </div>
             </div>
 
             <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl sm:leading-[1.02] dark:text-white">
@@ -140,7 +174,11 @@ export const LandingPage = () => {
             </h1>
 
             <p className="mt-5 max-w-2xl text-base leading-8 text-slate-700 dark:text-slate-200">
-              Mein Ferienplaner ist ein One-Stop-Familienkalender für Eltern, die Schule, Beruf und Betreuung zusammen denken müssen. Ihr seht auf einen Blick, wann Schulferien stattfinden, wo Urlaub schon eingeplant ist und an welchen Tagen Betreuung noch fehlt.
+              Mein Ferienplaner ist ein One-Stop-Familienkalender für Eltern, die Schule, Beruf und Betreuung zusammen denken müssen. Ihr seht auf einen Blick, wann Schulferien stattfinden, wo Urlaub schon eingeplant ist, welche Ferienbetreuung mitgedacht werden muss und an welchen Tagen Betreuung noch fehlt.
+            </p>
+
+            <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-sky-800 dark:text-sky-200">
+              Der Einstieg ist kostenlos: Kalender anlegen, Ferien laden, Betreuung planen und die Familienübersicht direkt nutzen.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -148,7 +186,7 @@ export const LandingPage = () => {
                 to="/setup"
                 className="inline-flex items-center justify-center rounded-2xl bg-sky-500 px-5 py-3 text-sm font-extrabold text-slate-950 shadow-sm transition-colors hover:bg-sky-400"
               >
-                Betreuung jetzt planen
+                Kostenlos Betreuung planen
               </Link>
               <Link
                 to="/app"
@@ -182,7 +220,7 @@ export const LandingPage = () => {
                 So sieht der Nutzen für eure Planung aus
               </h2>
               <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-                Die App bündelt Ferienzeiten, Urlaub und Betreuung in einer Familienlogik. Auf der öffentlichen Startseite zeigen wir bewusst keine echte Kalenderansicht, sondern nur die typischen Planungsbausteine.
+                Die App bündelt Ferienzeiten, Urlaub und Betreuung in einer Familienlogik. Auf der öffentlichen Startseite zeige ich bewusst keine echte Kalenderansicht, sondern nur die typischen Planungsbausteine.
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -244,6 +282,30 @@ export const LandingPage = () => {
               </div>
             </div>
           </section>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-3" aria-labelledby="landing-seo-benefits">
+          <div className="rounded-[1.75rem] border border-white/70 bg-white/88 p-5 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/55">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">Schulferien planen</div>
+            <h2 id="landing-seo-benefits" className="mt-3 text-lg font-extrabold text-slate-950 dark:text-white">Schulferien, Urlaub und Betreuung zusammen denken</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Statt Schulferien separat, Urlaubstage separat und Betreuung nur im Kopf zu planen, landet alles in einer gemeinsamen Jahresübersicht.
+            </p>
+          </div>
+          <div className="rounded-[1.75rem] border border-white/70 bg-white/88 p-5 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/55">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">Ferienbetreuung</div>
+            <h2 className="mt-3 text-lg font-extrabold text-slate-950 dark:text-white">Ferienbetreuung früh erkennen statt kurzfristig improvisieren</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Ob Hort, Großeltern oder andere Betreuung: Die App hilft dir, Betreuungslücken in den Ferien rechtzeitig sichtbar zu machen.
+            </p>
+          </div>
+          <div className="rounded-[1.75rem] border border-white/70 bg-white/88 p-5 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/55">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">Kostenlos starten</div>
+            <h2 className="mt-3 text-lg font-extrabold text-slate-950 dark:text-white">Kostenloser Einstieg ohne komplizierten Setup-Prozess</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Du kannst direkt einen Kalender anlegen, Ferien laden und eure Betreuungsplanung aufbauen, ohne erst ein großes Toolset einrichten zu müssen.
+            </p>
+          </div>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">

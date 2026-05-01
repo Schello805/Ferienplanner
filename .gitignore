@@ -41,3 +41,4 @@ Ferienplanner/
 
 # Local-only analytics snippet
 client/public/matomo.local.js
+client/public/.generated-seo-files

@@ -1,5 +1,6 @@
 import React from 'react';
 import { VacationRangeInput } from './VacationRangeInput';
+import { LAYERS } from '../lib/layers.js';
 
 const formatUnattendedLabel = (value) => {
     const match = typeof value === 'string' ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
@@ -77,8 +78,8 @@ export const CalendarToolbar = ({
     );
 
     return (
-        <div className="calendar-toolbar relative z-[60] mb-2 space-y-2 overflow-visible">
-            <div className="relative z-[60] flex flex-wrap items-center justify-between gap-2 overflow-visible rounded-2xl border border-slate-200/80 bg-white/88 p-2 shadow-sm shadow-slate-200/60 backdrop-blur dark:border-slate-700 dark:bg-slate-950/88 dark:shadow-black/20">
+        <div className="calendar-toolbar relative mb-2 space-y-2 overflow-visible" style={{ zIndex: LAYERS.calendarToolbar }}>
+            <div className="relative flex flex-wrap items-center justify-between gap-2 overflow-visible rounded-2xl border border-slate-200/80 bg-white/88 p-2 shadow-sm shadow-slate-200/60 backdrop-blur dark:border-slate-700 dark:bg-slate-950/88 dark:shadow-black/20" style={{ zIndex: LAYERS.calendarToolbar }}>
                 <div className="flex flex-wrap items-center gap-2">
                     <div className="flex rounded-xl border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-900">
                     {[currentYear, currentYear + 1, currentYear + 2].map(y => (
@@ -125,7 +126,10 @@ export const CalendarToolbar = ({
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25h.008v.008H12V8.25Zm0 3v4.5m9-3.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                             </svg>
                                         </span>
-                                        <div className="pointer-events-none absolute bottom-[calc(100%+8px)] right-0 z-[80] w-64 rounded-xl border border-red-200 bg-white/98 p-3 text-left text-[11px] font-medium text-slate-700 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 dark:border-red-900/40 dark:bg-slate-950/98 dark:text-slate-100">
+                                        <div
+                                            className="pointer-events-none absolute bottom-[calc(100%+8px)] right-0 w-64 rounded-xl border border-red-200 bg-white/98 p-3 text-left text-[11px] font-medium text-slate-700 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 dark:border-red-900/40 dark:bg-slate-950/98 dark:text-slate-100"
+                                            style={{ zIndex: LAYERS.calendarPopover }}
+                                        >
                                             <div className="mb-2 font-bold text-red-700 dark:text-red-300">Unbetreute Tage</div>
                                             <div className="space-y-1">
                                                 {stats.unattendedDates.map((date) => (

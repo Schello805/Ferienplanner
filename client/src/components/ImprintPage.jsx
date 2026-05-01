@@ -30,7 +30,7 @@ export const ImprintPage = () => {
           <div className="font-extrabold">Haftungsausschluss</div>
           <div className="mt-2 space-y-2">
             <div>
-              Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links.
+              Trotz sorgfältiger inhaltlicher Kontrolle übernehme ich keine Haftung für die Inhalte externer Links.
               Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.
             </div>
           </div>

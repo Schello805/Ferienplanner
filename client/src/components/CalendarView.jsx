@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { CalendarToolbar } from './CalendarToolbar';
 import { DayCell } from './DayCell';
 import { authFetch, requestJson, toApiError } from '../lib/api';
+import { LAYERS } from '../lib/layers.js';
+import { getSiteHostLabel } from '../lib/site.js';
 
 const MONTHS = [
     'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -1019,8 +1021,8 @@ const CalendarView = ({
             {/* Custom Tooltip */}
             {hoveredDay && (
                 <div 
-                    className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full px-3 py-2 bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-xs rounded-lg shadow-xl backdrop-blur border border-white/10"
-                    style={{ left: tooltipPos.x, top: tooltipPos.y }}
+                    className="fixed pointer-events-none transform -translate-x-1/2 -translate-y-full px-3 py-2 bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-xs rounded-lg shadow-xl backdrop-blur border border-white/10"
+                    style={{ left: tooltipPos.x, top: tooltipPos.y, zIndex: LAYERS.floatingTooltip }}
                 >
                     <div className="font-bold mb-1 border-b border-white/20 pb-1">{new Date(hoveredDay.date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
                     <div className="space-y-1">
@@ -1089,7 +1091,7 @@ const CalendarView = ({
                     <div className="min-w-0">
                         <h1 className="text-2xl font-bold text-slate-900">Mein Ferienkalender {year}</h1>
                         <div className="text-sm text-slate-600">{stateName}</div>
-                        <div className="text-[11px] text-slate-500">https://mein-ferienplaner.de</div>
+                        <div className="text-[11px] text-slate-500">{getSiteHostLabel()}</div>
                     </div>
                 </div>
                 <div className="text-sm text-slate-500">Stand: {new Date().toLocaleDateString('de-DE')}</div>
@@ -1133,7 +1135,10 @@ const CalendarView = ({
                 <div className="calendar-min-width-wrapper min-w-[760px] sm:min-w-[920px]">
 
                     {/* Sticky Header Row */}
-                    <div className="calendar-grid grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px sticky top-0 z-40 bg-gray-200 dark:bg-slate-800 shadow-md transition-colors h-auto min-h-[34px] items-stretch">
+                    <div
+                        className="calendar-grid grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px sticky top-0 bg-gray-200 dark:bg-slate-800 shadow-md transition-colors h-auto min-h-[34px] items-stretch"
+                        style={{ zIndex: LAYERS.calendarStickyHeader }}
+                    >
                         <div className="calendar-corner-header font-bold text-center text-gray-500 dark:text-gray-400 flex items-end justify-center pb-1 text-[10px] bg-white dark:bg-slate-900">Tag</div>
                         {MONTHS.map((m, i) => {
                             const stats = monthStats[i];
@@ -1198,7 +1203,7 @@ const CalendarView = ({
                     <span>Warnung: rote Markierung</span>
                 </div>
                 <span className="text-right">
-                    https://mein-ferienplaner.de
+                    {getSiteHostLabel()}
                     <br />
                     Druckdatum: {new Date().toLocaleString('de-DE')}
                 </span>

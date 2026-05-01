@@ -1,13 +1,15 @@
+import { getSiteHostLabel, getSiteUrl } from '../lib/site.js';
+
 export const Header = ({ darkMode, setDarkMode, stateName, currentUser, currentCalendar, shareMode }) => {
     return (
         <header className="mb-2 flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/92 px-3 py-2 shadow-sm shadow-slate-200/60 transition-colors dark:border-slate-700 dark:bg-slate-950/92 dark:shadow-black/20">
             <div className="flex min-w-0 items-center gap-3">
                 <a
-                    href="https://mein-ferienplaner.de/"
+                    href={getSiteUrl()}
                     target="_blank"
                     rel="noreferrer"
                     className="overflow-hidden rounded-xl border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/80 ring-1 ring-white transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 dark:ring-slate-800 dark:hover:bg-slate-800"
-                    title="mein-ferienplaner.de öffnen"
+                    title={`${getSiteHostLabel()} öffnen`}
                 >
                     <img src="/ferienplaner-logo-2026.png" alt="Mein Ferienplaner Logo" className="h-9 w-9 rounded-lg object-contain" />
                 </a>

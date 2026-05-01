@@ -84,7 +84,7 @@ export class AppErrorBoundary extends React.Component {
           <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
             <div className="text-xl font-black tracking-tight">Etwas ist schiefgelaufen</div>
             <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Bitte lade die Seite neu. Wenn das Problem bleibt, kopiere die Fehlerdetails und schicke sie uns.
+              Bitte lade die Seite neu. Wenn das Problem bleibt, kopiere die Fehlerdetails und schicke sie mir.
             </div>
 
             <div className="mt-4 grid gap-2 sm:grid-cols-2">

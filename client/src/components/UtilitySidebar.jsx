@@ -361,6 +361,8 @@ const NotificationPanel = () => {
 const AdminToolsPanel = ({ currentUser }) => {
     const [stats, setStats] = React.useState(null);
     const [logs, setLogs] = React.useState([]);
+    const [logSearch, setLogSearch] = React.useState('');
+    const [logEventFilter, setLogEventFilter] = React.useState('all');
     const [smtpStatus, setSmtpStatus] = React.useState(null);
     const [digestStatus, setDigestStatus] = React.useState(null);
     const [diagnosticsExporting, setDiagnosticsExporting] = React.useState(false);
@@ -393,7 +395,7 @@ const AdminToolsPanel = ({ currentUser }) => {
         try {
             const [statsRes, logsRes, digestRes] = await Promise.all([
                 authFetch('/api/admin/stats'),
-                authFetch('/api/admin/logs?limit=50'),
+                authFetch('/api/admin/logs?limit=200'),
                 authFetch('/api/admin/digest/status'),
             ]);
 
@@ -465,6 +467,19 @@ const AdminToolsPanel = ({ currentUser }) => {
     if (!isUserAdmin(currentUser)) {
         return null;
     }
+
+    const logEventOptions = Array.from(new Set(logs.map((entry) => entry.event).filter(Boolean))).sort();
+    const filteredLogs = logs.filter((entry) => {
+        const eventMatch = logEventFilter === 'all' || entry.event === logEventFilter;
+        if (!eventMatch) return false;
+        const haystack = [
+            entry.ts,
+            entry.event,
+            entry.detail,
+            entry.meta ? JSON.stringify(entry.meta) : '',
+        ].join(' ').toLowerCase();
+        return haystack.includes(logSearch.trim().toLowerCase());
+    });
 
     const exportDiagnostics = async () => {
         setDiagnosticsExporting(true);
@@ -932,19 +947,58 @@ const AdminToolsPanel = ({ currentUser }) => {
             </SidebarSection>
 
             <SidebarSection title="Admin Log" subtitle="Letzte Ereignisse dieser Instanz, persistent gespeichert für 90 Tage.">
-                {logs.length === 0 ? (
+                <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_180px]">
+                    <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        Suche
+                        <input
+                            type="text"
+                            value={logSearch}
+                            onChange={(event) => setLogSearch(event.target.value)}
+                            placeholder="Event, Detail oder Meta durchsuchen"
+                            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        />
+                    </label>
+                    <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        Eventtyp
+                        <select
+                            value={logEventFilter}
+                            onChange={(event) => setLogEventFilter(event.target.value)}
+                            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        >
+                            <option value="all">Alle Events</option>
+                            {logEventOptions.map((eventName) => (
+                                <option key={eventName} value={eventName}>{eventName}</option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
+
+                <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                    <span>{filteredLogs.length} Einträge sichtbar</span>
+                    <span>Aufbewahrung: 90 Tage</span>
+                </div>
+
+                {filteredLogs.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                        Noch keine Einträge.
+                        Keine passenden Einträge.
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        {logs.slice(0, 40).map((entry, idx) => (
+                        {filteredLogs.slice(0, 80).map((entry, idx) => (
                             <div key={`${entry.ts}-${idx}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="font-semibold text-slate-900 dark:text-white">{entry.event}</div>
-                                    <div className="text-[10px] text-slate-400">{entry.ts}</div>
+                                    <div className="text-[10px] text-slate-400">{new Date(entry.ts).toLocaleString('de-DE')}</div>
                                 </div>
                                 {entry.detail && <div className="mt-1 text-slate-600 dark:text-slate-300">{entry.detail}</div>}
+                                {entry.meta && (
+                                    <details className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-950/40">
+                                        <summary className="cursor-pointer text-[11px] font-semibold text-slate-500 dark:text-slate-400">Meta anzeigen</summary>
+                                        <pre className="mt-2 whitespace-pre-wrap break-words text-[10px] leading-snug text-slate-700 dark:text-slate-200">
+{JSON.stringify(entry.meta, null, 2)}
+                                        </pre>
+                                    </details>
+                                )}
                             </div>
                         ))}
                     </div>
