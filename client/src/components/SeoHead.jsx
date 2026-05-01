@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { DEFAULT_SOCIAL_IMAGE, SITE_NAME, buildSiteUrl, getSiteUrl } from '../lib/site.js';
+import { DEFAULT_SOCIAL_IMAGE, SITE_NAME, buildSiteUrl } from '../lib/site.js';
 
 const DEFAULT_IMAGE = DEFAULT_SOCIAL_IMAGE;
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- Domain- und SEO-Konfiguration im Frontend zentralisiert, inkl. generierter `index.html`, `robots.txt` und `sitemap.xml`
+- Landingpage als stärkerer OnePager für berufstätige Eltern ausgebaut, mit mehr Fokus auf kostenlose Ferienbetreuungs-Planung
+- Admin-Log im Panel verbessert: Suche, Event-Filter und Meta-Ansicht
+- Kalender-Layering robuster gemacht, damit Tooltips und Overlays sauber über der Oberfläche liegen
+- Öffentliche Texte an mehreren Stellen konsequent auf die Ich-Form umgestellt
+
 ## 0.2.0
 
 - Admin: SMTP-Konfiguration direkt in der App speichern (verschlüsselt) + Testmail
