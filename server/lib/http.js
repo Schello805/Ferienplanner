@@ -1,3 +1,20 @@
+export function validatePublicBaseUrl({ publicBaseUrl, nodeEnv }) {
+  const normalizedBaseUrl = String(publicBaseUrl || '').trim();
+  if (!normalizedBaseUrl) {
+    if (nodeEnv === 'production') {
+      throw new Error('PUBLIC_BASE_URL is required in production');
+    }
+    return null;
+  }
+
+  try {
+    const parsed = new URL(normalizedBaseUrl);
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    throw new Error(`Invalid PUBLIC_BASE_URL: ${normalizedBaseUrl}`);
+  }
+}
+
 export function buildAllowedOrigins({ port, publicBaseUrl }) {
   const origins = new Set([
     `http://localhost:${port}`,

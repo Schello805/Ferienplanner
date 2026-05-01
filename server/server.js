@@ -15,6 +15,7 @@ import {
   getPublicBaseUrl,
   securityHeadersMiddleware,
   setSessionCookies,
+  validatePublicBaseUrl,
 } from './lib/http.js';
 import { getBearerToken, getRequestedCalendarSlug } from './lib/auth-context.js';
 
@@ -72,7 +73,23 @@ function ensureAppSecretKeyFile() {
 
 ensureAppSecretKeyFile();
 
-const allowedOrigins = buildAllowedOrigins({ port: PORT, publicBaseUrl: process.env.PUBLIC_BASE_URL });
+let validatedPublicBaseUrl = null;
+try {
+  validatedPublicBaseUrl = validatePublicBaseUrl({
+    publicBaseUrl: process.env.PUBLIC_BASE_URL,
+    nodeEnv: process.env.NODE_ENV,
+  });
+} catch (error) {
+  process.stderr.write(`[ferienplaner] ${error.message}\n`);
+  process.stderr.write('[ferienplaner] Please set PUBLIC_BASE_URL in the environment, e.g. PUBLIC_BASE_URL=https://mein-ferienplaner.de\n');
+  process.exit(1);
+}
+
+if (!validatedPublicBaseUrl && process.env.NODE_ENV !== 'test') {
+  process.stderr.write('[ferienplaner] Warning: PUBLIC_BASE_URL is not set. This is only safe for local development.\n');
+}
+
+const allowedOrigins = buildAllowedOrigins({ port: PORT, publicBaseUrl: validatedPublicBaseUrl });
 const corsOptions = createCorsOptions(allowedOrigins);
 
 export const app = express();
