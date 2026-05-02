@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import sqlite3 from 'sqlite3';
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ferienplaner-test-'));
 process.env.NODE_ENV = 'test';
@@ -21,6 +22,40 @@ const request = async (pathname, options = {}) => {
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : await response.text();
   return { response, data };
+};
+
+const withDb = async (callback) => {
+  const db = new sqlite3.Database(process.env.DB_PATH);
+  try {
+    return await callback({
+      run(sql, params = []) {
+        return new Promise((resolve, reject) => {
+          db.run(sql, params, function onRun(error) {
+            if (error) reject(error);
+            else resolve(this);
+          });
+        });
+      },
+      get(sql, params = []) {
+        return new Promise((resolve, reject) => {
+          db.get(sql, params, (error, row) => {
+            if (error) reject(error);
+            else resolve(row);
+          });
+        });
+      },
+      all(sql, params = []) {
+        return new Promise((resolve, reject) => {
+          db.all(sql, params, (error, rows) => {
+            if (error) reject(error);
+            else resolve(rows);
+          });
+        });
+      },
+    });
+  } finally {
+    await new Promise((resolve, reject) => db.close((error) => (error ? reject(error) : resolve())));
+  }
 };
 
 test.after(async () => {
@@ -247,4 +282,84 @@ test('admin can enable new calendar email notifications and calendar creation lo
   const events = (logsResponse.data.entries || []).map((entry) => entry.event);
   assert.ok(events.includes('admin.settings_update'));
   assert.ok(events.includes('admin.calendar_created_email_skipped'));
+});
+
+test('re-registering an unverified account refreshes the verification flow and password', async () => {
+  const firstAttempt = await request('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'pending-user', email: 'pending@example.com', password: 'secret12345' }),
+  });
+  assert.equal(firstAttempt.response.status, 200);
+  assert.equal(firstAttempt.data.verificationResent, false);
+
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  await withDb(async (db) => {
+    await db.run('UPDATE users SET createdAt = ?, updatedAt = ? WHERE username = ?', [threeDaysAgo, threeDaysAgo, 'pending-user']);
+  });
+
+  const secondAttempt = await request('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'pending-user', email: 'pending@example.com', password: 'updated12345' }),
+  });
+  assert.equal(secondAttempt.response.status, 200);
+  assert.equal(secondAttempt.data.verificationResent, true);
+
+  await withDb(async (db) => {
+    await db.run('UPDATE users SET emailVerified = 1 WHERE username = ?', ['pending-user']);
+  });
+
+  const oldPasswordLogin = await request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'pending-user', password: 'secret12345' }),
+  });
+  assert.equal(oldPasswordLogin.response.status, 401);
+
+  const newPasswordLogin = await request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'pending-user', password: 'updated12345' }),
+  });
+  assert.equal(newPasswordLogin.response.status, 200);
+});
+
+test('stale unverified accounts older than seven days are replaced cleanly on re-registration', async () => {
+  const firstAttempt = await request('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'stale-user', email: 'stale@example.com', password: 'secret12345' }),
+  });
+  assert.equal(firstAttempt.response.status, 200);
+
+  const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+  await withDb(async (db) => {
+    await db.run('UPDATE users SET createdAt = ?, updatedAt = ? WHERE username = ?', [eightDaysAgo, eightDaysAgo, 'stale-user']);
+    await db.run('UPDATE email_verifications SET createdAt = ?, expiresAt = ? WHERE userId = (SELECT id FROM users WHERE username = ?)', [
+      eightDaysAgo,
+      eightDaysAgo,
+      'stale-user',
+    ]);
+  });
+
+  const secondAttempt = await request('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'stale-user', email: 'stale@example.com', password: 'fresh12345' }),
+  });
+  assert.equal(secondAttempt.response.status, 200);
+  assert.equal(secondAttempt.data.verificationResent, false);
+
+  await withDb(async (db) => {
+    const userCount = await db.get('SELECT COUNT(*) AS count FROM users WHERE username = ? OR lower(email) = lower(?)', ['stale-user', 'stale@example.com']);
+    const verificationCount = await db.get(
+      `SELECT COUNT(*) AS count
+       FROM email_verifications
+       WHERE userId IN (SELECT id FROM users WHERE username = ? OR lower(email) = lower(?))`,
+      ['stale-user', 'stale@example.com']
+    );
+    assert.equal(Number(userCount?.count || 0), 1);
+    assert.equal(Number(verificationCount?.count || 0), 1);
+  });
 });

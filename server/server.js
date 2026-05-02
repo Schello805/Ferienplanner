@@ -31,6 +31,8 @@ const AUTH_RATE_LIMIT_MAX_ATTEMPTS = 10;
 const authAttemptStore = new Map();
 
 const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24;
+const UNVERIFIED_USER_RETENTION_DAYS = 7;
+const UNVERIFIED_USER_RETENTION_MS = UNVERIFIED_USER_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const HIBP_TIMEOUT_MS = 5000;
 const HIBP_CACHE_TTL_MS = 1000 * 60 * 60;
 
@@ -133,23 +135,51 @@ app.post('/api/auth/register', async (req, res) => {
   const db = openDb();
   const now = new Date().toISOString();
   try {
-    const existing = await dbGet(
+    await cleanupStaleUnverifiedUsers(db, now);
+
+    const conflicts = await dbAll(
       db,
-      'SELECT id FROM users WHERE username = ? OR lower(email) = lower(?)',
+      `SELECT id, username, email, emailVerified, isAdmin, createdAt, updatedAt
+       FROM users
+       WHERE username = ? OR lower(email) = lower(?)`,
       [String(username).trim(), normalizedEmail]
     );
-    if (existing) {
+
+    const blockingConflict = conflicts.find((entry) => Boolean(entry?.isAdmin) || Boolean(entry?.emailVerified));
+    if (blockingConflict) {
       registerAuthFailure(req, String(username));
       return res.status(409).json({ error: 'User already exists' });
     }
 
+    const renewableConflicts = conflicts.filter((entry) => !entry?.isAdmin && !entry?.emailVerified);
+    if (renewableConflicts.length > 1) {
+      registerAuthFailure(req, String(username));
+      return res.status(409).json({ error: 'Registration could not be refreshed automatically. Please contact support.' });
+    }
+
     const { salt, hash } = hashPassword(password);
-    const result = await dbRun(
-      db,
-      `INSERT INTO users (username, email, emailVerified, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
-       VALUES (?, ?, 0, ?, ?, 0, ?, ?)`,
-      [String(username).trim(), normalizedEmail, hash, salt, now, now]
-    );
+    const renewableUser = renewableConflicts[0] || null;
+    let userId;
+
+    if (renewableUser) {
+      await dbRun(
+        db,
+        `UPDATE users
+         SET username = ?, email = ?, passwordHash = ?, passwordSalt = ?, updatedAt = ?
+         WHERE id = ?`,
+        [String(username).trim(), normalizedEmail, hash, salt, now, renewableUser.id]
+      );
+      await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [renewableUser.id]);
+      userId = renewableUser.id;
+    } else {
+      const result = await dbRun(
+        db,
+        `INSERT INTO users (username, email, emailVerified, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
+         VALUES (?, ?, 0, ?, ?, 0, ?, ?)`,
+        [String(username).trim(), normalizedEmail, hash, salt, now, now]
+      );
+      userId = result.lastID;
+    }
 
     const token = crypto.randomBytes(32).toString('base64url');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -158,13 +188,24 @@ app.post('/api/auth/register', async (req, res) => {
     await dbRun(
       db,
       "INSERT INTO email_verifications (tokenHash, userId, type, newEmail, createdAt, expiresAt) VALUES (?, ?, 'register', NULL, ?, ?)",
-      [tokenHash, result.lastID, now, expiresAt]
+      [tokenHash, userId, now, expiresAt]
     );
 
     await sendVerificationEmail({ req, to: normalizedEmail, token });
-    pushAdminLog('auth.register', `User registered: ${String(username).trim()}`, { username: String(username).trim(), email: normalizedEmail });
+    pushAdminLog(
+      renewableUser ? 'auth.register_refresh' : 'auth.register',
+      renewableUser
+        ? `Registrierung erneuert: ${String(username).trim()}`
+        : `User registered: ${String(username).trim()}`,
+      {
+        username: String(username).trim(),
+        email: normalizedEmail,
+        userId,
+        refreshed: Boolean(renewableUser),
+      }
+    );
     clearAuthFailures(req, String(username));
-    return res.json({ success: true });
+    return res.json({ success: true, verificationResent: Boolean(renewableUser) });
   } catch (error) {
     registerAuthFailure(req, String(username));
     return res.status(500).json({ error: error.message });
@@ -491,6 +532,39 @@ function getAdminLogCutoffIso(now = Date.now()) {
   return new Date(now - ADMIN_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function getUnverifiedUserCutoffIso(now = Date.now()) {
+  return new Date(now - UNVERIFIED_USER_RETENTION_MS).toISOString();
+}
+
+async function cleanupStaleUnverifiedUsers(db, nowIso = new Date().toISOString()) {
+  const cutoffIso = getUnverifiedUserCutoffIso(new Date(nowIso).getTime());
+  const staleUsers = await dbAll(
+    db,
+    `SELECT id, username, email, createdAt, updatedAt
+     FROM users
+     WHERE emailVerified = 0
+       AND isAdmin = 0
+       AND COALESCE(updatedAt, createdAt, '') != ''
+       AND COALESCE(updatedAt, createdAt) < ?`,
+    [cutoffIso]
+  );
+
+  for (const user of staleUsers) {
+    await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [user.id]);
+    await dbRun(db, 'DELETE FROM users WHERE id = ?', [user.id]);
+    pushAdminLog('auth.cleanup_unverified_user', `Unverifiziertes Konto entfernt: ${String(user.username || user.id)}`, {
+      userId: user.id,
+      username: user.username || null,
+      email: user.email || null,
+      createdAt: user.createdAt || null,
+      updatedAt: user.updatedAt || null,
+      retentionDays: UNVERIFIED_USER_RETENTION_DAYS,
+    });
+  }
+
+  return staleUsers.length;
+}
+
 async function persistAdminLog(event, detail = '', meta = null) {
   await dbReady;
   const db = openDb();
@@ -753,6 +827,8 @@ async function initializeDatabase() {
       db,
       'CREATE INDEX IF NOT EXISTS idx_admin_logs_ts ON admin_logs(ts)'
     );
+
+    await cleanupStaleUnverifiedUsers(db);
 
     await dbRun(
       db,

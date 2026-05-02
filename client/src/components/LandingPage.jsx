@@ -102,41 +102,41 @@ export const LandingPage = () => {
     },
   ];
 
-  const structuredData = [
-    {
-      '@context': 'https://schema.org',
-      '@type': 'SoftwareApplication',
-      name: 'Mein Ferienplaner',
-      applicationCategory: 'ProductivityApplication',
-      operatingSystem: 'Web',
-      description: 'Mein Ferienplaner hilft berufstätigen Eltern dabei, Betreuung in den Schulferien, Urlaub und freie Tage gemeinsam zu planen.',
-      url: buildSiteUrl('/'),
-      image: buildSiteUrl('/Flyer-Mein-Ferienkalender.png'),
-      offers: {
-        '@type': 'Offer',
-        price: '0',
-        priceCurrency: 'EUR',
-      },
-    },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: faqItems.map((item) => ({
-        '@type': 'Question',
-        name: item.question,
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: item.answer,
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'SoftwareApplication',
+        name: 'Mein Ferienplaner',
+        applicationCategory: 'ProductivityApplication',
+        operatingSystem: 'Web',
+        description: 'Mein Ferienplaner hilft berufstätigen Eltern dabei, Betreuung in den Schulferien, Urlaub und freie Tage gemeinsam zu planen.',
+        url: buildSiteUrl('/'),
+        image: buildSiteUrl('/Flyer-Mein-Ferienkalender.png'),
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'EUR',
         },
-      })),
-    },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'WebSite',
-      name: 'Mein Ferienplaner',
-      url: buildSiteUrl('/'),
-    },
-  ];
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: faqItems.map((item) => ({
+          '@type': 'Question',
+          name: item.question,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: item.answer,
+          },
+        })),
+      },
+      {
+        '@type': 'WebSite',
+        name: 'Mein Ferienplaner',
+        url: buildSiteUrl('/'),
+      },
+    ],
+  };
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(125,211,252,0.16),_transparent_38%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_54%,_#f8fafc_100%)] px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:py-10">
