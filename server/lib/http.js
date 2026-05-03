@@ -29,7 +29,15 @@ export function buildAllowedOrigins({ port, publicBaseUrl }) {
   const normalizedBaseUrl = String(publicBaseUrl || '').trim();
   if (normalizedBaseUrl) {
     try {
-      origins.add(new URL(normalizedBaseUrl).origin);
+      const parsedUrl = new URL(normalizedBaseUrl);
+      origins.add(parsedUrl.origin);
+      
+      // Allow www variant automatically
+      if (!parsedUrl.hostname.startsWith('www.')) {
+        const wwwUrl = new URL(normalizedBaseUrl);
+        wwwUrl.hostname = 'www.' + parsedUrl.hostname;
+        origins.add(wwwUrl.origin);
+      }
     } catch {
       // ignore invalid PUBLIC_BASE_URL
     }
