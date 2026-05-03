@@ -1396,7 +1396,7 @@ async function sendVerificationEmail({ req, to, token }) {
             <tr>
               <td style="padding:20px 20px 8px 20px;color:#0f172a">
                 <div style="display:flex;align-items:center;gap:10px">
-                  ${hasLogo ? `<img src="cid:ferienplaner-logo" width="36" height="36" alt="${appName}" style="display:block;border-radius:10px" />` : ''}
+                  ${hasLogo ? `<img src="cid:ferienplaner-logo" width="64" height="64" alt="${appName}" style="display:block;width:64px;height:64px;max-width:64px;max-height:64px;border-radius:10px" />` : ''}
                   <div>
                     <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em">${appName}</div>
                     <div style="margin-top:4px;font-size:13px;color:#64748b">E-Mail bestätigen</div>
