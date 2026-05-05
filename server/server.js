@@ -111,6 +111,72 @@ app.use('/api', async (req, res, next) => {
   }
 });
 
+app.get('/', async (req, res, next) => {
+  const token = typeof req.query?.verifyEmail === 'string' ? req.query.verifyEmail : '';
+  if (!token) return next();
+
+  try {
+    await dbReady;
+  } catch (error) {
+    return res.redirect('/?emailVerified=error');
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const db = openDb();
+  try {
+    const row = await dbGet(
+      db,
+      'SELECT userId, expiresAt, type, newEmail FROM email_verifications WHERE tokenHash = ?',
+      [tokenHash]
+    );
+    if (!row) {
+      return res.redirect('/?emailVerified=notfound');
+    }
+    if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) {
+      await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
+      return res.redirect('/?emailVerified=expired');
+    }
+
+    const now = new Date().toISOString();
+    const verificationType = row.type || 'register';
+
+    if (verificationType === 'change_email') {
+      const normalizedNewEmail = normalizeEmail(row.newEmail);
+      if (!normalizedNewEmail || !isValidEmail(normalizedNewEmail)) {
+        await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
+        return res.redirect('/?emailVerified=invalid');
+      }
+
+      const existing = await dbGet(
+        db,
+        'SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?',
+        [normalizedNewEmail, row.userId]
+      );
+      if (existing) {
+        return res.redirect('/?emailVerified=conflict');
+      }
+
+      await dbRun(
+        db,
+        'UPDATE users SET email = ?, emailVerified = 1, updatedAt = ? WHERE id = ?',
+        [normalizedNewEmail, now, row.userId]
+      );
+      await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
+      pushAdminLog('auth.change_email_verified', `Email changed for userId=${row.userId}`, { userId: row.userId });
+      return res.redirect('/?emailVerified=success');
+    }
+
+    await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [now, row.userId]);
+    await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
+    pushAdminLog('auth.verify_email', `Email verified for userId=${row.userId}`, { userId: row.userId });
+    return res.redirect('/?emailVerified=success');
+  } catch (error) {
+    return res.redirect('/?emailVerified=error');
+  } finally {
+    db.close();
+  }
+});
+
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) {

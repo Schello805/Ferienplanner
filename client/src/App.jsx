@@ -621,6 +621,29 @@ function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+    const status = params.get('emailVerified') || '';
+    if (!status) return;
+
+    if (status === 'success') {
+      toast.success('E-Mail bestätigt. Du kannst dich jetzt anmelden.');
+    } else if (status === 'expired') {
+      toast.error('Bestätigungslink abgelaufen. Bitte erneut registrieren.');
+    } else if (status === 'notfound') {
+      toast.error('Bestätigungslink ungültig oder bereits verwendet.');
+    } else if (status === 'conflict') {
+      toast.error('Diese E-Mail-Adresse wird bereits verwendet.');
+    } else {
+      toast.error('E-Mail konnte nicht bestätigt werden.');
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('emailVerified');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
     const token = params.get('invite') || '';
     if (token && token !== pendingInviteToken) {
       setPendingInviteToken(token);
