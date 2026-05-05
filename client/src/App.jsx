@@ -621,7 +621,7 @@ function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
-    const status = params.get('emailVerified') || '';
+    const status = params.get('status') || params.get('emailVerified') || '';
     if (!status) return;
 
     if (status === 'success') {
@@ -637,6 +637,7 @@ function App() {
     }
 
     const url = new URL(window.location.href);
+    url.searchParams.delete('status');
     url.searchParams.delete('emailVerified');
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
   }, []);

@@ -111,6 +111,56 @@ app.use('/api', async (req, res, next) => {
   }
 });
 
+app.get('/email-verified', (req, res) => {
+  const status = typeof req.query?.status === 'string' ? req.query.status : '';
+  const title = 'Mein Ferienplaner';
+  let headline = 'E-Mail bestätigen';
+  let message = 'E-Mail konnte nicht bestätigt werden.';
+
+  if (status === 'success') {
+    headline = 'E-Mail bestätigt';
+    message = 'Danke! Deine E-Mail-Adresse wurde bestätigt. Du kannst dich jetzt anmelden.';
+  } else if (status === 'expired') {
+    headline = 'Link abgelaufen';
+    message = 'Dieser Bestätigungslink ist abgelaufen. Bitte registriere dich erneut.';
+  } else if (status === 'notfound') {
+    headline = 'Ungültiger Link';
+    message = 'Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet.';
+  } else if (status === 'conflict') {
+    headline = 'E-Mail bereits verwendet';
+    message = 'Diese E-Mail-Adresse wird bereits verwendet.';
+  }
+
+  res
+    .status(200)
+    .set('Content-Type', 'text/html; charset=utf-8')
+    .send(`<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${title}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 32px; background: #0b1220; color: #e5e7eb; }
+      .card { max-width: 560px; margin: 0 auto; background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 24px; }
+      h1 { font-size: 20px; margin: 0 0 12px; }
+      p { margin: 0 0 18px; line-height: 1.5; color: #d1d5db; }
+      a.button { display: inline-block; background: #2563eb; color: white; text-decoration: none; padding: 10px 14px; border-radius: 10px; font-weight: 600; }
+      a.button:focus, a.button:hover { background: #1d4ed8; }
+      .hint { margin-top: 14px; font-size: 12px; opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>${headline}</h1>
+      <p>${message}</p>
+      <a class="button" href="/">Zur Startseite</a>
+      <div class="hint">Du kannst dieses Fenster jetzt schließen.</div>
+    </div>
+  </body>
+</html>`);
+});
+
 app.get('/', async (req, res, next) => {
   const token = typeof req.query?.verifyEmail === 'string' ? req.query.verifyEmail : '';
   if (!token) return next();
@@ -118,7 +168,7 @@ app.get('/', async (req, res, next) => {
   try {
     await dbReady;
   } catch (error) {
-    return res.redirect('/?emailVerified=error');
+    return res.redirect('/email-verified?status=error');
   }
 
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -130,11 +180,11 @@ app.get('/', async (req, res, next) => {
       [tokenHash]
     );
     if (!row) {
-      return res.redirect('/?emailVerified=notfound');
+      return res.redirect('/email-verified?status=notfound');
     }
     if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) {
       await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
-      return res.redirect('/?emailVerified=expired');
+      return res.redirect('/email-verified?status=expired');
     }
 
     const now = new Date().toISOString();
@@ -144,7 +194,7 @@ app.get('/', async (req, res, next) => {
       const normalizedNewEmail = normalizeEmail(row.newEmail);
       if (!normalizedNewEmail || !isValidEmail(normalizedNewEmail)) {
         await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
-        return res.redirect('/?emailVerified=invalid');
+        return res.redirect('/email-verified?status=invalid');
       }
 
       const existing = await dbGet(
@@ -153,7 +203,7 @@ app.get('/', async (req, res, next) => {
         [normalizedNewEmail, row.userId]
       );
       if (existing) {
-        return res.redirect('/?emailVerified=conflict');
+        return res.redirect('/email-verified?status=conflict');
       }
 
       await dbRun(
@@ -163,15 +213,15 @@ app.get('/', async (req, res, next) => {
       );
       await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
       pushAdminLog('auth.change_email_verified', `Email changed for userId=${row.userId}`, { userId: row.userId });
-      return res.redirect('/?emailVerified=success');
+      return res.redirect('/email-verified?status=success');
     }
 
     await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [now, row.userId]);
     await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
     pushAdminLog('auth.verify_email', `Email verified for userId=${row.userId}`, { userId: row.userId });
-    return res.redirect('/?emailVerified=success');
+    return res.redirect('/email-verified?status=success');
   } catch (error) {
-    return res.redirect('/?emailVerified=error');
+    return res.redirect('/email-verified?status=error');
   } finally {
     db.close();
   }
