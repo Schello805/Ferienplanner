@@ -42,3 +42,9 @@ Ferienplanner/
 # Local-only analytics snippet
 client/public/matomo.local.js
 client/public/.generated-seo-files
+
+# Local-only test artifacts
+client/test-results/
+
+# Local-only assets
+Flyer-Mein-Ferienkalender.png
