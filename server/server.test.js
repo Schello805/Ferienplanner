@@ -363,3 +363,39 @@ test('stale unverified accounts older than seven days are replaced cleanly on re
     assert.equal(Number(verificationCount?.count || 0), 1);
   });
 });
+
+test('verification link works directly via GET endpoint and redirects with success status', async () => {
+  const now = new Date().toISOString();
+  const token = 'direct-link-token-123';
+  const tokenHash = (await import('node:crypto')).createHash('sha256').update(token).digest('hex');
+
+  await withDb(async (db) => {
+    const passwordHash = 'hash-placeholder';
+    const passwordSalt = 'salt-placeholder';
+    const insertUser = await db.run(
+      `INSERT INTO users (username, email, emailVerified, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
+       VALUES (?, ?, 0, ?, ?, 0, ?, ?)`,
+      ['direct-verify-user', 'direct@example.com', passwordHash, passwordSalt, now, now]
+    );
+
+    await db.run(
+      `INSERT INTO email_verifications (tokenHash, userId, type, newEmail, createdAt, expiresAt)
+       VALUES (?, ?, 'register', NULL, ?, ?)`,
+      [tokenHash, insertUser.lastID, now, new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()]
+    );
+  });
+
+  const response = await fetch(`${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`, {
+    redirect: 'manual',
+  });
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('location'), '/email-verified?status=success');
+
+  await withDb(async (db) => {
+    const user = await db.get('SELECT emailVerified FROM users WHERE username = ?', ['direct-verify-user']);
+    const verifications = await db.get('SELECT COUNT(*) AS count FROM email_verifications WHERE userId = (SELECT id FROM users WHERE username = ?)', ['direct-verify-user']);
+    assert.equal(Number(user?.emailVerified || 0), 1);
+    assert.equal(Number(verifications?.count || 0), 0);
+  });
+});

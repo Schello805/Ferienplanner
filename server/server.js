@@ -161,6 +161,56 @@ app.get('/email-verified', (req, res) => {
 </html>`);
 });
 
+async function consumeEmailVerificationToken(db, token) {
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const row = await dbGet(
+    db,
+    'SELECT userId, expiresAt, type, newEmail FROM email_verifications WHERE tokenHash = ?',
+    [tokenHash]
+  );
+  if (!row) {
+    return { ok: false, status: 'notfound', httpStatus: 404, error: 'Verification not found' };
+  }
+  if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) {
+    await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
+    return { ok: false, status: 'expired', httpStatus: 410, error: 'Verification expired' };
+  }
+
+  const now = new Date().toISOString();
+  const verificationType = row.type || 'register';
+
+  if (verificationType === 'change_email') {
+    const normalizedNewEmail = normalizeEmail(row.newEmail);
+    if (!normalizedNewEmail || !isValidEmail(normalizedNewEmail)) {
+      await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
+      return { ok: false, status: 'invalid', httpStatus: 400, error: 'Invalid email' };
+    }
+
+    const existing = await dbGet(
+      db,
+      'SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?',
+      [normalizedNewEmail, row.userId]
+    );
+    if (existing) {
+      return { ok: false, status: 'conflict', httpStatus: 409, error: 'Email already in use' };
+    }
+
+    await dbRun(
+      db,
+      'UPDATE users SET email = ?, emailVerified = 1, updatedAt = ? WHERE id = ?',
+      [normalizedNewEmail, now, row.userId]
+    );
+    await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
+    pushAdminLog('auth.change_email_verified', `Email changed for userId=${row.userId}`, { userId: row.userId });
+    return { ok: true, status: 'success', httpStatus: 200 };
+  }
+
+  await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [now, row.userId]);
+  await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
+  pushAdminLog('auth.verify_email', `Email verified for userId=${row.userId}`, { userId: row.userId });
+  return { ok: true, status: 'success', httpStatus: 200 };
+}
+
 app.get('/', async (req, res, next) => {
   const token = typeof req.query?.verifyEmail === 'string' ? req.query.verifyEmail : '';
   if (!token) return next();
@@ -171,55 +221,10 @@ app.get('/', async (req, res, next) => {
     return res.redirect('/email-verified?status=error');
   }
 
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const db = openDb();
   try {
-    const row = await dbGet(
-      db,
-      'SELECT userId, expiresAt, type, newEmail FROM email_verifications WHERE tokenHash = ?',
-      [tokenHash]
-    );
-    if (!row) {
-      return res.redirect('/email-verified?status=notfound');
-    }
-    if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) {
-      await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
-      return res.redirect('/email-verified?status=expired');
-    }
-
-    const now = new Date().toISOString();
-    const verificationType = row.type || 'register';
-
-    if (verificationType === 'change_email') {
-      const normalizedNewEmail = normalizeEmail(row.newEmail);
-      if (!normalizedNewEmail || !isValidEmail(normalizedNewEmail)) {
-        await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
-        return res.redirect('/email-verified?status=invalid');
-      }
-
-      const existing = await dbGet(
-        db,
-        'SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?',
-        [normalizedNewEmail, row.userId]
-      );
-      if (existing) {
-        return res.redirect('/email-verified?status=conflict');
-      }
-
-      await dbRun(
-        db,
-        'UPDATE users SET email = ?, emailVerified = 1, updatedAt = ? WHERE id = ?',
-        [normalizedNewEmail, now, row.userId]
-      );
-      await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
-      pushAdminLog('auth.change_email_verified', `Email changed for userId=${row.userId}`, { userId: row.userId });
-      return res.redirect('/email-verified?status=success');
-    }
-
-    await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [now, row.userId]);
-    await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
-    pushAdminLog('auth.verify_email', `Email verified for userId=${row.userId}`, { userId: row.userId });
-    return res.redirect('/email-verified?status=success');
+    const result = await consumeEmailVerificationToken(db, token);
+    return res.redirect(`/email-verified?status=${encodeURIComponent(result.status)}`);
   } catch (error) {
     return res.redirect('/email-verified?status=error');
   } finally {
@@ -336,57 +341,38 @@ app.post('/api/auth/verify-email', async (req, res) => {
     return res.status(400).json({ error: 'token is required' });
   }
 
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const db = openDb();
   try {
-    const row = await dbGet(
-      db,
-      'SELECT userId, expiresAt, type, newEmail FROM email_verifications WHERE tokenHash = ?',
-      [tokenHash]
-    );
-    if (!row) {
-      return res.status(404).json({ error: 'Verification not found' });
+    const result = await consumeEmailVerificationToken(db, token);
+    if (!result.ok) {
+      return res.status(result.httpStatus).json({ error: result.error });
     }
-    if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) {
-      await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
-      return res.status(410).json({ error: 'Verification expired' });
-    }
-
-    const now = new Date().toISOString();
-    const verificationType = row.type || 'register';
-
-    if (verificationType === 'change_email') {
-      const normalizedNewEmail = normalizeEmail(row.newEmail);
-      if (!normalizedNewEmail || !isValidEmail(normalizedNewEmail)) {
-        await dbRun(db, 'DELETE FROM email_verifications WHERE tokenHash = ?', [tokenHash]);
-        return res.status(400).json({ error: 'Invalid email' });
-      }
-
-      const existing = await dbGet(
-        db,
-        'SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?',
-        [normalizedNewEmail, row.userId]
-      );
-      if (existing) {
-        return res.status(409).json({ error: 'Email already in use' });
-      }
-
-      await dbRun(
-        db,
-        'UPDATE users SET email = ?, emailVerified = 1, updatedAt = ? WHERE id = ?',
-        [normalizedNewEmail, now, row.userId]
-      );
-      await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
-      pushAdminLog('auth.change_email_verified', `Email changed for userId=${row.userId}`, { userId: row.userId });
-      return res.json({ success: true });
-    }
-
-    await dbRun(db, 'UPDATE users SET emailVerified = 1, updatedAt = ? WHERE id = ?', [now, row.userId]);
-    await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
-    pushAdminLog('auth.verify_email', `Email verified for userId=${row.userId}`, { userId: row.userId });
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.get('/api/auth/verify-email', async (req, res) => {
+  const token = typeof req.query?.token === 'string' ? req.query.token : '';
+  if (!token) {
+    return res.redirect('/email-verified?status=invalid');
+  }
+
+  try {
+    await dbReady;
+  } catch {
+    return res.redirect('/email-verified?status=error');
+  }
+
+  const db = openDb();
+  try {
+    const result = await consumeEmailVerificationToken(db, token);
+    return res.redirect(`/email-verified?status=${encodeURIComponent(result.status)}`);
+  } catch {
+    return res.redirect('/email-verified?status=error');
   } finally {
     db.close();
   }
@@ -1477,7 +1463,7 @@ function computeInvitationExpiresAt({ mode, days }) {
 async function sendVerificationEmail({ req, to, token }) {
   const smtp = await getEffectiveSmtpSettings();
   const baseUrl = resolvePublicBaseUrl(req, smtp);
-  const verifyUrl = `${baseUrl}/?verifyEmail=${token}`;
+  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
 
   if (!smtp) {
     process.stderr.write('SMTP not configured; cannot send verification email.\n');

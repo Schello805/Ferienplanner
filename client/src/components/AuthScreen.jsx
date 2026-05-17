@@ -121,7 +121,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
               type="text"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition-colors focus:border-sky-400 md:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
               autoComplete="username"
             />
           </label>
@@ -133,7 +133,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition-colors focus:border-sky-400 md:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                 autoComplete="email"
               />
             </label>
@@ -145,7 +145,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition-colors focus:border-sky-400 md:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
               autoComplete={effectiveMode === 'login' ? 'current-password' : 'new-password'}
             />
           </label>
@@ -157,7 +157,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition-colors focus:border-sky-400 md:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                 autoComplete="new-password"
               />
             </label>
