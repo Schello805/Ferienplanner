@@ -1344,6 +1344,9 @@ const InvitationPanel = ({ currentCalendar }) => {
                                         <div className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
                                             Einladung von: {inv.invitedByUsername} &lt;{inv.invitedByEmail}&gt;
                                         </div>
+                                        <div className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                            Empfänger: {inv.recipientEmail || 'kein direkter E-Mail-Empfänger (Link geteilt)'}
+                                        </div>
                                         {inv.usedAt && inv.usedByUsername && (
                                             <div className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
                                                 Angenommen von: {inv.usedByUsername} &lt;{inv.usedByEmail}&gt; ({formatDate(inv.usedAt)})

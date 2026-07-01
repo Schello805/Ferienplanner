@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { CookieConsentBanner } from './components/CookieConsentBanner.jsx';
 import { setStoredCalendarSlug } from './lib/api.js';
 
@@ -33,13 +33,25 @@ const CalendarSlugRoute = () => {
   return <Navigate to="/app" replace />;
 };
 
+const RootRoute = () => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const hasInviteToken = Boolean(params.get('invite'));
+
+  if (hasInviteToken) {
+    return <Navigate to={`/app${location.search}${location.hash}`} replace />;
+  }
+
+  return <LandingPage />;
+};
+
 export const RootApp = () => {
   return (
     <BrowserRouter>
       <>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<RootRoute />} />
             <Route path="/setup" element={<SetupWizard />} />
             <Route path="/impressum" element={<ImprintPage />} />
             <Route path="/datenschutz" element={<PrivacyPage />} />

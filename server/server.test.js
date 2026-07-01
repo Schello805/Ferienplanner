@@ -284,6 +284,38 @@ test('admin can enable new calendar email notifications and calendar creation lo
   assert.ok(events.includes('admin.calendar_created_email_skipped'));
 });
 
+test('invitation list includes recipient email for emailed invites', async () => {
+  const loginAdmin = await request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'updated12345' }),
+  });
+  const adminToken = loginAdmin.data.token;
+  assert.ok(adminToken);
+
+  const sendInvite = await request('/api/invitations/send-email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({ email: 'elternteil@example.com', role: 'editor', expiresMode: 'days', expiresInDays: 5 }),
+  });
+
+  assert.equal(sendInvite.response.status, 200);
+  assert.equal(sendInvite.data.success, true);
+
+  const invitations = await request('/api/invitations', {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+    },
+  });
+
+  assert.equal(invitations.response.status, 200);
+  assert.ok(Array.isArray(invitations.data.invitations));
+  assert.equal(invitations.data.invitations[0]?.recipientEmail, 'elternteil@example.com');
+});
+
 test('re-registering an unverified account refreshes the verification flow and password', async () => {
   const firstAttempt = await request('/api/auth/register', {
     method: 'POST',

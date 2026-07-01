@@ -975,6 +975,7 @@ async function initializeDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         calendarId INTEGER NOT NULL,
         invitedByUserId INTEGER NOT NULL,
+        recipientEmail TEXT,
         role TEXT NOT NULL DEFAULT 'viewer',
         tokenHash TEXT NOT NULL UNIQUE,
         createdAt TEXT,
@@ -991,6 +992,9 @@ async function initializeDatabase() {
     const inviteColumns = new Set((await dbAll(db, 'PRAGMA table_info(calendar_invitations)')).map((row) => row.name));
     if (!inviteColumns.has('revokedAt')) {
       await dbRun(db, 'ALTER TABLE calendar_invitations ADD COLUMN revokedAt TEXT');
+    }
+    if (!inviteColumns.has('recipientEmail')) {
+      await dbRun(db, 'ALTER TABLE calendar_invitations ADD COLUMN recipientEmail TEXT');
     }
 
     await dbRun(
@@ -3407,13 +3411,13 @@ app.post('/api/invitations', requireCalendarRole('owner'), async (req, res) => {
   try {
     await dbRun(
       db,
-      `INSERT INTO calendar_invitations (calendarId, invitedByUserId, role, tokenHash, createdAt, expiresAt)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [calendarId, userId, normalizedRole, tokenHash, createdAt, expiresAt]
+      `INSERT INTO calendar_invitations (calendarId, invitedByUserId, recipientEmail, role, tokenHash, createdAt, expiresAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [calendarId, userId, null, normalizedRole, tokenHash, createdAt, expiresAt]
     );
 
     const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || `http://localhost:${PORT}`;
-    const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/?invite=${token}`;
+    const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/app?invite=${token}`;
     pushAdminLog('calendar.invite_create', `Invite created for calendarId=${calendarId} role=${normalizedRole}`, { calendarId, role: normalizedRole, expiresAt, expiresMode: normalizedMode });
     return res.json({ success: true, token, inviteUrl, role: normalizedRole, expiresAt });
   } catch (error) {
@@ -3436,6 +3440,7 @@ app.get('/api/invitations', requireAuth, requireCalendarRole('owner'), async (re
       `SELECT
          calendar_invitations.id,
          calendar_invitations.role,
+         calendar_invitations.recipientEmail,
          calendar_invitations.createdAt,
          calendar_invitations.expiresAt,
          calendar_invitations.revokedAt,
@@ -3539,13 +3544,13 @@ app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req
 
     await dbRun(
       db,
-      `INSERT INTO calendar_invitations (calendarId, invitedByUserId, role, tokenHash, createdAt, expiresAt)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [calendarId, userId, normalizedRole, tokenHash, createdAt, expiresAt]
+      `INSERT INTO calendar_invitations (calendarId, invitedByUserId, recipientEmail, role, tokenHash, createdAt, expiresAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [calendarId, userId, to, normalizedRole, tokenHash, createdAt, expiresAt]
     );
 
     const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || `http://localhost:${PORT}`;
-    const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/?invite=${token}`;
+    const inviteUrl = `${String(baseUrl).replace(/\/$/, '')}/app?invite=${token}`;
     const calendarUrl = calendarRow?.slug
       ? `${String(baseUrl).replace(/\/$/, '')}/k/${String(calendarRow.slug)}`
       : `${String(baseUrl).replace(/\/$/, '')}/app`;

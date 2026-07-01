@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { getSiteHostLabel, getSiteUrl } from '../lib/site.js';
 
-export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = null }) => {
-  const [mode, setMode] = useState(setupRequired ? 'setup' : 'login');
+export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = null, hasPendingInvite = false }) => {
+  const [mode, setMode] = useState(setupRequired ? 'setup' : (hasPendingInvite ? 'register' : 'login'));
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -88,6 +88,14 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
               <div className="font-semibold">Erster Start</div>
               <div className="mt-1 opacity-80">
                 Nach dem Setup wird automatisch dein Hauptkalender angelegt. Verwende ein Passwort mit mindestens 8 Zeichen, Buchstaben und Zahlen.
+              </div>
+            </div>
+          )}
+          {!setupRequired && hasPendingInvite && (
+            <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100">
+              <div className="font-semibold">Einladung erkannt</div>
+              <div className="mt-1 opacity-80">
+                Melde dich mit deinem Konto an oder registriere dich, damit die Einladung direkt deinem Kalenderzugang hinzugefügt werden kann.
               </div>
             </div>
           )}

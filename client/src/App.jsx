@@ -819,6 +819,7 @@ function App() {
           onSubmit={handleAuthSubmit}
           loading={authSubmitting}
           statusNotice={authNotice}
+          hasPendingInvite={Boolean(pendingInviteToken)}
         />
       </>
     );
