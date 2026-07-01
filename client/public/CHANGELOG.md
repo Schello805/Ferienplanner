@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0
+
+- Einladungslinks führen jetzt zuverlässig in den App-/Login-Flow statt auf der öffentlichen Startseite zu landen
+- Alte `/?invite=...`-Links bleiben weiter nutzbar und werden automatisch korrekt weitergereicht
+- In der Einladungsliste wird bei E-Mail-Einladungen jetzt auch die Empfängeradresse angezeigt
+- Mobile Login-/Registrierungsfelder auf iPhone angepasst, damit Safari nicht unerwartet in die Ansicht hineinzoomt
+- E-Mail-Bestätigungslink robuster gemacht und unverifizierte Konten bei erneuter Registrierung sinnvoller weiterverarbeitet
+- Unverifizierte Konten werden nach sieben Tagen automatisch bereinigt
+- Footer erkennt neue Deployments und zeigt `Update verfügbar` an
+- Server startet in Produktion nicht mehr ohne gültige `PUBLIC_BASE_URL`
+
 ## 1.0.1
 
 - Domain- und SEO-Konfiguration im Frontend zentralisiert, inkl. generierter `index.html`, `robots.txt` und `sitemap.xml`
