@@ -1499,6 +1499,39 @@ async function sendBrandedEmail({ req, to, cc = '', replyTo = '', subject, previ
   }
 }
 
+async function sendFeedbackNotification({ req, replyTo = '', subject, previewText, headline, subline, bodyHtml, footerReason }) {
+  const recipients = Array.from(new Set([
+    normalizeEmail(FEEDBACK_NOTIFICATION_EMAIL),
+    normalizeEmail(ADMIN_NOTIFICATION_EMAIL),
+  ].filter(Boolean)));
+
+  let lastError = null;
+
+  for (const recipient of recipients) {
+    try {
+      await sendBrandedEmail({
+        req,
+        to: recipient,
+        replyTo,
+        subject,
+        previewText,
+        headline,
+        subline,
+        bodyHtml,
+        footerReason,
+      });
+      return { recipient, attemptedRecipients: recipients };
+    } catch (error) {
+      lastError = error;
+      process.stderr.write(`Feedbackversand an ${recipient} fehlgeschlagen: ${error?.message || error}\n`);
+    }
+  }
+
+  throw Object.assign(lastError || new Error('Feedback notification failed'), {
+    attemptedRecipients: recipients,
+  });
+}
+
 function getGermanRoleLabel(role) {
   if (role === 'editor') return 'Bearbeiter';
   return 'Leser';
@@ -3283,25 +3316,25 @@ app.post('/api/feedback', async (req, res) => {
   const subject = normalizedKind === 'bug'
     ? 'Mein Ferienplaner: Neue Bugmeldung'
     : 'Mein Ferienplaner: Neues Feedback';
+  const bodyHtml =
+    `<div><strong>Typ:</strong> ${kindLabel}</div>`
+    + `<div style="height:10px"></div>`
+    + `<div><strong>Kontakt für Rückfragen:</strong> ${trimmedContact ? escapeHtml(trimmedContact) : 'nicht angegeben'}</div>`
+    + (trimmedPageUrl ? `<div style="height:10px"></div><div><strong>Seite:</strong> <a href="${escapeHtml(trimmedPageUrl)}" style="color:#93c5fd;text-decoration:underline">${escapeHtml(trimmedPageUrl)}</a></div>` : '')
+    + (trimmedUserAgent ? `<div style="height:10px"></div><div><strong>Browser / Gerät:</strong> ${escapeHtml(trimmedUserAgent)}</div>` : '')
+    + `<div style="height:14px"></div>`
+    + `<div><strong>Nachricht:</strong></div>`
+    + `<div style="margin-top:8px;padding:12px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a">${formatMultilineHtml(trimmedMessage)}</div>`;
 
   try {
-    await sendBrandedEmail({
+    const delivery = await sendFeedbackNotification({
       req,
-      to: FEEDBACK_NOTIFICATION_EMAIL,
       replyTo,
       subject,
       previewText: `${kindLabel} wurde direkt aus der App gesendet.`,
       headline: kindLabel,
       subline: 'Feedback aus der App',
-      bodyHtml:
-        `<div><strong>Typ:</strong> ${kindLabel}</div>`
-        + `<div style="height:10px"></div>`
-        + `<div><strong>Kontakt für Rückfragen:</strong> ${trimmedContact ? escapeHtml(trimmedContact) : 'nicht angegeben'}</div>`
-        + (trimmedPageUrl ? `<div style="height:10px"></div><div><strong>Seite:</strong> <a href="${escapeHtml(trimmedPageUrl)}" style="color:#93c5fd;text-decoration:underline">${escapeHtml(trimmedPageUrl)}</a></div>` : '')
-        + (trimmedUserAgent ? `<div style="height:10px"></div><div><strong>Browser / Gerät:</strong> ${escapeHtml(trimmedUserAgent)}</div>` : '')
-        + `<div style="height:14px"></div>`
-        + `<div><strong>Nachricht:</strong></div>`
-        + `<div style="margin-top:8px;padding:12px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a">${formatMultilineHtml(trimmedMessage)}</div>`,
+      bodyHtml,
       footerReason: 'Diese Nachricht wurde über den Feedback-Dialog in Mein Ferienplaner gesendet.',
     });
 
@@ -3310,7 +3343,8 @@ app.post('/api/feedback', async (req, res) => {
       contact: trimmedContact || null,
       pageUrl: trimmedPageUrl || null,
       replyTo: replyTo || null,
-      recipient: FEEDBACK_NOTIFICATION_EMAIL,
+      recipient: delivery.recipient,
+      attemptedRecipients: delivery.attemptedRecipients,
     });
 
     return res.json({ success: true });
@@ -3319,8 +3353,12 @@ app.post('/api/feedback', async (req, res) => {
       kind: normalizedKind,
       contact: trimmedContact || null,
       replyTo: replyTo || null,
-      recipient: FEEDBACK_NOTIFICATION_EMAIL,
+      recipients: Array.from(new Set([
+        normalizeEmail(FEEDBACK_NOTIFICATION_EMAIL),
+        normalizeEmail(ADMIN_NOTIFICATION_EMAIL),
+      ].filter(Boolean))),
       error: error.message,
+      attemptedRecipients: Array.isArray(error?.attemptedRecipients) ? error.attemptedRecipients : null,
     });
     return res.status(500).json({ error: 'Feedback konnte nicht gesendet werden. Bitte Mail-Ziel oder SMTP prüfen.' });
   }
