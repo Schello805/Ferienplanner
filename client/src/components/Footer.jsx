@@ -68,21 +68,6 @@ export const Footer = () => {
             </button>
 
             <footer className="mt-2 hidden border-t border-gray-100 py-2 text-center text-[11px] text-gray-400 dark:border-slate-800 dark:text-gray-600 md:block print:hidden">
-                <div className="mx-auto mb-3 flex max-w-3xl items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-left shadow-sm dark:border-sky-900/40 dark:bg-sky-950/20">
-                    <div>
-                        <div className="text-xs font-black uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">Feedback willkommen</div>
-                        <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                            Fehler melden oder Verbesserung schicken
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setFeedbackOpen(true)}
-                        className="shrink-0 rounded-full bg-sky-500 px-4 py-2 text-xs font-black text-slate-950 transition-colors hover:bg-sky-400"
-                    >
-                        Jetzt senden
-                    </button>
-                </div>
                 <p>&copy; {new Date().getFullYear()} Mein Ferienplaner. Alle Rechte vorbehalten.</p>
                 <div className="mt-0.5 flex items-center justify-center gap-3">
                     <Link
@@ -92,14 +77,6 @@ export const Footer = () => {
                     >
                         Hilfe
                     </Link>
-                    <button
-                        type="button"
-                        onClick={() => setFeedbackOpen(true)}
-                        className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-sky-800 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
-                        title="Feedback senden"
-                    >
-                        Feedback
-                    </button>
                     <a
                         href="/impressum"
                         target="_blank"
