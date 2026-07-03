@@ -8,6 +8,7 @@ import Holidays from 'date-holidays';
 import axios from 'axios';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { execSync } from 'node:child_process';
 import {
   buildAllowedOrigins,
   clearSessionCookies,
@@ -22,8 +23,30 @@ import { getBearerToken, getRequestedCalendarSlug } from './lib/auth-context.js'
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const normalizeBuildValue = (value) => String(value || '').trim();
+const getGitRevision = (cwd) => {
+  const fromEnv = normalizeBuildValue(process.env.APP_GIT_REVISION || process.env.GIT_COMMIT || process.env.SOURCE_VERSION);
+  if (fromEnv) return fromEnv.slice(0, 8);
+
+  try {
+    return normalizeBuildValue(execSync('git rev-parse --short=8 HEAD', {
+      cwd,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    })).slice(0, 8);
+  } catch {
+    return '';
+  }
+};
+const getBuildVersion = (releaseVersion, cwd) => {
+  const normalizedRelease = normalizeBuildValue(releaseVersion) || '0.0.0';
+  const revision = getGitRevision(cwd);
+  return revision ? `${normalizedRelease}+${revision}` : normalizedRelease;
+};
+
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 export const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'database.sqlite');
+const APP_BUILD_VERSION = getBuildVersion(process.env.npm_package_version || '0.0.0', path.join(__dirname, '..'));
 const APP_SECRET_KEY_PATH = process.env.APP_SECRET_KEY_PATH || path.join(path.dirname(DB_PATH), 'app-secret.key');
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
@@ -44,7 +67,7 @@ let cachedSmtpSettings = null;
 
 const hibpCache = new Map();
 const ADMIN_NOTIFICATION_EMAIL = 'info@schellenberger.biz';
-const FEEDBACK_NOTIFICATION_EMAIL = 'info@mein-ferienplaner.de';
+const FEEDBACK_NOTIFICATION_EMAIL = process.env.FEEDBACK_NOTIFICATION_EMAIL || 'info@mein-ferienplaner.de';
 
 const ROLE_ORDER = {
   viewer: 0,
@@ -1325,7 +1348,7 @@ function formatMultilineHtml(value) {
   return escapeHtml(value).replace(/\r?\n/g, '<br />');
 }
 
-async function sendBrandedEmail({ req, to, cc = '', subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason }) {
+async function sendBrandedEmail({ req, to, cc = '', replyTo = '', subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason }) {
   const smtp = await getEffectiveSmtpSettings();
   const baseUrl = resolvePublicBaseUrl(req, smtp);
   const safeBaseUrl = String(baseUrl).replace(/\/$/, '');
@@ -1443,10 +1466,11 @@ async function sendBrandedEmail({ req, to, cc = '', subject, previewText, headli
     ? smtp.fromAddress
     : `Mein Ferienkalender <${smtp.fromAddress}>`;
 
-  await transport.sendMail({
+  const payload = {
     from: fromValue,
     to,
     ...(cc ? { cc } : {}),
+    ...(replyTo ? { replyTo } : {}),
     subject,
     text: plainText,
     html,
@@ -1459,7 +1483,20 @@ async function sendBrandedEmail({ req, to, cc = '', subject, previewText, headli
         },
       ]
       : [],
-  });
+  };
+
+  try {
+    await transport.sendMail(payload);
+  } catch (error) {
+    if (!replyTo) {
+      throw error;
+    }
+
+    process.stderr.write(`Mailversand mit Reply-To fehlgeschlagen, erneuter Versuch ohne Reply-To: ${error.message}\n`);
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.replyTo;
+    await transport.sendMail(fallbackPayload);
+  }
 }
 
 function getGermanRoleLabel(role) {
@@ -1915,7 +1952,7 @@ function requireAdmin(req, res, next) {
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
-    version: process.env.npm_package_version || null,
+    version: APP_BUILD_VERSION,
   });
 });
 
@@ -2578,7 +2615,7 @@ app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
       unverifiedUsers: Number(unverifiedUserCount?.count || 0),
       dbSizeBytes,
       uptimeSeconds: Math.floor(process.uptime()),
-      serverVersion: process.env.npm_package_version || null,
+      serverVersion: APP_BUILD_VERSION,
       smtpConfigured,
       smtpUpdatedAt: smtpUpdatedAtRow?.updatedAt || null,
     });
@@ -3068,7 +3105,7 @@ app.get('/api/admin/diagnostics', requireAuth, requireAdmin, async (req, res) =>
     return res.json({
       generatedAt: nowIso,
       uptimeSeconds: Math.floor(process.uptime()),
-      serverVersion: process.env.npm_package_version || null,
+      serverVersion: APP_BUILD_VERSION,
       digestAdminTokenConfigured,
       dbSizeBytes,
       counts: {
@@ -3241,6 +3278,8 @@ app.post('/api/feedback', async (req, res) => {
   }
 
   const kindLabel = normalizedKind === 'bug' ? 'Bugmeldung' : 'Feedback';
+  const replyToMatch = trimmedContact.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  const replyTo = replyToMatch ? normalizeEmail(replyToMatch[0]) : '';
   const subject = normalizedKind === 'bug'
     ? 'Mein Ferienplaner: Neue Bugmeldung'
     : 'Mein Ferienplaner: Neues Feedback';
@@ -3249,6 +3288,7 @@ app.post('/api/feedback', async (req, res) => {
     await sendBrandedEmail({
       req,
       to: FEEDBACK_NOTIFICATION_EMAIL,
+      replyTo,
       subject,
       previewText: `${kindLabel} wurde direkt aus der App gesendet.`,
       headline: kindLabel,
@@ -3269,6 +3309,8 @@ app.post('/api/feedback', async (req, res) => {
       kind: normalizedKind,
       contact: trimmedContact || null,
       pageUrl: trimmedPageUrl || null,
+      replyTo: replyTo || null,
+      recipient: FEEDBACK_NOTIFICATION_EMAIL,
     });
 
     return res.json({ success: true });
@@ -3276,8 +3318,11 @@ app.post('/api/feedback', async (req, res) => {
     pushAdminLog('public.feedback_failed', `Feedbackversand fehlgeschlagen: ${error.message}`, {
       kind: normalizedKind,
       contact: trimmedContact || null,
+      replyTo: replyTo || null,
+      recipient: FEEDBACK_NOTIFICATION_EMAIL,
+      error: error.message,
     });
-    return res.status(500).json({ error: 'Feedback konnte nicht gesendet werden.' });
+    return res.status(500).json({ error: 'Feedback konnte nicht gesendet werden. Bitte Mail-Ziel oder SMTP prüfen.' });
   }
 });
 

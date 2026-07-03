@@ -58,13 +58,31 @@ export const Footer = () => {
             <button
                 type="button"
                 onClick={() => setFeedbackOpen(true)}
-                className="fixed bottom-24 right-3 z-[70] rounded-full border border-sky-200 bg-sky-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-sky-500/20 transition-colors hover:bg-sky-400 md:hidden print:hidden"
+                className="fixed bottom-20 left-1/2 z-[70] inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-sky-100 bg-sky-400 px-5 py-3 text-sm font-black text-slate-950 shadow-[0_18px_45px_rgba(14,165,233,0.4)] transition-all hover:-translate-y-0.5 hover:bg-sky-300 md:bottom-6 md:left-auto md:right-6 md:translate-x-0 md:px-5 md:py-3.5 print:hidden"
                 title="Feedback senden"
             >
-                Feedback
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 md:h-5 md:w-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM6.75 18 3 21.75V6.75A2.25 2.25 0 0 1 5.25 4.5h13.5A2.25 2.25 0 0 1 21 6.75v9a2.25 2.25 0 0 1-2.25 2.25H6.75Z" />
+                </svg>
+                Feedback oder Bug senden
             </button>
 
             <footer className="mt-2 hidden border-t border-gray-100 py-2 text-center text-[11px] text-gray-400 dark:border-slate-800 dark:text-gray-600 md:block print:hidden">
+                <div className="mx-auto mb-3 flex max-w-3xl items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-left shadow-sm dark:border-sky-900/40 dark:bg-sky-950/20">
+                    <div>
+                        <div className="text-xs font-black uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">Feedback willkommen</div>
+                        <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Fehler melden oder Verbesserung schicken
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setFeedbackOpen(true)}
+                        className="shrink-0 rounded-full bg-sky-500 px-4 py-2 text-xs font-black text-slate-950 transition-colors hover:bg-sky-400"
+                    >
+                        Jetzt senden
+                    </button>
+                </div>
                 <p>&copy; {new Date().getFullYear()} Mein Ferienplaner. Alle Rechte vorbehalten.</p>
                 <div className="mt-0.5 flex items-center justify-center gap-3">
                     <Link
@@ -77,7 +95,7 @@ export const Footer = () => {
                     <button
                         type="button"
                         onClick={() => setFeedbackOpen(true)}
-                        className="rounded-lg px-1 py-0.5 text-gray-500 transition-colors hover:text-slate-900 dark:text-gray-500 dark:hover:text-white"
+                        className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-sky-800 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50"
                         title="Feedback senden"
                     >
                         Feedback

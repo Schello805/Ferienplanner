@@ -142,7 +142,8 @@ export const LandingPage = () => {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(125,211,252,0.16),_transparent_38%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_54%,_#f8fafc_100%)] px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:py-10">
+    <>
+      <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(125,211,252,0.16),_transparent_38%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_54%,_#f8fafc_100%)] px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:py-10">
       <SeoHead
         title="Betreuung planen für berufstätige Eltern"
         description="Mein Ferienplaner hilft berufstätigen Eltern dabei, Schulferien, Ferienbetreuung, Urlaub und freie Tage kostenlos in einer gemeinsamen Familienübersicht zu planen."
@@ -452,7 +453,7 @@ export const LandingPage = () => {
             <div>&copy; {new Date().getFullYear()} Mein Ferienplaner</div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               <Link to="/hilfe" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Hilfe</Link>
-              <button type="button" onClick={() => setFeedbackOpen(true)} className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Feedback</button>
+              <button type="button" onClick={() => setFeedbackOpen(true)} className="inline-flex items-center justify-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-sky-800 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100 dark:hover:bg-sky-950/50">Feedback</button>
               <Link to="/impressum" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Impressum</Link>
               <Link to="/datenschutz" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Datenschutzerklärung</Link>
               <Link to="/cookies" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Cookiehinweis</Link>
@@ -461,6 +462,17 @@ export const LandingPage = () => {
         </footer>
         <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       </div>
-    </main>
+      </main>
+      <button
+        type="button"
+        onClick={() => setFeedbackOpen(true)}
+        className="fixed bottom-6 left-1/2 z-[70] inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-sky-100 bg-sky-400 px-5 py-3 text-sm font-black text-slate-950 shadow-[0_18px_45px_rgba(14,165,233,0.4)] transition-all hover:-translate-y-0.5 hover:bg-sky-300 sm:left-auto sm:right-6 sm:translate-x-0 sm:px-5 sm:py-3.5"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 sm:h-5 sm:w-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM6.75 18 3 21.75V6.75A2.25 2.25 0 0 1 5.25 4.5h13.5A2.25 2.25 0 0 1 21 6.75v9a2.25 2.25 0 0 1-2.25 2.25H6.75Z" />
+        </svg>
+        Feedback oder Bug senden
+      </button>
+    </>
   );
 };
