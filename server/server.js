@@ -43,10 +43,34 @@ const getBuildVersion = (releaseVersion, cwd) => {
   const revision = getGitRevision(cwd);
   return revision ? `${normalizedRelease}+${revision}` : normalizedRelease;
 };
+const getReleaseVersion = (cwd) => {
+  const fromEnv = normalizeBuildValue(process.env.APP_RELEASE_VERSION || process.env.npm_package_version);
+  if (fromEnv) return fromEnv;
+
+  const candidates = [
+    path.join(cwd, 'client', 'package.json'),
+    path.join(cwd, 'package.json'),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const raw = fs.readFileSync(candidate, 'utf8');
+      const parsed = JSON.parse(raw);
+      const version = normalizeBuildValue(parsed?.version);
+      if (version) return version;
+    } catch {
+      // Ignore missing or invalid package files and try the next source.
+    }
+  }
+
+  return '0.0.0';
+};
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 export const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'database.sqlite');
-const APP_BUILD_VERSION = getBuildVersion(process.env.npm_package_version || '0.0.0', path.join(__dirname, '..'));
+const APP_ROOT_DIR = path.join(__dirname, '..');
+const APP_RELEASE_VERSION = getReleaseVersion(APP_ROOT_DIR);
+const APP_BUILD_VERSION = getBuildVersion(APP_RELEASE_VERSION, APP_ROOT_DIR);
 const APP_SECRET_KEY_PATH = process.env.APP_SECRET_KEY_PATH || path.join(path.dirname(DB_PATH), 'app-secret.key');
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
