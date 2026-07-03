@@ -44,6 +44,7 @@ let cachedSmtpSettings = null;
 
 const hibpCache = new Map();
 const ADMIN_NOTIFICATION_EMAIL = 'info@schellenberger.biz';
+const FEEDBACK_NOTIFICATION_EMAIL = 'info@mein-ferienplaner.de';
 
 const ROLE_ORDER = {
   viewer: 0,
@@ -1311,7 +1312,20 @@ function getMailerTransport() {
   throw new Error('getMailerTransport is deprecated');
 }
 
-async function sendBrandedEmail({ req, to, subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason }) {
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatMultilineHtml(value) {
+  return escapeHtml(value).replace(/\r?\n/g, '<br />');
+}
+
+async function sendBrandedEmail({ req, to, cc = '', subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason }) {
   const smtp = await getEffectiveSmtpSettings();
   const baseUrl = resolvePublicBaseUrl(req, smtp);
   const safeBaseUrl = String(baseUrl).replace(/\/$/, '');
@@ -1344,6 +1358,9 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
   if (!smtp) {
     process.stderr.write('SMTP not configured; cannot send email.\n');
     process.stderr.write(`To: ${to} Subject: ${subject}\n`);
+    if (cc) {
+      process.stderr.write(`Cc: ${cc}\n`);
+    }
     return;
   }
 
@@ -1429,6 +1446,7 @@ async function sendBrandedEmail({ req, to, subject, previewText, headline, subli
   await transport.sendMail({
     from: fromValue,
     to,
+    ...(cc ? { cc } : {}),
     subject,
     text: plainText,
     html,
@@ -2235,7 +2253,7 @@ app.post('/api/auth/delete-account', requireAuth, async (req, res) => {
 });
 
 app.use('/api', (req, res, next) => {
-  if (req.path.startsWith('/auth/')) {
+  if (req.path.startsWith('/auth/') || req.path === '/feedback') {
     return next();
   }
   return requireAuth(req, res, next);
@@ -3193,6 +3211,76 @@ app.post('/api/admin/smtp/test', requireAuth, requireAdmin, async (req, res) => 
   }
 });
 
+app.post('/api/feedback', async (req, res) => {
+  const smtp = await getEffectiveSmtpSettings();
+  if (!smtp) {
+    return res.status(503).json({ error: 'Feedback ist aktuell nicht verfügbar.' });
+  }
+
+  const {
+    kind = 'feedback',
+    contact = '',
+    message = '',
+    pageUrl = '',
+    userAgent = '',
+    website = '',
+  } = req.body || {};
+
+  if (String(website || '').trim()) {
+    return res.json({ success: true });
+  }
+
+  const normalizedKind = kind === 'bug' ? 'bug' : 'feedback';
+  const trimmedContact = String(contact || '').trim().slice(0, 300);
+  const trimmedMessage = String(message || '').trim().slice(0, 5000);
+  const trimmedPageUrl = String(pageUrl || '').trim().slice(0, 500);
+  const trimmedUserAgent = String(userAgent || '').trim().slice(0, 500);
+
+  if (!trimmedMessage || trimmedMessage.length < 5) {
+    return res.status(400).json({ error: 'Bitte beschreibe dein Feedback oder den Fehler.' });
+  }
+
+  const kindLabel = normalizedKind === 'bug' ? 'Bugmeldung' : 'Feedback';
+  const subject = normalizedKind === 'bug'
+    ? 'Mein Ferienplaner: Neue Bugmeldung'
+    : 'Mein Ferienplaner: Neues Feedback';
+
+  try {
+    await sendBrandedEmail({
+      req,
+      to: FEEDBACK_NOTIFICATION_EMAIL,
+      subject,
+      previewText: `${kindLabel} wurde direkt aus der App gesendet.`,
+      headline: kindLabel,
+      subline: 'Feedback aus der App',
+      bodyHtml:
+        `<div><strong>Typ:</strong> ${kindLabel}</div>`
+        + `<div style="height:10px"></div>`
+        + `<div><strong>Kontakt für Rückfragen:</strong> ${trimmedContact ? escapeHtml(trimmedContact) : 'nicht angegeben'}</div>`
+        + (trimmedPageUrl ? `<div style="height:10px"></div><div><strong>Seite:</strong> <a href="${escapeHtml(trimmedPageUrl)}" style="color:#93c5fd;text-decoration:underline">${escapeHtml(trimmedPageUrl)}</a></div>` : '')
+        + (trimmedUserAgent ? `<div style="height:10px"></div><div><strong>Browser / Gerät:</strong> ${escapeHtml(trimmedUserAgent)}</div>` : '')
+        + `<div style="height:14px"></div>`
+        + `<div><strong>Nachricht:</strong></div>`
+        + `<div style="margin-top:8px;padding:12px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a">${formatMultilineHtml(trimmedMessage)}</div>`,
+      footerReason: 'Diese Nachricht wurde über den Feedback-Dialog in Mein Ferienplaner gesendet.',
+    });
+
+    pushAdminLog('public.feedback_submit', `${kindLabel} gesendet`, {
+      kind: normalizedKind,
+      contact: trimmedContact || null,
+      pageUrl: trimmedPageUrl || null,
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    pushAdminLog('public.feedback_failed', `Feedbackversand fehlgeschlagen: ${error.message}`, {
+      kind: normalizedKind,
+      contact: trimmedContact || null,
+    });
+    return res.status(500).json({ error: 'Feedback konnte nicht gesendet werden.' });
+  }
+});
+
 app.get('/api/admin/smtp', requireAuth, requireAdmin, async (req, res) => {
   try {
     const keyConfigured = Boolean(getAppSecretKeyBytes());
@@ -3580,11 +3668,13 @@ app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req
     const inviterName = String(ownerRow?.username || '').replace(/</g, '&lt;');
     const inviterEmail = normalizeEmail(ownerRow?.email || '');
     const inviterLabel = inviterEmail ? `${inviterName} &lt;${String(inviterEmail).replace(/</g, '&lt;')}&gt;` : inviterName;
+    const ownerCc = inviterEmail && inviterEmail !== to ? inviterEmail : '';
     const validUntilLabel = expiresAt ? formatGermanDate(expiresAt) : 'unbegrenzt';
 
     await sendBrandedEmail({
       req,
       to,
+      cc: ownerCc,
       subject: 'Mein Ferienplaner: Einladung zum Kalender',
       previewText: 'Du wurdest zu einem Kalender eingeladen.',
       headline: 'Einladung zum Kalender',
@@ -3607,6 +3697,7 @@ app.post('/api/invitations/send-email', requireCalendarRole('owner'), async (req
       expiresAt,
       expiresMode: normalizedMode,
       to,
+      cc: ownerCc || null,
     });
 
     return res.json({ success: true, token, inviteUrl, role: normalizedRole, expiresAt });

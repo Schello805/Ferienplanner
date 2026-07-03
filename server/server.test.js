@@ -285,6 +285,10 @@ test('admin can enable new calendar email notifications and calendar creation lo
 });
 
 test('invitation list includes recipient email for emailed invites', async () => {
+  await withDb(async (db) => {
+    await db.run('UPDATE users SET email = ? WHERE username = ?', ['admin@example.com', 'admin']);
+  });
+
   const loginAdmin = await request('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -314,6 +318,18 @@ test('invitation list includes recipient email for emailed invites', async () =>
   assert.equal(invitations.response.status, 200);
   assert.ok(Array.isArray(invitations.data.invitations));
   assert.equal(invitations.data.invitations[0]?.recipientEmail, 'elternteil@example.com');
+
+  const logsResponse = await request('/api/admin/logs?limit=20', {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+    },
+  });
+
+  assert.equal(logsResponse.response.status, 200);
+  const inviteLog = (logsResponse.data.entries || []).find((entry) => entry.event === 'calendar.invite_email_sent');
+  assert.ok(inviteLog);
+  assert.equal(inviteLog.meta?.to, 'elternteil@example.com');
+  assert.equal(inviteLog.meta?.cc, 'admin@example.com');
 });
 
 test('re-registering an unverified account refreshes the verification flow and password', async () => {
@@ -430,4 +446,22 @@ test('verification link works directly via GET endpoint and redirects with succe
     assert.equal(Number(user?.emailVerified || 0), 1);
     assert.equal(Number(verifications?.count || 0), 0);
   });
+});
+
+test('anonymous feedback endpoint responds gracefully when SMTP is not configured', async () => {
+  const response = await request('/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kind: 'feedback',
+      contact: 'michael@example.com',
+      message: 'Das ist ein kurzer Test für den Feedback-Dialog.',
+      pageUrl: 'http://localhost:3000/app',
+      userAgent: 'TestAgent/1.0',
+      website: '',
+    }),
+  });
+
+  assert.equal(response.response.status, 503);
+  assert.equal(response.data.error, 'Feedback ist aktuell nicht verfügbar.');
 });

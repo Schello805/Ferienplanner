@@ -1,8 +1,11 @@
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { SeoHead } from './SeoHead.jsx';
+import { FeedbackModal } from './FeedbackModal.jsx';
 import { buildSiteUrl } from '../lib/site.js';
 
 export const LandingPage = () => {
+  const [feedbackOpen, setFeedbackOpen] = React.useState(false);
   const quickBenefits = [
     {
       kicker: 'Mehr Überblick',
@@ -449,12 +452,14 @@ export const LandingPage = () => {
             <div>&copy; {new Date().getFullYear()} Mein Ferienplaner</div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               <Link to="/hilfe" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Hilfe</Link>
+              <button type="button" onClick={() => setFeedbackOpen(true)} className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Feedback</button>
               <Link to="/impressum" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Impressum</Link>
               <Link to="/datenschutz" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Datenschutzerklärung</Link>
               <Link to="/cookies" className="font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Cookiehinweis</Link>
             </div>
           </div>
         </footer>
+        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       </div>
     </main>
   );
