@@ -2023,7 +2023,37 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
+function isDigestAdminTokenValid(token) {
+  const expected = String(process.env.DIGEST_ADMIN_TOKEN || '').trim();
+  const actual = String(token || '').trim();
+  if (!expected || !actual) return false;
 
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  const actualBuffer = Buffer.from(actual, 'utf8');
+  if (expectedBuffer.length !== actualBuffer.length) return false;
+  return crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+}
+
+function requireAdminOrDigestToken(req, res, next) {
+  if (isDigestAdminTokenValid(getBearerToken(req))) {
+    req.auth = {
+      setupRequired: false,
+      authenticated: true,
+      token: null,
+      user: {
+        id: 0,
+        username: 'digest-timer',
+        email: '',
+        emailVerified: true,
+        isAdmin: true,
+      },
+      calendar: null,
+    };
+    return next();
+  }
+
+  return requireAuth(req, res, () => requireAdmin(req, res, next));
+}
 
 app.get('/health', (req, res) => {
   res.json({
@@ -2366,7 +2396,7 @@ app.post('/api/auth/delete-account', requireAuth, async (req, res) => {
 });
 
 app.use('/api', (req, res, next) => {
-  if (req.path.startsWith('/auth/') || req.path === '/feedback') {
+  if (req.path.startsWith('/auth/') || req.path === '/feedback' || req.path === '/admin/digest/run') {
     return next();
   }
   return requireAuth(req, res, next);
@@ -3026,7 +3056,7 @@ async function sendDigestForCalendar({ req, db, calendarId, startDate, endDate, 
   };
 }
 
-app.post('/api/admin/digest/run', requireAuth, requireAdmin, async (req, res) => {
+app.post('/api/admin/digest/run', requireAdminOrDigestToken, async (req, res) => {
   const db = openDb();
   try {
     const startedAt = new Date().toISOString();

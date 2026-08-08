@@ -448,6 +448,29 @@ test('verification link works directly via GET endpoint and redirects with succe
   });
 });
 
+test('digest endpoint accepts static timer token', async () => {
+  const previousToken = process.env.DIGEST_ADMIN_TOKEN;
+  process.env.DIGEST_ADMIN_TOKEN = 'digest-test-token';
+
+  try {
+    const response = await request('/api/admin/digest/run', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer digest-test-token',
+      },
+    });
+
+    assert.equal(response.response.status, 200);
+    assert.equal(response.data.success, true);
+  } finally {
+    if (previousToken === undefined) {
+      delete process.env.DIGEST_ADMIN_TOKEN;
+    } else {
+      process.env.DIGEST_ADMIN_TOKEN = previousToken;
+    }
+  }
+});
+
 test('anonymous feedback endpoint responds gracefully when SMTP is not configured', async () => {
   const response = await request('/api/feedback', {
     method: 'POST',
