@@ -806,6 +806,23 @@ function formatGermanDate(value) {
   return str;
 }
 
+function formatGermanDateTime(value) {
+  if (!value) return '';
+  const parsed = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) {
+    return String(value);
+  }
+
+  return new Intl.DateTimeFormat('de-DE', {
+    timeZone: 'Europe/Berlin',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(parsed).replace(',', ' Uhr');
+}
+
 async function initializeDatabase() {
   const db = openDb();
   try {
@@ -1747,7 +1764,8 @@ async function maybeNotifyAdminAboutNewCalendar({ userId, calendarId }) {
     }
 
     const baseUrl = resolvePublicBaseUrl(null, smtp);
-    const calendarLabel = calendarRow?.name || 'Mein Kalender';
+    const calendarLabel = String(calendarRow?.name || 'Mein Kalender');
+    const calendarSlugLabel = String(calendarRow?.slug || '').trim();
     const calendarUrl = `${baseUrl}/app${calendarRow?.slug ? `?calendar=${encodeURIComponent(calendarRow.slug)}` : ''}`;
     const createdAt = calendarRow?.createdAt || new Date().toISOString();
     const safeEmail = normalizeEmail(userRow?.email || '');
@@ -1764,9 +1782,10 @@ async function maybeNotifyAdminAboutNewCalendar({ userId, calendarId }) {
         <ul style="margin:12px 0 0 18px;padding:0">
           <li><strong>Benutzer:</strong> ${String(userRow?.username || '—')}</li>
           <li><strong>E-Mail:</strong> ${safeEmail || '—'}</li>
-          <li><strong>Kalender:</strong> ${String(calendarLabel)}</li>
+          <li><strong>Kalendername:</strong> ${escapeHtml(calendarLabel)}</li>
+          ${calendarSlugLabel ? `<li><strong>Kalender-Linkname:</strong> ${escapeHtml(calendarSlugLabel)}</li>` : ''}
           <li><strong>Kalender-ID:</strong> ${String(calendarId)}</li>
-          <li><strong>Erstellt am:</strong> ${String(createdAt)}</li>
+          <li><strong>Erstellt am:</strong> ${formatGermanDateTime(createdAt)}</li>
         </ul>
       `,
       ctaUrl: calendarUrl,
