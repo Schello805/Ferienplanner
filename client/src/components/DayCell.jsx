@@ -123,7 +123,7 @@ export const DayCell = ({
             )}
 
             {/* Weekday - Small & Subtle */}
-            <span className="day-cell-weekday absolute top-0.5 right-1 text-[8px] opacity-40 font-mono pointer-events-none text-slate-900 dark:text-white">
+            <span className="day-cell-weekday absolute top-0.5 right-1 text-[8px] font-semibold font-mono pointer-events-none text-slate-500 opacity-90 dark:text-white dark:opacity-45">
                 {weekday}
             </span>
 
