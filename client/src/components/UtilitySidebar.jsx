@@ -1650,9 +1650,9 @@ const RecurringRulesGroup = ({ label, color, rules, setRules }) => (
 );
 
 const SidebarSection = ({ title, subtitle, children }) => (
-    <section className="space-y-3 rounded-2xl border border-slate-200/90 bg-white/82 p-4 shadow-sm shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900/78 dark:shadow-black/10">
+    <section className="space-y-2.5 rounded-2xl border border-slate-200/90 bg-white/82 p-3.5 shadow-sm shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900/78 dark:shadow-black/10">
         <div>
-            <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700 dark:text-slate-100">{title}</h3>
+            <h3 className="text-xs font-bold uppercase tracking-[0.22em] text-slate-700 dark:text-slate-100">{title}</h3>
             {subtitle && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
         </div>
         {children}
