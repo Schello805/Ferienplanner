@@ -235,6 +235,10 @@ const CalendarView = ({
     const [mobileMonth, setMobileMonth] = useState(new Date().getMonth());
     const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
     const [mobileGapInfoOpen, setMobileGapInfoOpen] = useState(false);
+    const [mobileDesktopHintDismissed, setMobileDesktopHintDismissed] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return localStorage.getItem('ferienplanerMobileDesktopHintDismissed') === 'true';
+    });
     const [pendingMobileScrollDate, setPendingMobileScrollDate] = useState(null);
     const mobileDayRefs = useRef({});
 
@@ -808,6 +812,13 @@ const CalendarView = ({
         return Array.from({ length: daysInMonth }, (_, index) => getDayStatus(mobileMonth, index + 1));
     }, [year, mobileMonth, getDayStatus]);
 
+    const dismissMobileDesktopHint = () => {
+        setMobileDesktopHintDismissed(true);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('ferienplanerMobileDesktopHintDismissed', 'true');
+        }
+    };
+
     const jumpToToday = () => {
         const now = new Date();
         const target = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -889,6 +900,25 @@ const CalendarView = ({
                         <button type="button" {...mobileActionProps(jumpToFirstGap)} className="rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-xs font-semibold text-red-800 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-100">Lücken</button>
                     </div>
                 </div>
+
+                {!mobileDesktopHintDismissed && (
+                    <div className="flex items-start gap-2 rounded-2xl border border-sky-200/80 bg-sky-50/85 px-3 py-2 text-xs text-sky-900 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100">
+                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-100 text-[11px] font-bold text-sky-700 dark:bg-sky-900/60 dark:text-sky-100">i</span>
+                        <div className="min-w-0 flex-1">
+                            <div className="font-semibold">Tipp für die Planung</div>
+                            <div className="mt-0.5 text-sky-800/80 dark:text-sky-100/75">
+                                Auf dem Smartphone ist die Ansicht praktisch für den schnellen Blick. Größere Planung ist am Desktop komfortabler.
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={dismissMobileDesktopHint}
+                            className="rounded-lg px-1.5 py-0.5 text-[11px] font-semibold text-sky-700/80 transition-colors hover:bg-sky-100 hover:text-sky-900 dark:text-sky-100/75 dark:hover:bg-sky-900/50 dark:hover:text-white"
+                        >
+                            Ausblenden
+                        </button>
+                    </div>
+                )}
 
                 <div className="rounded-2xl border border-slate-200/80 bg-white/88 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-950/88">
                     <button
