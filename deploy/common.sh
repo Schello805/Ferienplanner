@@ -207,10 +207,10 @@ EOF
 
   cat > "${SYSTEMD_DIGEST_TIMER_PATH}" <<'EOF'
 [Unit]
-Description=Ferienplanung Digest (wöchentlich)
+Description=Ferienplanung Digest (monatlich)
 
 [Timer]
-OnCalendar=weekly
+OnCalendar=monthly
 Persistent=true
 RandomizedDelaySec=1h
 

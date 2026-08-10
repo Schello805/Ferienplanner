@@ -659,7 +659,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                 )}
             </SidebarSection>
 
-            <SidebarSection title="Digest" subtitle="Letzter Lauf des wöchentlichen Digest-Timers.">
+            <SidebarSection title="Digest" subtitle="Letzter Lauf des monatlichen Digest-Timers.">
                 {!digestStatus ? (
                     <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
                         Noch kein Lauf.
