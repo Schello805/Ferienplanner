@@ -58,13 +58,14 @@ export const Footer = () => {
             <button
                 type="button"
                 onClick={() => setFeedbackOpen(true)}
-                className="fixed bottom-20 left-1/2 z-[70] inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-sky-100 bg-sky-400 px-5 py-3 text-sm font-black text-slate-950 shadow-[0_18px_45px_rgba(14,165,233,0.4)] transition-all hover:-translate-y-0.5 hover:bg-sky-300 md:bottom-6 md:left-auto md:right-6 md:translate-x-0 md:px-5 md:py-3.5 print:hidden"
+                className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.25rem)] right-4 z-[70] inline-flex h-12 w-12 items-center justify-center rounded-full border border-sky-100 bg-sky-400 text-slate-950 shadow-[0_14px_34px_rgba(14,165,233,0.34)] transition-all hover:-translate-y-0.5 hover:bg-sky-300 sm:h-auto sm:w-auto sm:gap-2 sm:px-5 sm:py-3 sm:text-sm sm:font-black md:bottom-6 md:right-6 md:px-5 md:py-3.5 print:hidden"
                 title="Feedback senden"
+                aria-label="Feedback senden"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 md:h-5 md:w-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM6.75 18 3 21.75V6.75A2.25 2.25 0 0 1 5.25 4.5h13.5A2.25 2.25 0 0 1 21 6.75v9a2.25 2.25 0 0 1-2.25 2.25H6.75Z" />
                 </svg>
-                Feedback
+                <span className="hidden sm:inline">Feedback</span>
             </button>
 
             <footer className="relative z-20 mt-2 hidden rounded-2xl border border-slate-200/80 bg-white/94 px-4 py-3 text-center text-[11px] text-slate-500 shadow-sm shadow-slate-200/70 backdrop-blur dark:border-slate-800 dark:bg-slate-950/88 dark:text-slate-400 dark:shadow-black/20 md:block md:pr-44 print:hidden">
