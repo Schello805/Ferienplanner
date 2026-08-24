@@ -16,9 +16,9 @@ update_code
 full_build
 write_systemd_unit
 ensure_digest_timer
-ensure_monitor_timer
 restart_service
 wait_for_healthcheck "$(current_port)"
+ensure_monitor_timer
 
 log "Update abgeschlossen."
 log "Service-Status:"
