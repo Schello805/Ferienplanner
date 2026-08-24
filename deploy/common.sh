@@ -5,6 +5,7 @@ set -Eeuo pipefail
 APP_NAME="ferienplaner"
 SERVICE_NAME="ferienplanung-backend"
 DIGEST_SERVICE_NAME="ferienplanung-digest"
+MONITOR_SERVICE_NAME="ferienplanung-monitor"
 DEFAULT_PORT="${PORT:-3000}"
 DEFAULT_DB_PATH="${DB_PATH:-/var/lib/ferienplaner/database.sqlite}"
 
@@ -17,6 +18,8 @@ ENV_FILE="${ENV_DIR}/${APP_NAME}.env"
 SYSTEMD_UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 SYSTEMD_DIGEST_SERVICE_PATH="/etc/systemd/system/${DIGEST_SERVICE_NAME}.service"
 SYSTEMD_DIGEST_TIMER_PATH="/etc/systemd/system/${DIGEST_SERVICE_NAME}.timer"
+SYSTEMD_MONITOR_SERVICE_PATH="/etc/systemd/system/${MONITOR_SERVICE_NAME}.service"
+SYSTEMD_MONITOR_TIMER_PATH="/etc/systemd/system/${MONITOR_SERVICE_NAME}.timer"
 BACKUP_DIR="/var/lib/${APP_NAME}/backups"
 
 log() {
@@ -226,6 +229,47 @@ ensure_digest_timer() {
 
   log "Aktiviere Digest Timer ${DIGEST_SERVICE_NAME}.timer"
   systemctl enable --now "${DIGEST_SERVICE_NAME}.timer"
+}
+
+write_monitor_systemd_units() {
+  local node_bin
+  node_bin="$(command -v node)"
+  [[ -n "${node_bin}" ]] || fail "Node-Binary fuer Monitoring konnte nicht ermittelt werden"
+
+  log "Schreibe Monitoring systemd Units (${MONITOR_SERVICE_NAME})"
+  cat > "${SYSTEMD_MONITOR_SERVICE_PATH}" <<EOF
+[Unit]
+Description=Ferienplanung Betriebscheck und Datenbereinigung
+After=network-online.target ${SERVICE_NAME}.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=${SERVER_DIR}
+EnvironmentFile=${ENV_FILE}
+ExecStart=${node_bin} ${SERVER_DIR}/maintenance.js
+StateDirectory=ferienplaner
+EOF
+
+  cat > "${SYSTEMD_MONITOR_TIMER_PATH}" <<'EOF'
+[Unit]
+Description=Ferienplanung taeglicher Betriebscheck
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target
+EOF
+}
+
+ensure_monitor_timer() {
+  write_monitor_systemd_units
+  systemctl daemon-reload
+  log "Aktiviere Monitoring Timer ${MONITOR_SERVICE_NAME}.timer"
+  systemctl enable --now "${MONITOR_SERVICE_NAME}.timer"
 }
 
 enable_and_start_service() {

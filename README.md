@@ -229,6 +229,7 @@ Hinweis: Der Token wird als `Authorization: Bearer ...` beim internen Call an de
 
 - `ferienplanung-digest.service` (ruft den Endpoint auf)
 - `ferienplanung-digest.timer` (monatlicher Scheduler)
+- `ferienplanung-monitor.timer` (täglicher Betriebscheck, E-Mail-Alarmierung und Datenbereinigung)
 
 3) **Status prüfen**
 

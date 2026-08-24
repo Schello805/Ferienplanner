@@ -9,7 +9,8 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ferienplaner-test-'));
 process.env.NODE_ENV = 'test';
 process.env.DB_PATH = path.join(tempDir, 'database.sqlite');
 
-const { startServer } = await import('./server.js');
+const { startServer, stopRuntimeMetrics } = await import('./server.js');
+const { buildIssues, cleanupOperationalData } = await import('./maintenance.js');
 const server = await new Promise((resolve) => {
   const instance = startServer(0);
   instance.on('listening', () => resolve(instance));
@@ -28,6 +29,7 @@ const withDb = async (callback) => {
   const db = new sqlite3.Database(process.env.DB_PATH);
   try {
     return await callback({
+      raw: db,
       run(sql, params = []) {
         return new Promise((resolve, reject) => {
           db.run(sql, params, function onRun(error) {
@@ -65,6 +67,7 @@ test.after(async () => {
       else resolve();
     });
   });
+  await stopRuntimeMetrics();
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -487,4 +490,36 @@ test('anonymous feedback endpoint responds gracefully when SMTP is not configure
 
   assert.equal(response.response.status, 503);
   assert.equal(response.data.error, 'Feedback ist aktuell nicht verfügbar.');
+});
+
+test('operational monitoring detects health, disk, error rate and failed digest issues', () => {
+  const issues = buildIssues({
+    health: { ok: false, error: 'connection refused' },
+    disk: { usedPercent: 95, freeBytes: 500_000_000 },
+    metrics: { requestCount: 100, serverErrorCount: 8 },
+    digest: { success: 0, error: 'SMTP timeout' },
+    calendarCount: 1,
+    installationAgeDays: 90,
+  });
+
+  assert.deepEqual(issues.map((issue) => issue.key), ['health', 'disk', 'error-rate', 'digest-failed']);
+});
+
+test('maintenance cleanup removes expired and old technical records', async () => {
+  const oldIso = '2020-01-01T00:00:00.000Z';
+  await request('/api/auth/status');
+  await withDb(async (db) => {
+    await db.run('INSERT OR REPLACE INTO runtime_metrics (bucket, requestCount, clientErrorCount, serverErrorCount) VALUES (?, 10, 1, 1)', [oldIso]);
+    await db.run('INSERT INTO digest_runs (startedAt, finishedAt, success) VALUES (?, ?, 1)', [oldIso, oldIso]);
+    await db.run('INSERT INTO admin_logs (ts, event, detail) VALUES (?, ?, ?)', [oldIso, 'test.old', 'old record']);
+
+    const cleanup = await cleanupOperationalData(db.raw, new Date('2026-08-24T12:00:00.000Z').getTime());
+    assert.equal(cleanup.oldMetrics >= 1, true);
+    assert.equal(cleanup.oldDigestRuns >= 1, true);
+    assert.equal(cleanup.oldAdminLogs >= 1, true);
+
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM runtime_metrics WHERE bucket = ?', [oldIso])).count, 0);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM digest_runs WHERE startedAt = ?', [oldIso])).count, 0);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM admin_logs WHERE ts = ?', [oldIso])).count, 0);
+  });
 });

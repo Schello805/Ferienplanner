@@ -86,6 +86,8 @@ const HIBP_CACHE_TTL_MS = 1000 * 60 * 60;
 const SMTP_CACHE_TTL_MS = 1000 * 60 * 5;
 const ADMIN_LOG_RETENTION_DAYS = 90;
 const ADMIN_LOG_DEFAULT_LIMIT = 200;
+const runtimeMetricBuffer = new Map();
+let runtimeMetricFlushPromise = null;
 
 let cachedSmtpSettings = null;
 
@@ -149,6 +151,72 @@ app.use(express.json());
 app.disable('x-powered-by');
 
 app.use(securityHeadersMiddleware);
+
+function getRuntimeMetricBucket(date = new Date()) {
+  const bucket = new Date(date);
+  bucket.setUTCMinutes(0, 0, 0);
+  return bucket.toISOString();
+}
+
+async function flushRuntimeMetrics() {
+  if (runtimeMetricFlushPromise || runtimeMetricBuffer.size === 0) return runtimeMetricFlushPromise;
+
+  const pending = [...runtimeMetricBuffer.entries()];
+  runtimeMetricBuffer.clear();
+  runtimeMetricFlushPromise = (async () => {
+    await dbReady;
+    const db = openDb();
+    try {
+      for (const [bucket, counts] of pending) {
+        await dbRun(
+          db,
+          `INSERT INTO runtime_metrics (bucket, requestCount, clientErrorCount, serverErrorCount)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(bucket) DO UPDATE SET
+             requestCount = requestCount + excluded.requestCount,
+             clientErrorCount = clientErrorCount + excluded.clientErrorCount,
+             serverErrorCount = serverErrorCount + excluded.serverErrorCount`,
+          [bucket, counts.requests, counts.clientErrors, counts.serverErrors]
+        );
+      }
+    } catch (error) {
+      for (const [bucket, counts] of pending) {
+        const current = runtimeMetricBuffer.get(bucket) || { requests: 0, clientErrors: 0, serverErrors: 0 };
+        current.requests += counts.requests;
+        current.clientErrors += counts.clientErrors;
+        current.serverErrors += counts.serverErrors;
+        runtimeMetricBuffer.set(bucket, current);
+      }
+      process.stderr.write(`Failed to flush runtime metrics: ${error?.message || error}\n`);
+    } finally {
+      db.close();
+      runtimeMetricFlushPromise = null;
+    }
+  })();
+  return runtimeMetricFlushPromise;
+}
+
+app.use('/api', (req, res, next) => {
+  res.on('finish', () => {
+    const bucket = getRuntimeMetricBucket();
+    const counts = runtimeMetricBuffer.get(bucket) || { requests: 0, clientErrors: 0, serverErrors: 0 };
+    counts.requests += 1;
+    if (res.statusCode >= 500) counts.serverErrors += 1;
+    else if (res.statusCode >= 400) counts.clientErrors += 1;
+    runtimeMetricBuffer.set(bucket, counts);
+  });
+  next();
+});
+
+const runtimeMetricTimer = setInterval(() => {
+  void flushRuntimeMetrics();
+}, 60_000);
+runtimeMetricTimer.unref();
+
+export async function stopRuntimeMetrics() {
+  clearInterval(runtimeMetricTimer);
+  await flushRuntimeMetrics();
+}
 
 app.use('/api', async (req, res, next) => {
   try {
@@ -993,6 +1061,27 @@ async function initializeDatabase() {
     await dbRun(
       db,
       'CREATE INDEX IF NOT EXISTS idx_admin_logs_ts ON admin_logs(ts)'
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS runtime_metrics (
+        bucket TEXT PRIMARY KEY,
+        requestCount INTEGER NOT NULL DEFAULT 0,
+        clientErrorCount INTEGER NOT NULL DEFAULT 0,
+        serverErrorCount INTEGER NOT NULL DEFAULT 0
+      )`
+    );
+
+    await dbRun(
+      db,
+      `CREATE TABLE IF NOT EXISTS monitor_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        lastRunAt TEXT,
+        lastAlertAt TEXT,
+        activeIssuesJson TEXT,
+        lastResultJson TEXT
+      )`
     );
 
     await cleanupStaleUnverifiedUsers(db);
@@ -3165,6 +3254,33 @@ app.get('/api/admin/digest/status', requireAuth, requireAdmin, async (req, res) 
         success: Boolean(row.success),
         error: row.error || null,
         meta,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.get('/api/admin/monitor/status', requireAuth, requireAdmin, async (req, res) => {
+  const db = openDb();
+  try {
+    const row = await dbGet(db, 'SELECT lastRunAt, lastAlertAt, activeIssuesJson, lastResultJson FROM monitor_state WHERE id = 1');
+    if (!row) return res.json({ status: null });
+    const parseValue = (value, fallback) => {
+      try {
+        return value ? JSON.parse(String(value)) : fallback;
+      } catch {
+        return fallback;
+      }
+    };
+    return res.json({
+      status: {
+        lastRunAt: row.lastRunAt || null,
+        lastAlertAt: row.lastAlertAt || null,
+        activeIssues: parseValue(row.activeIssuesJson, []),
+        lastResult: parseValue(row.lastResultJson, null),
       },
     });
   } catch (error) {

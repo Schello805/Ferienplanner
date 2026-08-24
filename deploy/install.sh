@@ -14,6 +14,7 @@ backup_database
 full_build
 write_systemd_unit
 ensure_digest_timer
+ensure_monitor_timer
 enable_and_start_service
 wait_for_healthcheck "$(current_port)"
 

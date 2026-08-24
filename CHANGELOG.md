@@ -2,6 +2,9 @@
 
 ## 1.2.0
 
+- Tägliche Betriebsüberwachung mit Healthcheck, API-Fehlerquote, Speicherplatz- und Digest-Prüfung sowie E-Mail-Alarm und Entwarnung ergänzt
+- Datenschutzfreundliche automatische Bereinigung für abgelaufene Sessions, Verifikationen, Einladungen und technische Laufdaten ergänzt
+- Monitoring-Status im Adminbereich sichtbar gemacht und Aufbewahrungsfristen dokumentiert
 - Landingpage als inhaltlicher OnePager für berufstätige Eltern ausgebaut, mobil verbessert und SEO deutlich erweitert
 - Öffentlichen Feedback-Dialog in App und Landingpage ergänzt, mobil optimiert und mit E-Mail-Versand verknüpft
 - Feedback-Versand robuster gemacht: Reply-To-Fallback, alternativer Empfänger und bessere Protokollierung im Admin-Log
