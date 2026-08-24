@@ -175,7 +175,7 @@ export function buildIssues({ health, disk, metrics, digest, calendarCount, inst
   }
 
   if (digest && !digest.success) {
-    issues.push({ key: 'digest-failed', title: 'Letzter Digest-Lauf fehlgeschlagen', detail: digest.error || digest.startedAt || 'Unbekannter Fehler' });
+    issues.push({ key: 'digest-failed', title: 'Letzter Digest-Lauf fehlgeschlagen', detail: digest.error || (digest.startedAt ? `Gestartet: ${formatGermanDateTime(digest.startedAt)}` : 'Unbekannter Fehler') });
   } else if (calendarCount > 0 && installationAgeDays >= DIGEST_MAX_AGE_DAYS) {
     const lastDigestAgeDays = digest?.startedAt ? (Date.now() - new Date(digest.startedAt).getTime()) / 86_400_000 : Infinity;
     if (lastDigestAgeDays > DIGEST_MAX_AGE_DAYS) {

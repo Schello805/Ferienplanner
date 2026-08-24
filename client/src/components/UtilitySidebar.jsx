@@ -29,6 +29,20 @@ const formatGermanDateOnly = (value) => {
     return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
 };
 
+const formatGermanDateTime = (value) => {
+    if (!value) return '—';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return `${new Intl.DateTimeFormat('de-DE', {
+        timeZone: 'Europe/Berlin',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(date).replace(',', '')} Uhr`;
+};
+
 const buildVacationRanges = (vacations = [], allowedUserIds = new Set(), fromYear, isNetDay = null) => {
     const fromDate = new Date(fromYear, 0, 1);
     const dateStrings = Array.from(
@@ -657,7 +671,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                                 {stats.smtpConfigured ? 'konfiguriert' : 'nicht aktiv'}
                             </div>
                             {stats.smtpUpdatedAt && (
-                                <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Updated: {stats.smtpUpdatedAt}</div>
+                                <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Aktualisiert: {formatGermanDateTime(stats.smtpUpdatedAt)}</div>
                             )}
                         </div>
                     </div>
@@ -676,7 +690,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                             <div className="text-sm font-bold">{monitorStatus.activeIssues?.length ? 'WARNUNG' : 'OK'}</div>
                         </div>
                         <div className="mt-2 grid gap-1">
-                            <div>Letzter Check: <strong>{monitorStatus.lastRunAt ? new Date(monitorStatus.lastRunAt).toLocaleString('de-DE') : '—'}</strong></div>
+                            <div>Letzter Check: <strong>{formatGermanDateTime(monitorStatus.lastRunAt)}</strong></div>
                             <div>Speicher belegt: <strong>{monitorStatus.lastResult?.disk?.usedPercent ?? '—'} %</strong></div>
                             <div>API 5xx (24 h): <strong>{monitorStatus.lastResult?.metrics?.serverErrorCount ?? 0} / {monitorStatus.lastResult?.metrics?.requestCount ?? 0}</strong></div>
                         </div>
@@ -701,8 +715,8 @@ const AdminToolsPanel = ({ currentUser }) => {
                             <div className="text-sm font-bold">{digestStatus.success ? 'OK' : 'FEHLER'}</div>
                         </div>
                         <div className="mt-2 grid gap-1">
-                            <div>Start: <strong>{digestStatus.startedAt || '—'}</strong></div>
-                            <div>Ende: <strong>{digestStatus.finishedAt || '—'}</strong></div>
+                            <div>Start: <strong>{formatGermanDateTime(digestStatus.startedAt)}</strong></div>
+                            <div>Ende: <strong>{formatGermanDateTime(digestStatus.finishedAt)}</strong></div>
                             {digestStatus?.meta?.year && <div>Jahr: <strong>{digestStatus.meta.year}</strong></div>}
                             {Number.isFinite(Number(digestStatus?.meta?.calendars)) && <div>Kalender: <strong>{digestStatus.meta.calendars}</strong></div>}
                         </div>
@@ -943,7 +957,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                             Diese Adresse wird benachrichtigt, sobald ein neuer Kalender in der Instanz angelegt wird.
                         </div>
                         {adminSettingsDraft.updatedAt && (
-                            <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Updated: {adminSettingsDraft.updatedAt}</div>
+                            <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Aktualisiert: {formatGermanDateTime(adminSettingsDraft.updatedAt)}</div>
                         )}
                     </div>
 

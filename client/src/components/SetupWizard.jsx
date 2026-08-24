@@ -299,7 +299,13 @@ export const SetupWizard = () => {
         <div className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
           {draftSavedAt && (
             <div className="mb-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Zwischengespeichert: {draftSavedAt.toLocaleString()}
+              Zwischengespeichert: {draftSavedAt.toLocaleString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })} Uhr
             </div>
           )}
           {step === 0 && (

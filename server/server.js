@@ -3157,7 +3157,7 @@ app.post('/api/admin/digest/run', requireAdminOrDigestToken, async (req, res) =>
   const db = openDb();
   try {
     const startedAt = new Date().toISOString();
-    pushAdminLog('admin.digest_run_started', `Digest run started at ${startedAt}`, { startedAt });
+    pushAdminLog('admin.digest_run_started', `Digest-Lauf gestartet: ${formatGermanDateTime(startedAt)}`, { startedAt });
     const runRow = await dbRun(
       db,
       'INSERT INTO digest_runs (startedAt, success) VALUES (?, 0)',

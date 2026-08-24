@@ -36,7 +36,15 @@ export class AppErrorBoundary extends React.Component {
     const details = [
       `Mein Ferienplaner - Fehlerbericht`,
       `Version: ${version}`,
-      `Zeitpunkt: ${new Date().toISOString()}`,
+      `Zeitpunkt: ${new Date().toLocaleString('de-DE', {
+        timeZone: 'Europe/Berlin',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })} Uhr`,
       `URL: ${typeof window !== 'undefined' ? window.location.href : ''}`,
       `Message: ${message}`,
       stack ? `\nStack:\n${stack}` : '',
