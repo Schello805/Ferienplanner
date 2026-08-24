@@ -30,6 +30,14 @@ const safeJsonStringify = (value) => {
   }
 };
 
+const APP_SIDEBAR_TABS = new Set(['profile', 'parents', 'children', 'general', 'share', 'notifications', 'help', 'admin']);
+
+const getRequestedSidebarTab = () => {
+  if (typeof window === 'undefined') return '';
+  const requested = new URLSearchParams(window.location.search).get('tab') || '';
+  return APP_SIDEBAR_TABS.has(requested) ? requested : '';
+};
+
 const createDefaultRecurringRule = () => ({
   frequency: 'weekly',
   anchorDate: formatLocalDateInput(new Date()),
@@ -131,6 +139,7 @@ function App() {
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
+      if (getRequestedSidebarTab()) return true;
       const saved = localStorage.getItem('sidebarOpen');
       if (saved !== null) return saved === 'true';
       return window.innerWidth >= 1024;
@@ -138,6 +147,8 @@ function App() {
     return true;
   });
   const [sidebarTab, setSidebarTab] = useState(() => {
+    const requested = getRequestedSidebarTab();
+    if (requested) return requested;
     const saved = localStorage.getItem('sidebarTab') || 'profile';
     if (saved === 'settings') return 'general';
     if (saved === 'legend') return 'profile';

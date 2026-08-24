@@ -1389,13 +1389,13 @@ function formatMultilineHtml(value) {
   return escapeHtml(value).replace(/\r?\n/g, '<br />');
 }
 
-async function sendBrandedEmail({ req, to, cc = '', replyTo = '', subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason }) {
+async function sendBrandedEmail({ req, to, cc = '', replyTo = '', subject, previewText, headline, subline, bodyHtml, ctaUrl, ctaText, footerReason, footerActionUrl = '', footerActionText = '' }) {
   const smtp = await getEffectiveSmtpSettings();
   const baseUrl = resolvePublicBaseUrl(req, smtp);
   const safeBaseUrl = String(baseUrl).replace(/\/$/, '');
-  const resolvedCtaUrl = (() => {
-    if (!ctaUrl) return '';
-    const raw = String(ctaUrl).trim();
+  const resolveEmailUrl = (value) => {
+    if (!value) return '';
+    const raw = String(value).trim();
     if (!raw) return '';
     if (raw.startsWith('/')) {
       return `${safeBaseUrl}${raw}`;
@@ -1411,7 +1411,9 @@ async function sendBrandedEmail({ req, to, cc = '', replyTo = '', subject, previ
     } catch {
       return raw;
     }
-  })();
+  };
+  const resolvedCtaUrl = resolveEmailUrl(ctaUrl);
+  const resolvedFooterActionUrl = resolveEmailUrl(footerActionUrl);
   const logoUrl = `${safeBaseUrl}/ferienplaner-logo-2026.png`;
   const helpUrl = `${safeBaseUrl}/hilfe`;
   const imprintUrl = `${safeBaseUrl}/impressum`;
@@ -1487,6 +1489,10 @@ async function sendBrandedEmail({ req, to, cc = '', replyTo = '', subject, previ
           </table>
           <div style="max-width:560px;margin-top:10px;color:#64748b;font-size:11px;line-height:1.4">
             <div>${String(footerReason || '').replace(/</g, '&lt;')}</div>
+            ${resolvedFooterActionUrl ? `
+            <div style="margin-top:6px">
+              <a href="${resolvedFooterActionUrl}" style="color:#0284c7;text-decoration:underline">${escapeHtml(footerActionText || 'Einstellungen ändern')}</a>
+            </div>` : ''}
             <div style="margin-top:6px">
               <a href="${helpUrl}" style="color:#64748b;text-decoration:underline">Hilfe</a>
               <span style="opacity:0.5"> · </span>
@@ -1501,7 +1507,7 @@ async function sendBrandedEmail({ req, to, cc = '', replyTo = '', subject, previ
   </body>
 </html>`;
 
-  const plainText = `${String(headline || '')}\n\n${String(previewText || '')}\n\n${resolvedCtaUrl ? `${resolvedCtaUrl}\n\n` : ''}${String(footerReason || '')}`;
+  const plainText = `${String(headline || '')}\n\n${String(previewText || '')}\n\n${resolvedCtaUrl ? `${resolvedCtaUrl}\n\n` : ''}${String(footerReason || '')}${resolvedFooterActionUrl ? `\n${String(footerActionText || 'Einstellungen ändern')}: ${resolvedFooterActionUrl}` : ''}`;
 
   const fromValue = String(smtp.fromAddress || '').includes('<')
     ? smtp.fromAddress
@@ -3048,6 +3054,8 @@ async function sendDigestForCalendar({ req, db, calendarId, startDate, endDate, 
       ctaUrl: `${getPublicBaseUrl(req, PORT)}/app`,
       ctaText: 'Kalender öffnen',
       footerReason: 'Du erhältst diese E-Mail, weil du Benachrichtigungen (Jahresübersicht) aktiviert hast.',
+      footerActionUrl: `${getPublicBaseUrl(req, PORT)}/app?tab=notifications`,
+      footerActionText: 'E-Mail-Einstellungen ändern',
     });
   }
 
