@@ -122,6 +122,11 @@ export const DayCell = ({
                 />
             )}
 
+            {/* Day number - visible in every valid month cell */}
+            <span className="day-cell-number pointer-events-none absolute left-0.5 top-0.5 z-20 rounded-sm bg-white/65 px-0.5 font-mono text-[7px] font-bold leading-[9px] text-slate-600 shadow-sm dark:bg-slate-950/55 dark:text-slate-200">
+                {status.date.getDate()}
+            </span>
+
             {/* Weekday - Small & Subtle */}
             <span className="day-cell-weekday absolute top-0.5 right-1 text-[8px] font-semibold font-mono pointer-events-none text-slate-500 opacity-90 dark:text-white dark:opacity-45">
                 {weekday}

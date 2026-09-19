@@ -6,6 +6,7 @@
 - Mobile Monatsnavigation über Jahresgrenzen hinweg korrigiert
 - Gesetzliche Feiertage pro Elternteil und Kind konfigurierbar gemacht; standardmäßig gelten sie für alle als freie Tage
 - Urlaubstage berücksichtigen die persönliche Feiertagseinstellung, während Feiertage weiterhin keine Betreuungslücke auslösen
+- Tageszahlen zusätzlich oben links in jeder Kalenderzelle eingeblendet
 
 ## 1.2.0
 
