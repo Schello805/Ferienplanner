@@ -7,6 +7,7 @@
 - Gesetzliche Feiertage pro Elternteil und Kind konfigurierbar gemacht; standardmäßig gelten sie für alle als freie Tage
 - Urlaubstage berücksichtigen die persönliche Feiertagseinstellung, während Feiertage weiterhin keine Betreuungslücke auslösen
 - Tageszahlen zusätzlich oben links in jeder Kalenderzelle eingeblendet
+- Mobile „Mehr“-Navigation in der Seitenleiste und unteren Navigationsleiste repariert
 
 ## 1.2.0
 

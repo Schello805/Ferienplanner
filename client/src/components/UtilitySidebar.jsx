@@ -3230,47 +3230,46 @@ export const UtilitySidebar = ({
                                         );
                                     })}
 
-                                <div className="relative">
-                                    <button
-                                        type="button"
-                                        onClick={() => setMobileMoreOpen((v) => !v)}
-                                        className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
-                                            mobileMoreOpen
-                                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                                                : 'bg-white text-slate-600 shadow-sm hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800'
-                                        }`}
-                                    >
-                                        Mehr
-                                    </button>
-                                    {mobileMoreOpen && (
-                                        <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-950">
-                                            {moreTabIds.map((id) => {
-                                                const tab = tabs.find((t) => t.id === id);
-                                                if (!tab) return null;
-                                                const active = activeTab === tab.id;
-                                                return (
-                                                    <button
-                                                        key={tab.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setMobileMoreOpen(false);
-                                                            setActiveTab(tab.id);
-                                                        }}
-                                                        className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
-                                                            active
-                                                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                                                                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
-                                                        }`}
-                                                    >
-                                                        <span>{tab.label}</span>
-                                                        <span className="opacity-70">›</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setMobileMoreOpen((v) => !v)}
+                                    aria-expanded={mobileMoreOpen}
+                                    className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                                        mobileMoreOpen
+                                            ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                                            : 'bg-white text-slate-600 shadow-sm hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800'
+                                    }`}
+                                >
+                                    Mehr
+                                </button>
                             </div>
+                            {mobileMoreOpen && (
+                                <div className="mt-2 grid grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-950">
+                                    {moreTabIds.map((id) => {
+                                        const tab = tabs.find((t) => t.id === id);
+                                        if (!tab) return null;
+                                        const active = activeTab === tab.id;
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setMobileMoreOpen(false);
+                                                    setActiveTab(tab.id);
+                                                }}
+                                                className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                                                    active
+                                                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                                                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
+                                                }`}
+                                            >
+                                                <span>{tab.label}</span>
+                                                <span className="opacity-70">›</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </nav>
                     )}
 

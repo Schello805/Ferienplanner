@@ -1034,10 +1034,8 @@ function App() {
                     if (item.id === 'more') {
                       if (sidebarOpen) {
                         setSidebarOpen(false);
-                        setMoreMenuOpen(false);
-                        return;
                       }
-                      setMoreMenuOpen((current) => !current);
+                      setMoreMenuOpen(true);
                       return;
                     }
                     if (sidebarOpen && sidebarTab === item.id) {
