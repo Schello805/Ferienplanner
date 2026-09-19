@@ -84,6 +84,9 @@ export const DayCell = ({
     const weekday = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][status.date.getDay()];
     const childMarkers = (status.childrenNeedingCare || []).slice(0, 3);
     const extraChildrenCount = Math.max((status.childrenNeedingCare || []).length - childMarkers.length, 0);
+    const dayNumberColorClass = status.p1 || status.p2 || status.care
+        ? 'text-white/85'
+        : 'text-slate-500 dark:text-slate-300/75';
 
     return (
         <div
@@ -123,7 +126,7 @@ export const DayCell = ({
             )}
 
             {/* Day number - visible in every valid month cell */}
-            <span className="day-cell-number pointer-events-none absolute left-0.5 top-0.5 z-20 rounded-sm bg-white/65 px-0.5 font-mono text-[7px] font-bold leading-[9px] text-slate-600 shadow-sm dark:bg-slate-950/55 dark:text-slate-200">
+            <span className={`day-cell-number pointer-events-none absolute left-1 top-1 z-20 font-mono text-[7px] font-bold leading-none ${dayNumberColorClass}`}>
                 {status.date.getDate()}
             </span>
 

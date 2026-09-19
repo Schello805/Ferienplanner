@@ -242,10 +242,11 @@
   /* Weekday Indicator */
   .day-cell-number {
     position: absolute !important;
-    top: 1px !important;
-    left: 1px !important;
-    padding: 0 1px !important;
-    background: rgba(255, 255, 255, 0.78) !important;
+    top: 3px !important;
+    left: 3px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
     color: #334155 !important;
     font-size: 7px !important;
     font-weight: bold !important;
