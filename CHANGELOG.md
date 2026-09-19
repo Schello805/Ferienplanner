@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 – 19.09.2026
+
+- Einmaligen, mobil optimierten „Was ist neu?“-Hinweis für neue Releases ergänzt
+- Mobile Monatsnavigation über Jahresgrenzen hinweg korrigiert
+- Gesetzliche Feiertage pro Elternteil und Kind konfigurierbar gemacht; standardmäßig gelten sie für alle als freie Tage
+- Urlaubstage berücksichtigen die persönliche Feiertagseinstellung, während Feiertage weiterhin keine Betreuungslücke auslösen
+
 ## 1.2.0
 
 - Tägliche Betriebsüberwachung mit Healthcheck, API-Fehlerquote, Speicherplatz- und Digest-Prüfung sowie E-Mail-Alarm und Entwarnung ergänzt
@@ -15,9 +22,6 @@
 - Einladungen verbessert: Empfängeradresse sichtbar, Owner erhält CC bei E-Mail-Einladungen
 - Registrierung und Verifikation verbessert: direkte Verifikationslinks sowie sauberer Re-Register-Prozess für unverifizierte Konten
 - CI aktualisiert: GitHub Actions auf aktuelle Versionen angehoben und Test-Expectations bereinigt
-- Mobile Monatsnavigation über Jahresgrenzen hinweg korrigiert
-- Gesetzliche Feiertage pro Elternteil und Kind konfigurierbar gemacht; standardmäßig gelten sie für alle als freie Tage
-- Urlaubstage berücksichtigen die persönliche Feiertagseinstellung, während Feiertage weiterhin keine Betreuungslücke auslösen
 
 ## 0.2.0
 

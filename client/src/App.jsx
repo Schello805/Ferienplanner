@@ -5,6 +5,7 @@ import { Footer } from './components/Footer'
 import { UtilitySidebar } from './components/UtilitySidebar'
 import { AuthScreen } from './components/AuthScreen'
 import { ChangelogModal } from './components/ChangelogModal.jsx'
+import { ReleaseNotesModal } from './components/ReleaseNotesModal.jsx'
 import { SeoHead } from './components/SeoHead.jsx'
 import { Toaster } from 'sonner'
 import { toast } from 'sonner'
@@ -12,6 +13,7 @@ import { GERMAN_STATE_MAP } from './constants/germanStates'
 import { authFetch, clearStoredAuthToken, getApiErrorMessage, requestJson } from './lib/api'
 import { useAuthState } from './hooks/useAuthState'
 import { useFamilyData } from './hooks/useFamilyData'
+import { hasSeenReleaseNotes, markReleaseNotesSeen, RELEASE_NOTES } from './lib/releaseNotes.js'
 
 const formatLocalDateInput = (date) => {
   const year = date.getFullYear();
@@ -99,6 +101,7 @@ const loadRecurringRules = (rulesKey, daysKey, singleRuleKey) => {
 
 function App() {
   const currentYear = new Date().getFullYear();
+  const releaseVersion = typeof __APP_RELEASE_VERSION__ === 'string' ? __APP_RELEASE_VERSION__ : '0.0.0';
 
   const [pendingInviteToken, setPendingInviteToken] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -184,6 +187,7 @@ function App() {
   );
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const unauthorizedHandledRef = useRef(false);
 
   const {
@@ -202,6 +206,21 @@ function App() {
     handleAuthSubmit,
     handleLogout,
   } = useAuthState({ pendingInviteToken });
+
+  useEffect(() => {
+    if (!currentUser || typeof window === 'undefined') return;
+    if (releaseVersion !== RELEASE_NOTES.release) return;
+    if (!hasSeenReleaseNotes(window.localStorage, releaseVersion)) {
+      setReleaseNotesOpen(true);
+    }
+  }, [currentUser, releaseVersion]);
+
+  const closeReleaseNotes = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      markReleaseNotesSeen(window.localStorage, releaseVersion);
+    }
+    setReleaseNotesOpen(false);
+  }, [releaseVersion]);
 
   const {
     children,
@@ -1118,6 +1137,7 @@ function App() {
         </>
       )}
 
+      <ReleaseNotesModal open={releaseNotesOpen} onClose={closeReleaseNotes} version={version} />
       <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} version={version} />
 
       {!shareMode && <Footer />}
