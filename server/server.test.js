@@ -139,6 +139,59 @@ test('each user sees only their own default calendar data', async () => {
   assert.deepEqual(adminVacations.data, [{ date: '2026-08-03', userId: 'p1' }]);
 });
 
+test('calendar and child public holiday settings persist with safe defaults', async () => {
+  const login = await request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'secret12345' }),
+  });
+  const token = login.data.token;
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+
+  const defaultSettings = await request('/api/calendar/settings', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  assert.equal(defaultSettings.response.status, 200);
+  assert.equal(defaultSettings.data.p1UsesPublicHolidays, true);
+  assert.equal(defaultSettings.data.p2UsesPublicHolidays, true);
+
+  const savedSettings = await request('/api/calendar/settings', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      stateCode: 'BY',
+      p1UsesPublicHolidays: false,
+      p2UsesPublicHolidays: true,
+    }),
+  });
+  assert.equal(savedSettings.response.status, 200);
+  assert.equal(savedSettings.data.p1UsesPublicHolidays, false);
+  assert.equal(savedSettings.data.p2UsesPublicHolidays, true);
+
+  const createdChild = await request('/api/children', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      name: 'Feiertags-Testkind',
+      type: 'school',
+      usesSchoolHolidays: true,
+      usesPublicHolidays: false,
+    }),
+  });
+  assert.equal(createdChild.response.status, 200);
+
+  const children = await request('/api/children', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const child = children.data.find((entry) => entry.name === 'Feiertags-Testkind');
+  assert.ok(child);
+  assert.equal(child.usesSchoolHolidays, true);
+  assert.equal(child.usesPublicHolidays, false);
+});
+
 test('rate limiting blocks repeated failed logins', async () => {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const failed = await request('/api/auth/login', {

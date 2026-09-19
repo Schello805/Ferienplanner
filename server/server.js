@@ -1004,6 +1004,8 @@ async function initializeDatabase() {
         ownerUserId INTEGER NOT NULL,
         slug TEXT,
         stateCode TEXT,
+        p1UsesPublicHolidays INTEGER NOT NULL DEFAULT 1,
+        p2UsesPublicHolidays INTEGER NOT NULL DEFAULT 1,
         createdAt TEXT,
         updatedAt TEXT,
         FOREIGN KEY (ownerUserId) REFERENCES users(id) ON DELETE CASCADE
@@ -1017,6 +1019,12 @@ async function initializeDatabase() {
     }
     if (!calendarColumnNames.has('stateCode')) {
       await dbRun(db, "ALTER TABLE calendars ADD COLUMN stateCode TEXT");
+    }
+    if (!calendarColumnNames.has('p1UsesPublicHolidays')) {
+      await dbRun(db, 'ALTER TABLE calendars ADD COLUMN p1UsesPublicHolidays INTEGER NOT NULL DEFAULT 1');
+    }
+    if (!calendarColumnNames.has('p2UsesPublicHolidays')) {
+      await dbRun(db, 'ALTER TABLE calendars ADD COLUMN p2UsesPublicHolidays INTEGER NOT NULL DEFAULT 1');
     }
     await dbRun(
       db,
@@ -1160,6 +1168,7 @@ async function initializeDatabase() {
         type TEXT NOT NULL DEFAULT 'school',
         color TEXT,
         usesSchoolHolidays INTEGER NOT NULL DEFAULT 1,
+        usesPublicHolidays INTEGER NOT NULL DEFAULT 1,
         createdAt TEXT,
         updatedAt TEXT
       )`
@@ -1194,6 +1203,9 @@ async function initializeDatabase() {
     const childColumns = new Set((await dbAll(db, 'PRAGMA table_info(children)')).map((row) => row.name));
     if (!childColumns.has('calendarId')) {
       await dbRun(db, 'ALTER TABLE children ADD COLUMN calendarId INTEGER');
+    }
+    if (!childColumns.has('usesPublicHolidays')) {
+      await dbRun(db, 'ALTER TABLE children ADD COLUMN usesPublicHolidays INTEGER NOT NULL DEFAULT 1');
     }
 
     const freeDayColumns = new Set((await dbAll(db, 'PRAGMA table_info(child_free_days)')).map((row) => row.name));
@@ -2555,8 +2567,16 @@ app.get('/api/calendar/settings', async (req, res) => {
 
   const db = openDb();
   try {
-    const row = await dbGet(db, 'SELECT stateCode FROM calendars WHERE id = ? LIMIT 1', [calendarId]);
-    return res.json({ stateCode: row?.stateCode || 'BY' });
+    const row = await dbGet(
+      db,
+      'SELECT stateCode, p1UsesPublicHolidays, p2UsesPublicHolidays FROM calendars WHERE id = ? LIMIT 1',
+      [calendarId]
+    );
+    return res.json({
+      stateCode: row?.stateCode || 'BY',
+      p1UsesPublicHolidays: row?.p1UsesPublicHolidays !== 0,
+      p2UsesPublicHolidays: row?.p2UsesPublicHolidays !== 0,
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   } finally {
@@ -2577,8 +2597,25 @@ app.post('/api/calendar/settings', requireCalendarRole('owner'), async (req, res
 
   const db = openDb();
   try {
-    await dbRun(db, 'UPDATE calendars SET stateCode = ?, updatedAt = ? WHERE id = ?', [stateCode, new Date().toISOString(), calendarId]);
-    return res.json({ success: true, stateCode });
+    const current = await dbGet(
+      db,
+      'SELECT p1UsesPublicHolidays, p2UsesPublicHolidays FROM calendars WHERE id = ? LIMIT 1',
+      [calendarId]
+    );
+    const p1UsesPublicHolidays = typeof req.body?.p1UsesPublicHolidays === 'boolean'
+      ? req.body.p1UsesPublicHolidays
+      : current?.p1UsesPublicHolidays !== 0;
+    const p2UsesPublicHolidays = typeof req.body?.p2UsesPublicHolidays === 'boolean'
+      ? req.body.p2UsesPublicHolidays
+      : current?.p2UsesPublicHolidays !== 0;
+    await dbRun(
+      db,
+      `UPDATE calendars
+       SET stateCode = ?, p1UsesPublicHolidays = ?, p2UsesPublicHolidays = ?, updatedAt = ?
+       WHERE id = ?`,
+      [stateCode, p1UsesPublicHolidays ? 1 : 0, p2UsesPublicHolidays ? 1 : 0, new Date().toISOString(), calendarId]
+    );
+    return res.json({ success: true, stateCode, p1UsesPublicHolidays, p2UsesPublicHolidays });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   } finally {
@@ -3315,7 +3352,7 @@ app.get('/api/admin/diagnostics', requireAuth, requireAdmin, async (req, res) =>
       dbAll(db, 'SELECT id, username, email, emailVerified, isAdmin, createdAt, updatedAt FROM users ORDER BY id ASC LIMIT 200'),
       dbAll(db, 'SELECT id, name, ownerUserId, createdAt, updatedAt FROM calendars ORDER BY id ASC LIMIT 200'),
       dbAll(db, 'SELECT calendarId, userId, role, createdAt FROM calendar_memberships ORDER BY calendarId ASC, userId ASC LIMIT 500'),
-      dbAll(db, 'SELECT id, calendarId, name, type, color, usesSchoolHolidays, createdAt, updatedAt FROM children ORDER BY id ASC LIMIT 500'),
+      dbAll(db, 'SELECT id, calendarId, name, type, color, usesSchoolHolidays, usesPublicHolidays, createdAt, updatedAt FROM children ORDER BY id ASC LIMIT 500'),
       dbAll(db, 'SELECT id, calendarId, childId, startDate, endDate, label, createdAt, updatedAt FROM child_free_days ORDER BY id ASC LIMIT 500'),
       dbAll(db, 'SELECT calendarId, date, userId, createdAt, updatedAt FROM vacation_entries ORDER BY updatedAt DESC, date DESC LIMIT 1000'),
       dbAll(db, 'SELECT id, calendarId, invitedByUserId, role, tokenHash, createdAt, expiresAt, usedAt, usedByUserId FROM calendar_invitations ORDER BY createdAt DESC LIMIT 200'),
@@ -3683,7 +3720,7 @@ app.get('/api/children', (req, res) => {
   const calendarId = req.auth?.calendar?.id;
   const db = openDb();
   db.all(
-    `SELECT id, name, type, color, usesSchoolHolidays
+    `SELECT id, name, type, color, usesSchoolHolidays, usesPublicHolidays
      FROM children
      WHERE calendarId = ?
      ORDER BY id ASC`,
@@ -3694,6 +3731,7 @@ app.get('/api/children', (req, res) => {
       res.json(rows.map((row) => ({
         ...row,
         usesSchoolHolidays: Boolean(row.usesSchoolHolidays),
+        usesPublicHolidays: row.usesPublicHolidays !== 0,
       })));
     }
   );
@@ -3701,7 +3739,7 @@ app.get('/api/children', (req, res) => {
 
 app.post('/api/children', requireCalendarRole('editor'), (req, res) => {
   const calendarId = req.auth?.calendar?.id;
-  const { id, name, type = 'school', color = null, usesSchoolHolidays = true } = req.body;
+  const { id, name, type = 'school', color = null, usesSchoolHolidays = true, usesPublicHolidays = true } = req.body;
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Name required' });
   }
@@ -3713,9 +3751,9 @@ app.post('/api/children', requireCalendarRole('editor'), (req, res) => {
   if (id) {
     db.run(
       `UPDATE children
-       SET name = ?, type = ?, color = ?, usesSchoolHolidays = ?, updatedAt = ?
+       SET name = ?, type = ?, color = ?, usesSchoolHolidays = ?, usesPublicHolidays = ?, updatedAt = ?
        WHERE id = ? AND calendarId = ?`,
-      [name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, now, id, calendarId],
+      [name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, usesPublicHolidays ? 1 : 0, now, id, calendarId],
       function onUpdate(err) {
         db.close();
         if (err) return res.status(500).json({ error: err.message });
@@ -3726,9 +3764,9 @@ app.post('/api/children', requireCalendarRole('editor'), (req, res) => {
   }
 
   db.run(
-      `INSERT INTO children (calendarId, name, type, color, usesSchoolHolidays, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [calendarId, name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, now, now],
+      `INSERT INTO children (calendarId, name, type, color, usesSchoolHolidays, usesPublicHolidays, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [calendarId, name.trim(), normalizedType, color, usesSchoolHolidays ? 1 : 0, usesPublicHolidays ? 1 : 0, now, now],
     function onInsert(err) {
       db.close();
       if (err) return res.status(500).json({ error: err.message });

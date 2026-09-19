@@ -5,6 +5,7 @@ import { DayCell } from './DayCell';
 import { authFetch, requestJson, toApiError } from '../lib/api';
 import { LAYERS } from '../lib/layers.js';
 import { getSiteHostLabel } from '../lib/site.js';
+import { getAdjacentMonth } from '../lib/calendarNavigation.js';
 
 const MONTHS = [
     'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -210,6 +211,8 @@ const CalendarView = ({
     childFreeDays = [],
     p1RecurringRules = [],
     p2RecurringRules = [],
+    p1UsesPublicHolidays = true,
+    p2UsesPublicHolidays = true,
     onApiStatusChange,
     onStatsChange,
     onHolidayBreakdownChange,
@@ -241,6 +244,7 @@ const CalendarView = ({
     });
     const [pendingMobileScrollDate, setPendingMobileScrollDate] = useState(null);
     const mobileDayRefs = useRef({});
+    const pendingMobileMonthRef = useRef(null);
 
     // Optimize vacation lookup using Map (O(1))
     const vacationsMap = useMemo(() => {
@@ -279,7 +283,7 @@ const CalendarView = ({
         return map;
     }, [childFreeDays, childrenById]);
 
-    const getChildrenNeedingCare = useCallback((dateString, isSchoolHoliday) => {
+    const getChildrenNeedingCare = useCallback((dateString, isSchoolHoliday, publicHolidayName = '') => {
         if (children.length === 0) {
             return [];
         }
@@ -294,6 +298,25 @@ const CalendarView = ({
                     childName: child.name,
                     childColor: child.color,
                     reasons: ['Schulferien'],
+                });
+            });
+        }
+
+        if (publicHolidayName) {
+            children.forEach((child) => {
+                if (!child.usesPublicHolidays) return;
+                const existing = activeChildren.get(child.id);
+                if (existing) {
+                    if (!existing.reasons.includes(publicHolidayName)) {
+                        existing.reasons.push(publicHolidayName);
+                    }
+                    return;
+                }
+                activeChildren.set(child.id, {
+                    childId: child.id,
+                    childName: child.name,
+                    childColor: child.color,
+                    reasons: [publicHolidayName],
                 });
             });
         }
@@ -362,6 +385,11 @@ const CalendarView = ({
     }, [fetchData, stateName, year]);
 
     useEffect(() => {
+        if (pendingMobileMonthRef.current !== null) {
+            setMobileMonth(pendingMobileMonthRef.current);
+            pendingMobileMonthRef.current = null;
+            return;
+        }
         const now = new Date();
         if (year === now.getFullYear()) {
             setMobileMonth(now.getMonth());
@@ -369,6 +397,15 @@ const CalendarView = ({
             setMobileMonth(0);
         }
     }, [year]);
+
+    const changeMobileMonth = useCallback((direction) => {
+        const { year: nextYear, month: nextMonth } = getAdjacentMonth(year, mobileMonth, direction);
+        if (nextYear !== year) {
+            pendingMobileMonthRef.current = nextMonth;
+            setYear(nextYear);
+        }
+        setMobileMonth(nextMonth);
+    }, [mobileMonth, setYear, year]);
 
     const getDatesInRange = useCallback((s, e) => {
         const start = parseDateOnly(s);
@@ -488,12 +525,12 @@ const CalendarView = ({
                 if (hasP2) p2++;
                 if (hasCare) care++;
 
-                // Count Personal Net Vacation Days (Cost for the person)
-                // Assuming vacation days on weekends/public holidays don't count against allowance
-                if (hasP1 && !isWeekend && !isPublicHoliday) p1Net++;
-                if (hasP2 && !isWeekend && !isPublicHoliday) p2Net++;
+                // Weekends never consume allowance; public holidays follow each parent's setting.
+                if (hasP1 && !isWeekend && (!isPublicHoliday || !p1UsesPublicHolidays)) p1Net++;
+                if (hasP2 && !isWeekend && (!isPublicHoliday || !p2UsesPublicHolidays)) p2Net++;
 
-                const childrenNeedingCare = getChildrenNeedingCare(dateString, isSchoolHoliday);
+                const publicHoliday = holidays.public.find(h => h.date === dateString);
+                const childrenNeedingCare = getChildrenNeedingCare(dateString, isSchoolHoliday, publicHoliday?.name);
                 const requiresCare = children.length === 0 ? isSchoolHoliday : childrenNeedingCare.length > 0;
 
                 // Count Net Holiday Days (School holiday, no weekend, no public holiday)
@@ -511,7 +548,7 @@ const CalendarView = ({
         }
 
         return { p1, p2, care, p1Net, p2Net, totalNetHolidays, unattended, unattendedDates };
-    }, [children.length, getChildrenNeedingCare, vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules]);
+    }, [children.length, getChildrenNeedingCare, vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules, p1UsesPublicHolidays, p2UsesPublicHolidays]);
 
     useEffect(() => {
         if (onStatsChange) {
@@ -601,7 +638,8 @@ const CalendarView = ({
                 const isP1Free = getMatchingRecurringRules(date, p1RecurringRules).length > 0;
                 const isP2Free = getMatchingRecurringRules(date, p2RecurringRules).length > 0;
 
-                const childrenNeedingCare = getChildrenNeedingCare(dateString, isSchoolHoliday);
+                const publicHoliday = holidays.public.find(h => h.date === dateString);
+                const childrenNeedingCare = getChildrenNeedingCare(dateString, isSchoolHoliday, publicHoliday?.name);
                 const requiresCare = children.length === 0 ? isSchoolHoliday : childrenNeedingCare.length > 0;
 
                 if (requiresCare && !isWeekend && !isPublicHoliday) {
@@ -774,9 +812,9 @@ const CalendarView = ({
         // Check Free Days
         const matchingP1Rules = getMatchingRecurringRules(date, p1RecurringRules);
         const matchingP2Rules = getMatchingRecurringRules(date, p2RecurringRules);
-        const isP1Free = matchingP1Rules.length > 0;
-        const isP2Free = matchingP2Rules.length > 0;
-        const childrenNeedingCare = getChildrenNeedingCare(dateString, !!schoolHoliday);
+        const isP1Free = matchingP1Rules.length > 0 || Boolean(publicHoliday && p1UsesPublicHolidays);
+        const isP2Free = matchingP2Rules.length > 0 || Boolean(publicHoliday && p2UsesPublicHolidays);
+        const childrenNeedingCare = getChildrenNeedingCare(dateString, !!schoolHoliday, publicHoliday?.name);
         const requiresCare = children.length === 0 ? !!schoolHoliday : childrenNeedingCare.length > 0;
 
         // Check Selection Range
@@ -805,7 +843,7 @@ const CalendarView = ({
             requiresCare,
             isSelected
         };
-    }, [children.length, getChildrenNeedingCare, year, holidays.public, holidays.school, vacationsMap, p1RecurringRules, p2RecurringRules, startDate, endDate]);
+    }, [children.length, getChildrenNeedingCare, year, holidays.public, holidays.school, vacationsMap, p1RecurringRules, p2RecurringRules, p1UsesPublicHolidays, p2UsesPublicHolidays, startDate, endDate]);
 
     const mobileDays = useMemo(() => {
         const daysInMonth = new Date(year, mobileMonth + 1, 0).getDate();
@@ -876,7 +914,7 @@ const CalendarView = ({
                     <div className="flex items-center justify-between gap-2">
                         <button
                             type="button"
-                            {...mobileActionProps(() => setMobileMonth((prev) => (prev === 0 ? 11 : prev - 1)))}
+                            {...mobileActionProps(() => changeMobileMonth(-1))}
                             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-200"
                         >
                             ←
@@ -887,7 +925,7 @@ const CalendarView = ({
                         </div>
                         <button
                             type="button"
-                            {...mobileActionProps(() => setMobileMonth((prev) => (prev === 11 ? 0 : prev + 1)))}
+                            {...mobileActionProps(() => changeMobileMonth(1))}
                             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-200"
                         >
                             →

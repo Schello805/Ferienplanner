@@ -1709,6 +1709,7 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
         type: 'school',
         color: '#f59e0b',
         usesSchoolHolidays: true,
+        usesPublicHolidays: true,
     });
 
     const saveChild = async () => {
@@ -1729,6 +1730,7 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
                 type: 'school',
                 color: '#f59e0b',
                 usesSchoolHolidays: true,
+                usesPublicHolidays: true,
             });
             await onRefreshFamilyData();
             toast.success('Kind gespeichert');
@@ -1738,14 +1740,14 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
         }
     };
 
-    const toggleSchoolHolidays = async (child) => {
+    const toggleChildSetting = async (child, setting) => {
         try {
             const response = await authFetch('/api/children', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...child,
-                    usesSchoolHolidays: !child.usesSchoolHolidays,
+                    [setting]: !child[setting],
                 }),
             });
             if (!response.ok) throw new Error(`update child failed: ${response.status}`);
@@ -1808,6 +1810,15 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
                         />
                         Landesweite Schulferien übernehmen
                     </label>
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                        <input
+                            type="checkbox"
+                            checked={draft.usesPublicHolidays}
+                            onChange={(event) => setDraft((current) => ({ ...current, usesPublicHolidays: event.target.checked }))}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        Gesetzliche Feiertage als freie Tage übernehmen
+                    </label>
                 </div>
                 <button
                     type="button"
@@ -1833,17 +1844,30 @@ const ChildManager = ({ children, onRefreshFamilyData }) => {
                                     {CHILD_TYPE_OPTIONS.find((option) => option.value === child.type)?.label || 'Schule'}
                                 </span>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => toggleSchoolHolidays(child)}
-                                className={`mt-2 rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors ${
-                                    child.usesSchoolHolidays
-                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100'
-                                        : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                                }`}
-                            >
-                                {child.usesSchoolHolidays ? 'Landesferien aktiv' : 'Nur individuelle freie Tage'}
-                            </button>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => toggleChildSetting(child, 'usesSchoolHolidays')}
+                                    className={`rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors ${
+                                        child.usesSchoolHolidays
+                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100'
+                                            : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                    }`}
+                                >
+                                    {child.usesSchoolHolidays ? 'Landesferien aktiv' : 'Landesferien aus'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleChildSetting(child, 'usesPublicHolidays')}
+                                    className={`rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors ${
+                                        child.usesPublicHolidays
+                                            ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100'
+                                            : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                    }`}
+                                >
+                                    {child.usesPublicHolidays ? 'Feiertage frei' : 'Feiertage nicht frei'}
+                                </button>
+                            </div>
                         </div>
                         <button
                             type="button"
@@ -2690,7 +2714,11 @@ const ParentSettingsPanel = ({
     p1RecurringRules,
     setP1RecurringRules,
     p2RecurringRules,
-    setP2RecurringRules
+    setP2RecurringRules,
+    p1UsesPublicHolidays,
+    setP1UsesPublicHolidays,
+    p2UsesPublicHolidays,
+    setP2UsesPublicHolidays,
 }) => {
     const fromYear = new Date().getFullYear();
     const holidayCacheRef = React.useRef({});
@@ -2752,26 +2780,26 @@ const ParentSettingsPanel = ({
     }, [stateCode, yearsNeedingHolidays]);
 
     const isNetDay = React.useCallback(
-        (dateString) => {
+        (dateString, usesPublicHolidays = true) => {
             const parsed = parseIsoDateOnly(dateString);
             if (!parsed) return false;
             const weekday = parsed.getUTCDay();
             if (weekday === 0 || weekday === 6) return false;
             const year = parsed.getUTCFullYear();
             const set = publicHolidaySets[year];
-            if (set && set.has(dateString)) return false;
+            if (usesPublicHolidays && set && set.has(dateString)) return false;
             return true;
         },
         [publicHolidaySets]
     );
 
     const p1Data = React.useMemo(
-        () => buildVacationRanges(vacations, new Set(['p1', 'both']), fromYear, isNetDay),
-        [fromYear, isNetDay, vacations]
+        () => buildVacationRanges(vacations, new Set(['p1', 'both']), fromYear, (date) => isNetDay(date, p1UsesPublicHolidays)),
+        [fromYear, isNetDay, p1UsesPublicHolidays, vacations]
     );
     const p2Data = React.useMemo(
-        () => buildVacationRanges(vacations, new Set(['p2', 'both']), fromYear, isNetDay),
-        [fromYear, isNetDay, vacations]
+        () => buildVacationRanges(vacations, new Set(['p2', 'both']), fromYear, (date) => isNetDay(date, p2UsesPublicHolidays)),
+        [fromYear, isNetDay, p2UsesPublicHolidays, vacations]
     );
     const careData = React.useMemo(
         () => buildVacationRanges(vacations, new Set(['care']), fromYear, isNetDay),
@@ -2795,7 +2823,7 @@ const ParentSettingsPanel = ({
 
     return (
         <div className="space-y-4">
-            <SidebarSection title="Eltern" subtitle="Farben und regelmäßige freie Tage für Papa und Mama.">
+            <SidebarSection title="Eltern" subtitle="Farben, gesetzliche Feiertage und regelmäßige freie Tage für Papa und Mama.">
                 <div className="space-y-3">
                     <div className="settings-row flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
                         <div className="flex items-center gap-3">
@@ -2809,6 +2837,15 @@ const ParentSettingsPanel = ({
                             className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0"
                         />
                     </div>
+                    <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                        <input
+                            type="checkbox"
+                            checked={p1UsesPublicHolidays}
+                            onChange={(event) => setP1UsesPublicHolidays(event.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        <span><strong>Gesetzliche Feiertage sind für Papa frei</strong><br /><span className="text-slate-500 dark:text-slate-400">Standard: aktiv. Urlaub an diesen Tagen verbraucht keinen Urlaubstag.</span></span>
+                    </label>
                     <details className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
                         <summary className="cursor-pointer select-none list-none">
                             <div className="flex items-center justify-between gap-3">
@@ -2837,6 +2874,15 @@ const ParentSettingsPanel = ({
                             className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0"
                         />
                     </div>
+                    <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                        <input
+                            type="checkbox"
+                            checked={p2UsesPublicHolidays}
+                            onChange={(event) => setP2UsesPublicHolidays(event.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        <span><strong>Gesetzliche Feiertage sind für Mama frei</strong><br /><span className="text-slate-500 dark:text-slate-400">Standard: aktiv. Urlaub an diesen Tagen verbraucht keinen Urlaubstag.</span></span>
+                    </label>
                     <details className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
                         <summary className="cursor-pointer select-none list-none">
                             <div className="flex items-center justify-between gap-3">
@@ -2906,7 +2952,7 @@ const ParentSettingsPanel = ({
 
 const ChildSettingsPanel = ({ children, childFreeDays, onRefreshFamilyData }) => (
     <div className="space-y-4">
-        <SidebarSection title="Kinder" subtitle="Lege Kinder an und entscheide, ob die landesweiten Schulferien für sie gelten.">
+        <SidebarSection title="Kinder" subtitle="Lege Kinder an und entscheide, ob Schulferien und gesetzliche Feiertage für sie als freie Tage gelten.">
             <ChildManager
                 children={children}
                 onRefreshFamilyData={onRefreshFamilyData}
@@ -3016,6 +3062,10 @@ export const UtilitySidebar = ({
     setP1RecurringRules,
     p2RecurringRules,
     setP2RecurringRules,
+    p1UsesPublicHolidays,
+    setP1UsesPublicHolidays,
+    p2UsesPublicHolidays,
+    setP2UsesPublicHolidays,
     onCopyShareLink,
     onEnterShareMode,
     shareMode,
@@ -3074,6 +3124,10 @@ export const UtilitySidebar = ({
                         setP1RecurringRules={setP1RecurringRules}
                         p2RecurringRules={p2RecurringRules}
                         setP2RecurringRules={setP2RecurringRules}
+                        p1UsesPublicHolidays={p1UsesPublicHolidays}
+                        setP1UsesPublicHolidays={setP1UsesPublicHolidays}
+                        p2UsesPublicHolidays={p2UsesPublicHolidays}
+                        setP2UsesPublicHolidays={setP2UsesPublicHolidays}
                     />
                 );
             case 'children':

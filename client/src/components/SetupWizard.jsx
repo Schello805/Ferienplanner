@@ -38,12 +38,15 @@ export const SetupWizard = () => {
   const [p1Color, setP1Color] = React.useState(() => (typeof window !== 'undefined' ? localStorage.getItem('p1Color') : '') || '#22c55e');
   const [p2Color, setP2Color] = React.useState(() => (typeof window !== 'undefined' ? localStorage.getItem('p2Color') : '') || '#3b82f6');
   const [careColor, setCareColor] = React.useState(() => (typeof window !== 'undefined' ? localStorage.getItem('careColor') : '') || '#a855f7');
+  const [p1UsesPublicHolidays, setP1UsesPublicHolidays] = React.useState(true);
+  const [p2UsesPublicHolidays, setP2UsesPublicHolidays] = React.useState(true);
 
   const [children, setChildren] = React.useState([]);
   const [childName, setChildName] = React.useState('');
   const [childType, setChildType] = React.useState('school');
   const [childColor, setChildColor] = React.useState('#f97316');
   const [usesSchoolHolidays, setUsesSchoolHolidays] = React.useState(true);
+  const [usesPublicHolidays, setUsesPublicHolidays] = React.useState(true);
 
   const [notificationSettings, setNotificationSettings] = React.useState(() => ({
     enabled: true,
@@ -71,6 +74,10 @@ export const SetupWizard = () => {
       if (draft?.colors?.p1Color) setP1Color(String(draft.colors.p1Color));
       if (draft?.colors?.p2Color) setP2Color(String(draft.colors.p2Color));
       if (draft?.colors?.careColor) setCareColor(String(draft.colors.careColor));
+      if (draft?.publicHolidaySettings) {
+        setP1UsesPublicHolidays(draft.publicHolidaySettings.p1 !== false);
+        setP2UsesPublicHolidays(draft.publicHolidaySettings.p2 !== false);
+      }
 
       const draftChildren = Array.isArray(draft?.children)
         ? draft.children
@@ -84,6 +91,7 @@ export const SetupWizard = () => {
           type: String(c.type || 'school'),
           color: c.color ? String(c.color) : '#f97316',
           usesSchoolHolidays: c.usesSchoolHolidays !== false,
+          usesPublicHolidays: c.usesPublicHolidays !== false,
         }))
         .filter((c) => c.name);
       if (normalized.length > 0) {
@@ -92,6 +100,7 @@ export const SetupWizard = () => {
         setChildType('school');
         setChildColor('#f97316');
         setUsesSchoolHolidays(true);
+        setUsesPublicHolidays(true);
       }
 
       if (draft?.notificationSettings && typeof draft.notificationSettings === 'object') {
@@ -158,12 +167,14 @@ export const SetupWizard = () => {
         type: childType,
         color: childColor,
         usesSchoolHolidays,
+        usesPublicHolidays,
       },
     ]);
     setChildName('');
     setChildType('school');
-    setChildColor(getSuggestedChildColor(children.concat([{ name, type: childType, color: childColor, usesSchoolHolidays }])));
+    setChildColor(getSuggestedChildColor(children.concat([{ name, type: childType, color: childColor, usesSchoolHolidays, usesPublicHolidays }])));
     setUsesSchoolHolidays(true);
+    setUsesPublicHolidays(true);
     setDraftSavedAt(new Date());
   };
 
@@ -175,6 +186,7 @@ export const SetupWizard = () => {
       setChildType('school');
       setChildColor(getSuggestedChildColor(children.filter((_, i) => i !== idx)));
       setUsesSchoolHolidays(true);
+      setUsesPublicHolidays(true);
     }
     setDraftSavedAt(new Date());
   };
@@ -187,6 +199,7 @@ export const SetupWizard = () => {
     setChildType(String(c.type || 'school'));
     setChildColor(String(c.color || '#f97316'));
     setUsesSchoolHolidays(c.usesSchoolHolidays !== false);
+    setUsesPublicHolidays(c.usesPublicHolidays !== false);
     setChildNameError('');
     setError('');
   };
@@ -197,6 +210,7 @@ export const SetupWizard = () => {
     setChildType('school');
     setChildColor(getSuggestedChildColor(children));
     setUsesSchoolHolidays(true);
+    setUsesPublicHolidays(true);
     setChildNameError('');
   };
 
@@ -218,6 +232,7 @@ export const SetupWizard = () => {
               type: childType,
               color: childColor,
               usesSchoolHolidays,
+              usesPublicHolidays,
             }
           : c
       )
@@ -227,6 +242,7 @@ export const SetupWizard = () => {
     setChildType('school');
     setChildColor(getSuggestedChildColor(children));
     setUsesSchoolHolidays(true);
+    setUsesPublicHolidays(true);
     setDraftSavedAt(new Date());
   };
 
@@ -243,6 +259,10 @@ export const SetupWizard = () => {
         stateCode,
         calendarSlug,
         colors: { p1Color, p2Color, careColor },
+        publicHolidaySettings: {
+          p1: p1UsesPublicHolidays,
+          p2: p2UsesPublicHolidays,
+        },
         children,
         notificationSettings,
       };
@@ -372,6 +392,16 @@ export const SetupWizard = () => {
               <div className="text-xs text-slate-500 dark:text-slate-400">
                 Du kannst die Farben später jederzeit ändern.
               </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-200">
+                  <input type="checkbox" checked={p1UsesPublicHolidays} onChange={(e) => setP1UsesPublicHolidays(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                  <span>Feiertage sind für Papa frei<span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">Dann wird dafür kein Urlaubstag berechnet.</span></span>
+                </label>
+                <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-200">
+                  <input type="checkbox" checked={p2UsesPublicHolidays} onChange={(e) => setP2UsesPublicHolidays(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                  <span>Feiertage sind für Mama frei<span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">Dann wird dafür kein Urlaubstag berechnet.</span></span>
+                </label>
+              </div>
             </div>
           )}
 
@@ -389,7 +419,9 @@ export const SetupWizard = () => {
                           <div className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: c.color || '#f97316' }} />
                           <div className="min-w-0">
                             <div className="truncate font-semibold text-slate-800 dark:text-slate-100">{c.name}</div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400">{c.type}{c.usesSchoolHolidays ? ' · Schulferien' : ''}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {c.type}{c.usesSchoolHolidays ? ' · Schulferien' : ''}{c.usesPublicHolidays ? ' · Feiertage' : ''}
+                            </div>
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
@@ -438,7 +470,7 @@ export const SetupWizard = () => {
               {childNameError && (
                 <div className="-mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{childNameError}</div>
               )}
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
                   Typ
                   <select
@@ -458,6 +490,10 @@ export const SetupWizard = () => {
                 <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-200">
                   <input type="checkbox" checked={usesSchoolHolidays} onChange={(e) => setUsesSchoolHolidays(e.target.checked)} className="h-4 w-4" />
                   Schulferien nutzen
+                </label>
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-200">
+                  <input type="checkbox" checked={usesPublicHolidays} onChange={(e) => setUsesPublicHolidays(e.target.checked)} className="h-4 w-4" />
+                  Feiertage als frei übernehmen
                 </label>
               </div>
 

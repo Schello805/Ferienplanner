@@ -129,6 +129,8 @@ function App() {
 
   const [p1RecurringRules, setP1RecurringRules] = useState(() => loadRecurringRules('p1RecurringRules', 'p1DaysOff', 'p1RecurringRule'));
   const [p2RecurringRules, setP2RecurringRules] = useState(() => loadRecurringRules('p2RecurringRules', 'p2DaysOff', 'p2RecurringRule'));
+  const [p1UsesPublicHolidays, setP1UsesPublicHolidays] = useState(true);
+  const [p2UsesPublicHolidays, setP2UsesPublicHolidays] = useState(true);
 
   const recurringRulesLoadedRef = useRef(false);
   const calendarSettingsLoadedRef = useRef(false);
@@ -136,6 +138,7 @@ function App() {
   const savingCalendarSettingsRef = useRef(false);
   const lastSavedRecurringRef = useRef({ p1: '', p2: '' });
   const lastSavedStateCodeRef = useRef('');
+  const lastSavedPublicHolidaySettingsRef = useRef({ p1: null, p2: null });
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -290,6 +293,14 @@ function App() {
           lastSavedStateCodeRef.current = normalized;
           setStateCode(normalized);
         }
+        const nextP1UsesPublicHolidays = data?.p1UsesPublicHolidays !== false;
+        const nextP2UsesPublicHolidays = data?.p2UsesPublicHolidays !== false;
+        setP1UsesPublicHolidays(nextP1UsesPublicHolidays);
+        setP2UsesPublicHolidays(nextP2UsesPublicHolidays);
+        lastSavedPublicHolidaySettingsRef.current = {
+          p1: nextP1UsesPublicHolidays,
+          p2: nextP2UsesPublicHolidays,
+        };
         calendarSettingsLoadedRef.current = true;
       } catch (error) {
         console.error(error);
@@ -336,6 +347,7 @@ function App() {
     savingCalendarSettingsRef.current = false;
     lastSavedRecurringRef.current = { p1: '', p2: '' };
     lastSavedStateCodeRef.current = '';
+    lastSavedPublicHolidaySettingsRef.current = { p1: null, p2: null };
   }, [currentUser]);
 
   useEffect(() => {
@@ -343,7 +355,11 @@ function App() {
     if (!calendarSettingsLoadedRef.current) return;
 
     const normalized = String(stateCode || 'BY').toUpperCase();
-    if (lastSavedStateCodeRef.current === normalized) return;
+    if (
+      lastSavedStateCodeRef.current === normalized
+      && lastSavedPublicHolidaySettingsRef.current.p1 === p1UsesPublicHolidays
+      && lastSavedPublicHolidaySettingsRef.current.p2 === p2UsesPublicHolidays
+    ) return;
     if (savingCalendarSettingsRef.current) return;
 
     const timer = window.setTimeout(async () => {
@@ -352,11 +368,19 @@ function App() {
         const response = await authFetch('/api/calendar/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stateCode: normalized }),
+          body: JSON.stringify({
+            stateCode: normalized,
+            p1UsesPublicHolidays,
+            p2UsesPublicHolidays,
+          }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'settings save failed');
         lastSavedStateCodeRef.current = normalized;
+        lastSavedPublicHolidaySettingsRef.current = {
+          p1: p1UsesPublicHolidays,
+          p2: p2UsesPublicHolidays,
+        };
       } catch (error) {
         console.error(error);
       } finally {
@@ -365,7 +389,7 @@ function App() {
     }, 400);
 
     return () => window.clearTimeout(timer);
-  }, [currentUser, stateCode]);
+  }, [currentUser, p1UsesPublicHolidays, p2UsesPublicHolidays, stateCode]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -504,9 +528,26 @@ function App() {
 
     applyingSetupDraftRef.current = true;
     try {
-      if (draft.stateCode) {
-        setStateCode(String(draft.stateCode).toUpperCase());
-      }
+      const draftStateCode = draft.stateCode ? String(draft.stateCode).toUpperCase() : stateCode;
+      const draftP1UsesPublicHolidays = draft?.publicHolidaySettings?.p1 !== false;
+      const draftP2UsesPublicHolidays = draft?.publicHolidaySettings?.p2 !== false;
+      setStateCode(draftStateCode);
+      setP1UsesPublicHolidays(draftP1UsesPublicHolidays);
+      setP2UsesPublicHolidays(draftP2UsesPublicHolidays);
+      await requestJson('/api/calendar/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stateCode: draftStateCode,
+          p1UsesPublicHolidays: draftP1UsesPublicHolidays,
+          p2UsesPublicHolidays: draftP2UsesPublicHolidays,
+        }),
+      }, 'Kalendereinstellungen konnten nicht übernommen werden');
+      lastSavedStateCodeRef.current = draftStateCode;
+      lastSavedPublicHolidaySettingsRef.current = {
+        p1: draftP1UsesPublicHolidays,
+        p2: draftP2UsesPublicHolidays,
+      };
       if (draft.colors?.p1Color) setP1Color(String(draft.colors.p1Color));
       if (draft.colors?.p2Color) setP2Color(String(draft.colors.p2Color));
       if (draft.colors?.careColor) setCareColor(String(draft.colors.careColor));
@@ -539,6 +580,7 @@ function App() {
           type: String(c.type || 'school'),
           color: c.color ? String(c.color) : null,
           usesSchoolHolidays: c.usesSchoolHolidays !== false,
+          usesPublicHolidays: c.usesPublicHolidays !== false,
         }))
         .filter((c) => c.name);
 
@@ -564,6 +606,7 @@ function App() {
               type: child.type,
               color: child.color,
               usesSchoolHolidays: child.usesSchoolHolidays,
+              usesPublicHolidays: child.usesPublicHolidays,
             }),
           }, 'Onboarding: Kind konnte nicht angelegt werden');
           existingKeySet.add(key);
@@ -599,7 +642,7 @@ function App() {
     } finally {
       applyingSetupDraftRef.current = false;
     }
-  }, [currentUser, loadFamilyData, refreshAuthStatus, setCareColor, setP1Color, setP2Color, setStateCode]);
+  }, [currentUser, loadFamilyData, refreshAuthStatus, setCareColor, setP1Color, setP2Color, setStateCode, stateCode]);
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -897,6 +940,8 @@ function App() {
             childFreeDays={childFreeDays}
             p1RecurringRules={p1RecurringRules}
             p2RecurringRules={p2RecurringRules}
+            p1UsesPublicHolidays={p1UsesPublicHolidays}
+            p2UsesPublicHolidays={p2UsesPublicHolidays}
             onApiStatusChange={setApiOnline}
             onStatsChange={(stats) => setTotalNetHolidays(stats.totalNetHolidays)}
             onHolidayBreakdownChange={setHolidayBreakdown}
@@ -937,6 +982,10 @@ function App() {
             setP1RecurringRules={setP1RecurringRules}
             p2RecurringRules={p2RecurringRules}
             setP2RecurringRules={setP2RecurringRules}
+            p1UsesPublicHolidays={p1UsesPublicHolidays}
+            setP1UsesPublicHolidays={setP1UsesPublicHolidays}
+            p2UsesPublicHolidays={p2UsesPublicHolidays}
+            setP2UsesPublicHolidays={setP2UsesPublicHolidays}
             onCopyShareLink={copyShareLink}
             onEnterShareMode={() => setShareMode(true)}
             darkMode={darkMode}
