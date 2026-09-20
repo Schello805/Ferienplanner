@@ -9,6 +9,7 @@
 - Tageszahlen zusätzlich oben links in jeder Kalenderzelle eingeblendet
 - Mobile „Mehr“-Navigation in der Seitenleiste und unteren Navigationsleiste repariert
 - Serverseitigen Zugriffsschutz aller Admin-Einstellungen mit Regressionstest abgesichert
+- Hoverinformationen für reine Feiertage ohne zusätzliche Einträge ausgeblendet
 
 ## 1.2.0
 

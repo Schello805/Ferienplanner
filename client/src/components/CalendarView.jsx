@@ -6,6 +6,7 @@ import { authFetch, requestJson, toApiError } from '../lib/api';
 import { LAYERS } from '../lib/layers.js';
 import { getSiteHostLabel } from '../lib/site.js';
 import { getAdjacentMonth } from '../lib/calendarNavigation.js';
+import { shouldShowDayTooltip } from '../lib/calendarTooltip.js';
 
 const MONTHS = [
     'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -679,18 +680,7 @@ const CalendarView = ({
             setEndDate(dateString);
         }
         
-        // Only show tooltip if the day has content (Holiday, Vacation, Care, Free Day)
-        // Skip tooltips for plain weekends or empty workdays
-        const hasContent = 
-            status.publicHoliday || 
-            (status.schoolHoliday && !status.isWeekend) || 
-            status.p1 || 
-            status.p2 || 
-            status.care ||
-            status.isP1Free ||
-            status.isP2Free;
-
-        if (hasContent) {
+        if (shouldShowDayTooltip(status)) {
             const rect = e.target.getBoundingClientRect();
             setTooltipPos({ 
                 x: rect.left + window.scrollX + rect.width / 2, 
