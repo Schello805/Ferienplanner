@@ -136,7 +136,7 @@ export const DayCell = ({
             </span>
 
             {childMarkers.length > 0 && (
-                <div className="absolute bottom-0.5 left-0.5 flex items-center gap-0.5 pointer-events-none z-10">
+                <div className="absolute bottom-1 left-1 z-10 flex items-center gap-0.5 pointer-events-none">
                     {childMarkers.map((child) => (
                         <span
                             key={`${status.dateString}-child-${child.childId}`}
