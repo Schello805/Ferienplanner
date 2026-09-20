@@ -298,6 +298,7 @@ const CalendarView = ({
                     childName: child.name,
                     childColor: child.color,
                     reasons: ['Schulferien'],
+                    additionalReasons: [],
                 });
             });
         }
@@ -317,6 +318,7 @@ const CalendarView = ({
                     childName: child.name,
                     childColor: child.color,
                     reasons: [publicHolidayName],
+                    additionalReasons: [],
                 });
             });
         }
@@ -327,6 +329,9 @@ const CalendarView = ({
                 if (!existing.reasons.includes(entry.label)) {
                     existing.reasons.push(entry.label);
                 }
+                if (!existing.additionalReasons.includes(entry.label)) {
+                    existing.additionalReasons.push(entry.label);
+                }
                 return;
             }
             activeChildren.set(entry.childId, {
@@ -334,6 +339,7 @@ const CalendarView = ({
                 childName: entry.childName,
                 childColor: entry.childColor,
                 reasons: [entry.label],
+                additionalReasons: [entry.label],
             });
         });
 
@@ -1096,12 +1102,14 @@ const CalendarView = ({
                     <div className="space-y-1">
                         {hoveredDay.publicHoliday && <div className="text-red-300 dark:text-red-600 font-bold">🎉 {hoveredDay.publicHoliday}</div>}
                         {hoveredDay.schoolHoliday && <div className="text-amber-300 dark:text-amber-600">🏫 Schulferien</div>}
-                        {hoveredDay.childrenNeedingCare?.map((child) => (
-                            <div key={`child-${child.childId}`} className="flex items-center gap-1">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: child.childColor || '#f59e0b' }}></div>
-                                {child.childName} frei ({child.reasons.join(', ')})
-                            </div>
-                        ))}
+                        {hoveredDay.childrenNeedingCare
+                            ?.filter((child) => child.additionalReasons?.length > 0)
+                            .map((child) => (
+                                <div key={`child-${child.childId}`} className="flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: child.childColor || '#f59e0b' }}></div>
+                                    {child.childName} frei ({child.additionalReasons.join(', ')})
+                                </div>
+                            ))}
                         
                         {hoveredDay.p1 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: p1Color}}></div> Papa hat Urlaub</div>}
                         {hoveredDay.p2 && <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{backgroundColor: p2Color}}></div> Mama hat Urlaub</div>}
