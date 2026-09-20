@@ -33,7 +33,39 @@ export const CalendarToolbar = ({
     onCopyShareLink,
     onExitShareMode
 }) => {
+    const [unattendedOpen, setUnattendedOpen] = React.useState(false);
+    const unattendedPopoverRef = React.useRef(null);
     const currentYear = new Date().getFullYear();
+    const unattendedDates = stats.unattendedDates ?? [];
+
+    React.useEffect(() => {
+        if (!unattendedOpen) return undefined;
+
+        const closeOnOutsideClick = (event) => {
+            if (!unattendedPopoverRef.current?.contains(event.target)) {
+                setUnattendedOpen(false);
+            }
+        };
+        const closeOnEscape = (event) => {
+            if (event.key === 'Escape') {
+                setUnattendedOpen(false);
+            }
+        };
+
+        document.addEventListener('pointerdown', closeOnOutsideClick);
+        window.addEventListener('keydown', closeOnEscape);
+        return () => {
+            document.removeEventListener('pointerdown', closeOnOutsideClick);
+            window.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [unattendedOpen]);
+
+    React.useEffect(() => {
+        if (stats.unattended === 0) {
+            setUnattendedOpen(false);
+        }
+    }, [stats.unattended]);
+
     const summaryItems = [
         {
             label: 'Papa',
@@ -110,7 +142,52 @@ export const CalendarToolbar = ({
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                     {summaryItems.map(item => {
-                        const showUnattendedTooltip = item.label === 'Warnung' && stats.unattended > 0 && stats.unattended < 5;
+                        const isUnattendedWarning = item.label === 'Warnung' && stats.unattended > 0;
+
+                        if (isUnattendedWarning) {
+                            return (
+                                <div
+                                    ref={unattendedPopoverRef}
+                                    key={`${item.label}-${item.value}`}
+                                    className="relative overflow-visible"
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => setUnattendedOpen((open) => !open)}
+                                        aria-expanded={unattendedOpen}
+                                        aria-haspopup="dialog"
+                                        aria-label={`Warnung: ${item.value}. Tage anzeigen`}
+                                        className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs transition-colors hover:border-red-300 hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:hover:border-red-700 dark:hover:bg-red-900/40 dark:focus-visible:ring-offset-slate-950 ${item.tone}`}
+                                    >
+                                        <span className="font-semibold">{item.label}</span>
+                                        <span>{item.value}</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 opacity-75" aria-hidden="true">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25h.008v.008H12V8.25Zm0 3v4.5m9-3.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                        </svg>
+                                    </button>
+                                    {unattendedOpen && (
+                                        <div
+                                            role="dialog"
+                                            aria-label="Unbetreute Tage"
+                                            className="absolute bottom-[calc(100%+8px)] right-0 max-h-72 w-64 overflow-y-auto rounded-xl border border-red-200 bg-white/98 p-3 text-left text-[11px] font-medium text-slate-700 shadow-2xl dark:border-red-900/40 dark:bg-slate-950/98 dark:text-slate-100"
+                                            style={{ zIndex: LAYERS.calendarPopover }}
+                                        >
+                                            <div className="mb-2 font-bold text-red-700 dark:text-red-300">Unbetreute Tage</div>
+                                            {unattendedDates.length > 0 ? (
+                                                <div className="space-y-1">
+                                                    {unattendedDates.map((date) => (
+                                                        <div key={date}>{formatUnattendedLabel(date)}</div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div>Die betroffenen Tage konnten nicht geladen werden.</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+
                         return (
                             <div
                                 key={`${item.label}-${item.value}`}
@@ -119,26 +196,6 @@ export const CalendarToolbar = ({
                                 {item.marker}
                                 <span className="font-semibold">{item.label}</span>
                                 <span>{item.value}</span>
-                                {showUnattendedTooltip && (
-                                    <div className="group relative ml-1">
-                                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current/30 text-[10px] font-bold opacity-80">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25h.008v.008H12V8.25Zm0 3v4.5m9-3.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                            </svg>
-                                        </span>
-                                        <div
-                                            className="pointer-events-none absolute bottom-[calc(100%+8px)] right-0 w-64 rounded-xl border border-red-200 bg-white/98 p-3 text-left text-[11px] font-medium text-slate-700 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 dark:border-red-900/40 dark:bg-slate-950/98 dark:text-slate-100"
-                                            style={{ zIndex: LAYERS.calendarPopover }}
-                                        >
-                                            <div className="mb-2 font-bold text-red-700 dark:text-red-300">Unbetreute Tage</div>
-                                            <div className="space-y-1">
-                                                {stats.unattendedDates.map((date) => (
-                                                    <div key={date}>{formatUnattendedLabel(date)}</div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         );
                     })}

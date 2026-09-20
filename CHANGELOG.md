@@ -10,6 +10,7 @@
 - Mobile „Mehr“-Navigation in der Seitenleiste und unteren Navigationsleiste repariert
 - Serverseitigen Zugriffsschutz aller Admin-Einstellungen mit Regressionstest abgesichert
 - Hoverinformationen für reine Feiertage ohne zusätzliche Einträge ausgeblendet
+- Warnungs-Kachel klickbar gemacht und unbetreute Tage in einer kompakten Liste dargestellt
 
 ## 1.2.0
 
