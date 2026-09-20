@@ -139,6 +139,47 @@ test('each user sees only their own default calendar data', async () => {
   assert.deepEqual(adminVacations.data, [{ date: '2026-08-03', userId: 'p1' }]);
 });
 
+test('normal users cannot access any admin settings or admin API', async () => {
+  const login = await request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'user2', password: 'secret45678' }),
+  });
+  const token = login.data.token;
+  assert.ok(token);
+  assert.equal(login.data.user.isAdmin, false);
+
+  const protectedRequests = [
+    { pathname: '/api/users' },
+    { pathname: '/api/users', method: 'POST', body: { username: 'blocked-admin-user', password: 'secret45678' } },
+    { pathname: '/api/admin/stats' },
+    { pathname: '/api/admin/logs' },
+    { pathname: '/api/admin/settings' },
+    { pathname: '/api/admin/settings', method: 'POST', body: { newCalendarAdminEmailsEnabled: true } },
+    { pathname: '/api/admin/digest/run', method: 'POST', body: {} },
+    { pathname: '/api/admin/digest/status' },
+    { pathname: '/api/admin/monitor/status' },
+    { pathname: '/api/admin/diagnostics' },
+    { pathname: '/api/admin/browse?resource=users' },
+    { pathname: '/api/admin/smtp' },
+    { pathname: '/api/admin/smtp', method: 'POST', body: {} },
+    { pathname: '/api/admin/smtp/test', method: 'POST', body: {} },
+  ];
+
+  for (const entry of protectedRequests) {
+    const result = await request(entry.pathname, {
+      method: entry.method || 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(entry.body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(entry.body ? { body: JSON.stringify(entry.body) } : {}),
+    });
+    assert.equal(result.response.status, 403, `${entry.method || 'GET'} ${entry.pathname} must reject normal users`);
+    assert.equal(result.data.error, 'Admin privileges required');
+  }
+});
+
 test('calendar and child public holiday settings persist with safe defaults', async () => {
   const login = await request('/api/auth/login', {
     method: 'POST',
