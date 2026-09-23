@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const fallbackSiteUrl = 'https://mein-ferienplaner.de';
@@ -10,6 +10,8 @@ const routes = ['/', '/hilfe', '/impressum', '/datenschutz', '/cookies'];
 const publicDir = resolve(process.cwd(), 'public');
 const templatePath = resolve(process.cwd(), 'index.template.html');
 const indexPath = resolve(process.cwd(), 'index.html');
+const changelogSourcePath = resolve(process.cwd(), '..', 'CHANGELOG.md');
+const changelogPublicPath = resolve(publicDir, 'CHANGELOG.md');
 
 mkdirSync(publicDir, { recursive: true });
 
@@ -31,6 +33,7 @@ ${routes
 
 writeFileSync(resolve(publicDir, 'robots.txt'), robotsContent, 'utf8');
 writeFileSync(resolve(publicDir, 'sitemap.xml'), sitemapContent, 'utf8');
+copyFileSync(changelogSourcePath, changelogPublicPath);
 
 const htmlTemplate = readFileSync(templatePath, 'utf8');
 writeFileSync(indexPath, htmlTemplate.replaceAll('__SITE_URL__', siteUrl), 'utf8');

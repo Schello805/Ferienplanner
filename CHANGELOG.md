@@ -28,9 +28,31 @@
 - Registrierung und Verifikation verbessert: direkte Verifikationslinks sowie sauberer Re-Register-Prozess für unverifizierte Konten
 - CI aktualisiert: GitHub Actions auf aktuelle Versionen angehoben und Test-Expectations bereinigt
 
+## 1.1.0
+
+- Einladungslinks führen zuverlässig in den App-/Login-Flow statt auf die öffentliche Startseite
+- Alte `/?invite=...`-Links bleiben nutzbar und werden automatisch korrekt weitergereicht
+- Empfängeradresse bei E-Mail-Einladungen in der Einladungsliste ergänzt
+- Mobile Login- und Registrierungsfelder für iPhones optimiert, damit Safari die Ansicht nicht unerwartet vergrößert
+- E-Mail-Bestätigungslink robuster gemacht und erneute Registrierungen unverifizierter Konten verbessert
+- Automatische Bereinigung unverifizierter Konten nach sieben Tagen ergänzt
+- Erkennung neuer Deployments mit Hinweis `Update verfügbar` im Footer ergänzt
+- Produktionsstart ohne gültige `PUBLIC_BASE_URL` verhindert
+
+## 1.0.1
+
+- Domain- und SEO-Konfiguration im Frontend zentralisiert, einschließlich generierter `index.html`, `robots.txt` und `sitemap.xml`
+- Landingpage als OnePager für berufstätige Eltern mit Fokus auf kostenlose Ferienbetreuungsplanung ausgebaut
+- Admin-Log um Suche, Ereignisfilter und Meta-Ansicht erweitert
+- Kalender-Layering verbessert, damit Tooltips und Overlays zuverlässig über der Oberfläche liegen
+- Öffentliche Texte konsequent auf die Ich-Form umgestellt
+
 ## 0.2.0
 
 - Admin: SMTP-Konfiguration direkt in der App speichern (verschlüsselt) + Testmail
+- Admin: Instanz-Kennzahlen um Sessions, Einladungen, offene E-Mails und SMTP-Status erweitert
+- Admin: Diagnoseexport als JSON ohne Secrets oder Tokens ergänzt
+- Admin: Schreibgeschützte Datenbankansicht ergänzt
 - Registrierung: Verifikationsmails nutzen gespeicherte SMTP-Konfiguration
 - Passwortregel: Mindestlänge von 10 auf 8 Zeichen reduziert
 - Profil: E-Mail-Adresse ändern mit Bestätigungslink
