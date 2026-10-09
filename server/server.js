@@ -3011,21 +3011,7 @@ async function getHolidaysForYear({ year, stateCode }) {
     .map((h) => ({ date: normalizeDateOnly(h.date) }))
     .filter((h) => h.date);
 
-  let schoolHolidays = [];
-  try {
-    const response = await axios.get(`https://schulferien-api.de/api/v1/${year}/${stateCode}/`, { timeout: 3000 });
-    schoolHolidays = (response.data || []).map((h) => ({
-      start: normalizeDateOnly(h.start),
-      end: normalizeDateOnly(h.end),
-      name: h.name || h.title || h.slug || 'Ferien',
-    })).filter((h) => h.start && h.end);
-  } catch {
-    schoolHolidays = (STATIC_HOLIDAYS[stateCode]?.[year]?.school || []).map((h) => ({
-      start: normalizeDateOnly(h.start),
-      end: normalizeDateOnly(h.end),
-      name: h.name || 'Ferien',
-    })).filter((h) => h.start && h.end);
-  }
+  const { school: schoolHolidays } = await loadSchoolHolidaysForCalendarYear(year, stateCode);
 
   return {
     public: publicHolidays,
@@ -4367,6 +4353,112 @@ function getCachedSchoolHolidays(year, stateCode) {
   };
 }
 
+function normalizeSchoolHolidayRows(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((holiday) => ({
+      start: normalizeDateOnly(holiday.start),
+      end: normalizeDateOnly(holiday.end),
+      name: holiday.name_cp || holiday.name || holiday.title || holiday.slug || 'Ferien',
+    }))
+    .filter((holiday) => holiday.start && holiday.end);
+}
+
+export function selectSchoolHolidaysForCalendarYear(year, holidayGroups = []) {
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const uniqueHolidays = new Map();
+
+  for (const holiday of normalizeSchoolHolidayRows(holidayGroups.flat())) {
+    if (holiday.end < yearStart || holiday.start > yearEnd) continue;
+    uniqueHolidays.set(`${holiday.start}|${holiday.end}|${holiday.name}`, holiday);
+  }
+
+  return [...uniqueHolidays.values()].sort((a, b) => a.start.localeCompare(b.start));
+}
+
+async function loadSchoolHolidaySourceYear(year, stateCode) {
+  const cached = getCachedSchoolHolidays(year, stateCode);
+  if (cached?.isFresh) {
+    return {
+      school: cached.school,
+      meta: cached.source === 'live'
+        ? buildHolidayMeta(
+            'cache',
+            'Ferien wurden aus dem Zwischenspeicher geladen, um unnötige Aufrufe der externen API zu vermeiden.',
+            cached.fetchedAt
+          )
+        : buildHolidayMeta(cached.source, cached.message, cached.fetchedAt),
+    };
+  }
+
+  try {
+    const response = await axios.get(`https://schulferien-api.de/api/v1/${year}/${stateCode}/`, { timeout: 3000 });
+    const school = normalizeSchoolHolidayRows(response.data);
+    schoolHolidayCache.set(`${year}-${stateCode}`, {
+      school,
+      fetchedAt: Date.now(),
+      ttlMs: HOLIDAY_CACHE_TTL_MS,
+      source: 'live',
+      message: null,
+    });
+    return { school, meta: buildHolidayMeta('live') };
+  } catch (error) {
+    console.warn(`API fetch failed for ${year}, using fallback if available. Error: ${error.message}`);
+    if (cached?.isUsableStale) {
+      return {
+        school: cached.school,
+        meta: buildHolidayMeta(
+          'stale-cache',
+          `Die Live-Quelle fuer ${stateCode} antwortete nicht (${error.message}). Es werden zuletzt erfolgreich geladene Feriendaten verwendet.`,
+          cached.fetchedAt
+        ),
+      };
+    }
+
+    if (STATIC_HOLIDAYS[stateCode]?.[year]) {
+      const school = normalizeSchoolHolidayRows(STATIC_HOLIDAYS[stateCode][year].school);
+      const message = `Die Live-Quelle fuer ${stateCode} antwortete nicht (${error.message}). Es werden hinterlegte Feriendaten verwendet.`;
+      schoolHolidayCache.set(`${year}-${stateCode}`, {
+        school,
+        fetchedAt: Date.now(),
+        ttlMs: HOLIDAY_FALLBACK_CACHE_TTL_MS,
+        source: 'static-fallback',
+        message,
+      });
+      return { school, meta: buildHolidayMeta('static-fallback', message) };
+    }
+
+    return {
+      school: [],
+      meta: buildHolidayMeta(
+        'error',
+        `Die Live-Quelle fuer ${stateCode} antwortete nicht (${error.message}) und es gibt keinen lokalen Fallback fuer ${year}.`
+      ),
+    };
+  }
+}
+
+async function loadSchoolHolidaysForCalendarYear(year, stateCode) {
+  const sourceYears = await Promise.all([
+    loadSchoolHolidaySourceYear(year - 1, stateCode),
+    loadSchoolHolidaySourceYear(year, stateCode),
+  ]);
+  const school = selectSchoolHolidaysForCalendarYear(year, sourceYears.map((result) => result.school));
+  const sourcePriority = ['error', 'stale-cache', 'static-fallback', 'cache', 'live'];
+  const primaryMeta = [...sourceYears]
+    .sort((a, b) => sourcePriority.indexOf(a.meta.source) - sourcePriority.indexOf(b.meta.source))[0]?.meta
+    || buildHolidayMeta('error', 'Feriendaten konnten nicht geladen werden.');
+  const messages = [...new Set(sourceYears.map((result) => result.meta.message).filter(Boolean))];
+
+  return {
+    school,
+    meta: {
+      ...primaryMeta,
+      message: messages.length > 0 ? messages.join(' ') : primaryMeta.message,
+    },
+  };
+}
+
 // GET /api/holidays (Dynamic with Fallback)
 app.get('/api/holidays', async (req, res) => {
     const year = Number(req.query.year) || new Date().getFullYear();
@@ -4387,68 +4479,8 @@ app.get('/api/holidays', async (req, res) => {
       }))
       .filter(h => h.date);
 
-    // 2. School Holidays (Fetched via API with fallback)
-    let schoolHolidays = [];
-    let meta = buildHolidayMeta('live');
-    const cached = getCachedSchoolHolidays(year, stateCode);
-
-    if (cached?.isFresh) {
-      schoolHolidays = cached.school;
-      meta = cached.source === 'live'
-        ? buildHolidayMeta(
-            'cache',
-            'Ferien wurden aus dem Zwischenspeicher geladen, um unnötige Aufrufe der externen API zu vermeiden.',
-            cached.fetchedAt
-          )
-        : buildHolidayMeta(cached.source, cached.message, cached.fetchedAt);
-    } else {
-      try {
-          const response = await axios.get(`https://schulferien-api.de/api/v1/${year}/${stateCode}/`, { timeout: 3000 });
-          schoolHolidays = response.data.map(h => ({
-              start: normalizeDateOnly(h.start),
-              end: normalizeDateOnly(h.end),
-              name: h.name || h.title || h.slug || 'Ferien'
-          })).filter(h => h.start && h.end);
-
-          schoolHolidayCache.set(`${year}-${stateCode}`, {
-            school: schoolHolidays,
-            fetchedAt: Date.now(),
-            ttlMs: HOLIDAY_CACHE_TTL_MS,
-            source: 'live',
-            message: null,
-          });
-      } catch (error) {
-          console.warn(`API fetch failed for ${year}, using fallback if available. Error: ${error.message}`);
-          if (cached?.isUsableStale) {
-            schoolHolidays = cached.school;
-            meta = buildHolidayMeta(
-              'stale-cache',
-              `Die Live-Quelle fuer ${stateCode} antwortete nicht (${error.message}). Es werden zuletzt erfolgreich geladene Feriendaten verwendet.`,
-              cached.fetchedAt
-            );
-          } else if (STATIC_HOLIDAYS[stateCode]?.[year]) {
-            schoolHolidays = STATIC_HOLIDAYS[stateCode][year].school;
-            const fallbackMessage = `Die Live-Quelle fuer ${stateCode} antwortete nicht (${error.message}). Es werden hinterlegte Feriendaten verwendet.`;
-            schoolHolidayCache.set(`${year}-${stateCode}`, {
-              school: schoolHolidays,
-              fetchedAt: Date.now(),
-              ttlMs: HOLIDAY_FALLBACK_CACHE_TTL_MS,
-              source: 'static-fallback',
-              message: fallbackMessage,
-            });
-            meta = buildHolidayMeta(
-              'static-fallback',
-              fallbackMessage
-            );
-          } else {
-            schoolHolidays = [];
-            meta = buildHolidayMeta(
-              'error',
-              `Die Live-Quelle fuer ${stateCode} antwortete nicht (${error.message}) und es gibt keinen lokalen Fallback fuer ${year}.`
-            );
-          }
-      }
-    }
+    // Include the previous source year because Christmas holidays can cross into January.
+    const { school: schoolHolidays, meta } = await loadSchoolHolidaysForCalendarYear(year, stateCode);
 
     res.json({
         public: publicHolidays,

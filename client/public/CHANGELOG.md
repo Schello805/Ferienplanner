@@ -11,6 +11,7 @@
 - Serverseitigen Zugriffsschutz aller Admin-Einstellungen mit Regressionstest abgesichert
 - Hoverinformationen für reine Feiertage ohne zusätzliche Einträge ausgeblendet
 - Warnungs-Kachel klickbar gemacht und unbetreute Tage in einer kompakten Liste dargestellt
+- Jahresübergreifende Schulferien vollständig übernommen, damit etwa Weihnachten 2026/2027 auch im Januar sichtbar bleibt
 
 ## 1.2.0
 

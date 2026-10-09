@@ -9,7 +9,7 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ferienplaner-test-'));
 process.env.NODE_ENV = 'test';
 process.env.DB_PATH = path.join(tempDir, 'database.sqlite');
 
-const { startServer, stopRuntimeMetrics } = await import('./server.js');
+const { startServer, stopRuntimeMetrics, selectSchoolHolidaysForCalendarYear } = await import('./server.js');
 const { buildIssues, cleanupOperationalData } = await import('./maintenance.js');
 const server = await new Promise((resolve) => {
   const instance = startServer(0);
@@ -69,6 +69,23 @@ test.after(async () => {
   });
   await stopRuntimeMetrics();
   fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+test('school holidays that started in the previous year remain visible in January', () => {
+  const holidays = selectSchoolHolidaysForCalendarYear(2027, [
+    [
+      { start: '2026-10-12T00:00Z', end: '2026-10-24T23:59Z', name: 'Herbstferien' },
+      { start: '2026-12-23T00:00Z', end: '2027-01-09T23:59Z', name: 'Weihnachtsferien' },
+    ],
+    [
+      { start: '2027-02-01T00:00Z', end: '2027-02-02T23:59Z', name: 'Winterferien' },
+    ],
+  ]);
+
+  assert.deepEqual(holidays, [
+    { start: '2026-12-23', end: '2027-01-09', name: 'Weihnachtsferien' },
+    { start: '2027-02-01', end: '2027-02-02', name: 'Winterferien' },
+  ]);
 });
 
 test('auth bootstrap creates first admin and protects API', async () => {
