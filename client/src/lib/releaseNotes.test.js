@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  RELEASE_NOTES,
   getReleaseNotesStorageKey,
   hasSeenReleaseNotes,
   markReleaseNotesSeen,
@@ -13,10 +14,11 @@ describe('release notes visibility', () => {
       setItem: (key, value) => storage.set(key, value),
     };
 
-    expect(hasSeenReleaseNotes(adapter, '1.3.0')).toBe(false);
-    markReleaseNotesSeen(adapter, '1.3.0');
-    expect(hasSeenReleaseNotes(adapter, '1.3.0')).toBe(true);
-    expect(storage.get(getReleaseNotesStorageKey('1.3.0'))).toBe('true');
-    expect(hasSeenReleaseNotes(adapter, '1.4.0')).toBe(false);
+    expect(RELEASE_NOTES.release).toBe('1.3.1');
+    expect(hasSeenReleaseNotes(adapter, RELEASE_NOTES.release)).toBe(false);
+    markReleaseNotesSeen(adapter, RELEASE_NOTES.release);
+    expect(hasSeenReleaseNotes(adapter, RELEASE_NOTES.release)).toBe(true);
+    expect(storage.get(getReleaseNotesStorageKey(RELEASE_NOTES.release))).toBe('true');
+    expect(hasSeenReleaseNotes(adapter, '1.3.2')).toBe(false);
   });
 });

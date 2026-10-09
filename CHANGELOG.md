@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1 – 09.10.2026
+
+- Jahresübergreifende Schulferien vollständig übernommen, damit etwa Weihnachten 2026/2027 in Niedersachsen auch im Januar sichtbar bleibt
+- Ferienkorrektur einheitlich auf Jahresansicht, Betreuungslücken und Digest-Auswertung angewendet
+
 ## 1.3.0 – 19.09.2026
 
 - Einmaligen, mobil optimierten „Was ist neu?“-Hinweis für neue Releases ergänzt
@@ -11,7 +16,6 @@
 - Serverseitigen Zugriffsschutz aller Admin-Einstellungen mit Regressionstest abgesichert
 - Hoverinformationen für reine Feiertage ohne zusätzliche Einträge ausgeblendet
 - Warnungs-Kachel klickbar gemacht und unbetreute Tage in einer kompakten Liste dargestellt
-- Jahresübergreifende Schulferien vollständig übernommen, damit etwa Weihnachten 2026/2027 auch im Januar sichtbar bleibt
 
 ## 1.2.0
 

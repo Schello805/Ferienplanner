@@ -1,6 +1,6 @@
 export const RELEASE_NOTES = {
-  release: '1.3.0',
-  date: '19.09.2026',
+  release: '1.3.1',
+  date: '09.10.2026',
 };
 
 export const getReleaseNotesStorageKey = (release = RELEASE_NOTES.release) =>

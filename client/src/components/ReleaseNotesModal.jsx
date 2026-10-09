@@ -3,20 +3,12 @@ import { RELEASE_NOTES } from '../lib/releaseNotes.js';
 
 const features = [
   {
-    title: 'Nahtlos ins nächste Jahr',
-    text: 'Auf dem Smartphone führt der Monatswechsel nach Dezember jetzt direkt in den Januar des Folgejahres.',
+    title: 'Weihnachtsferien in Niedersachsen korrigiert',
+    text: 'Die Weihnachtsferien vom 23.12.2026 bis 09.01.2027 werden jetzt vollständig angezeigt – einschließlich der Januarwoche.',
   },
   {
-    title: 'Feiertage passend zur Familie',
-    text: 'Für Papa, Mama und jedes Kind lässt sich einzeln festlegen, ob gesetzliche Feiertage automatisch als freie Tage gelten.',
-  },
-  {
-    title: 'Genauere Urlaubsberechnung',
-    text: 'Ein Urlaubstag an einem Feiertag wird nur dann nicht berechnet, wenn der Feiertag für den jeweiligen Elternteil frei ist.',
-  },
-  {
-    title: 'Betreuung bleibt übersichtlich',
-    text: 'Gesetzliche Feiertage lösen weiterhin keine Betreuungslücke aus. Standardmäßig sind Feiertage für alle Familienmitglieder aktiviert.',
+    title: 'Jahreswechsel zuverlässig berücksichtigt',
+    text: 'Die Korrektur gilt für alle Bundesländer sowie für Jahresansicht, Betreuungslücken und Digest-Auswertung.',
   },
 ];
 
