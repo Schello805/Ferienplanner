@@ -7,6 +7,7 @@ import sqlite3 from 'sqlite3';
 import Holidays from 'date-holidays';
 import axios from 'axios';
 import crypto from 'crypto';
+import { promisify } from 'node:util';
 import nodemailer from 'nodemailer';
 import { execSync } from 'node:child_process';
 import {
@@ -145,9 +146,35 @@ const allowedOrigins = buildAllowedOrigins({ port: PORT, publicBaseUrl: validate
 const corsOptions = createCorsOptions(allowedOrigins);
 
 export const app = express();
-app.set('trust proxy', true);
+app.set('trust proxy', process.env.TRUST_PROXY ? process.env.TRUST_PROXY.split(',').map((value) => value.trim()) : 'loopback');
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '32kb' }));
+const requestBudgets = new Map();
+app.use('/api', (req, res, next) => {
+  const now = Date.now();
+  for (const [key, budget] of requestBudgets) {
+    if (budget.until <= now) requestBudgets.delete(key);
+  }
+  const category = req.path === '/feedback' ? 'feedback'
+    : req.path === '/auth/register' ? 'register'
+    : req.path.startsWith('/auth/') && req.method === 'POST' ? 'auth' : null;
+  if (category) {
+    const key = `${category}:${getClientIp(req)}`;
+    const budget = requestBudgets.get(key) || { count: 0, until: now + 15 * 60 * 1000 };
+    budget.count += 1;
+    requestBudgets.set(key, budget);
+    if (budget.count > ({ feedback: 5, register: 10, auth: 100 }[category])) {
+      res.setHeader('Retry-After', String(Math.ceil((budget.until - now) / 1000)));
+      return res.status(429).json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
+    }
+  }
+  for (const field of ['username', 'password', 'currentPassword', 'newPassword']) {
+    if (req.body?.[field] !== undefined && (typeof req.body[field] !== 'string' || req.body[field].length > (field === 'username' ? 254 : 1024))) {
+      return res.status(400).json({ error: 'Ungültige oder zu lange Anmeldedaten.' });
+    }
+  }
+  next();
+});
 app.disable('x-powered-by');
 
 app.use(securityHeadersMiddleware);
@@ -394,7 +421,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(409).json({ error: 'Registration could not be refreshed automatically. Please contact support.' });
     }
 
-    const { salt, hash } = hashPassword(password);
+    const { salt, hash } = await hashPassword(password);
     const renewableUser = renewableConflicts[0] || null;
     let userId;
 
@@ -949,6 +976,12 @@ async function initializeDatabase() {
       )`
     );
 
+    // Migrate existing sessions without logging users out or retaining bearer secrets.
+    const legacySessions = await dbAll(db, "SELECT token FROM sessions WHERE token NOT LIKE 'sha256:%'");
+    for (const session of legacySessions) {
+      await dbRun(db, 'UPDATE sessions SET token = ? WHERE token = ?', [sessionTokenHash(session.token), session.token]);
+    }
+
     const verificationColumns = new Set((await dbAll(db, 'PRAGMA table_info(email_verifications)')).map((row) => row.name));
     if (!verificationColumns.has('type')) {
       await dbRun(db, "ALTER TABLE email_verifications ADD COLUMN type TEXT NOT NULL DEFAULT 'register'");
@@ -1241,13 +1274,14 @@ async function initializeDatabase() {
 
 const dbReady = initializeDatabase();
 
-function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+const scryptAsync = promisify(crypto.scrypt);
+async function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = (await scryptAsync(password, salt, 64)).toString('hex');
   return { salt, hash };
 }
 
-function verifyPassword(password, salt, expectedHash) {
-  const actualHash = crypto.scryptSync(password, salt, 64);
+async function verifyPassword(password, salt, expectedHash) {
+  const actualHash = await scryptAsync(password, salt, 64);
   const expected = Buffer.from(expectedHash, 'hex');
   if (actualHash.length !== expected.length) return false;
   return crypto.timingSafeEqual(actualHash, expected);
@@ -1255,6 +1289,10 @@ function verifyPassword(password, salt, expectedHash) {
 
 function generateSessionToken() {
   return crypto.randomBytes(32).toString('base64url');
+}
+
+function sessionTokenHash(token) {
+  return `sha256:${crypto.createHash('sha256').update(token).digest('hex')}`;
 }
 
 function validatePassword(password, username = '') {
@@ -1273,10 +1311,6 @@ function validatePassword(password, username = '') {
 }
 
 function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0].trim();
-  }
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
 
@@ -1839,7 +1873,7 @@ async function createSessionForUser(userId) {
       db,
       `INSERT INTO sessions (token, userId, createdAt, expiresAt)
        VALUES (?, ?, ?, ?)`,
-      [token, userId, createdAt, expiresAt]
+      [sessionTokenHash(token), userId, createdAt, expiresAt]
     );
     return { token, expiresAt };
   } finally {
@@ -2082,7 +2116,7 @@ async function getAuthState(req) {
        FROM sessions
        JOIN users ON users.id = sessions.userId
        WHERE sessions.token = ? AND sessions.expiresAt > ?`,
-      [token, new Date().toISOString()]
+      [sessionTokenHash(token), new Date().toISOString()]
     );
 
     if (!row) {
@@ -2213,7 +2247,7 @@ app.post('/api/auth/bootstrap', async (req, res) => {
   const now = new Date().toISOString();
 
   try {
-    const { salt, hash } = hashPassword(password);
+    const { salt, hash } = await hashPassword(password);
     const normalizedEmail = normalizeEmail(email);
     if (normalizedEmail && !isValidEmail(normalizedEmail)) {
       registerAuthFailure(req, username);
@@ -2263,7 +2297,7 @@ app.post('/api/auth/login', async (req, res) => {
     );
     db.close();
 
-    if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+    if (!user || !await verifyPassword(password, user.passwordSalt, user.passwordHash)) {
       registerAuthFailure(req, username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -2293,7 +2327,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/logout', requireAuth, async (req, res) => {
   const db = openDb();
   try {
-    await dbRun(db, 'DELETE FROM sessions WHERE token = ?', [req.auth.token]);
+    await dbRun(db, 'DELETE FROM sessions WHERE token = ?', [sessionTokenHash(req.auth.token)]);
     clearSessionCookies(req, res);
     res.json({ success: true });
   } catch (error) {
@@ -2332,7 +2366,7 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
   const db = openDb();
   try {
     const now = new Date().toISOString();
-    const { salt, hash } = hashPassword(password);
+    const { salt, hash } = await hashPassword(password);
     const result = await dbRun(
       db,
       `INSERT INTO users (username, emailVerified, passwordHash, passwordSalt, isAdmin, createdAt, updatedAt)
@@ -2367,11 +2401,11 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
       'SELECT id, passwordHash, passwordSalt FROM users WHERE id = ?',
       [req.auth.user.id]
     );
-    if (!user || !verifyPassword(currentPassword, user.passwordSalt, user.passwordHash)) {
+    if (!user || !await verifyPassword(currentPassword, user.passwordSalt, user.passwordHash)) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    const { salt, hash } = hashPassword(newPassword);
+    const { salt, hash } = await hashPassword(newPassword);
     await dbRun(
       db,
       'UPDATE users SET passwordHash = ?, passwordSalt = ?, updatedAt = ? WHERE id = ?',
@@ -2380,7 +2414,7 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     await dbRun(
       db,
       'DELETE FROM sessions WHERE userId = ? AND token != ?',
-      [req.auth.user.id, req.auth.token]
+      [req.auth.user.id, sessionTokenHash(req.auth.token)]
     );
     res.json({ success: true });
   } catch (error) {
@@ -2409,7 +2443,7 @@ app.post('/api/auth/change-email', requireAuth, async (req, res) => {
       [req.auth.user.id]
     );
 
-    if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+    if (!user || !await verifyPassword(password, user.passwordSalt, user.passwordHash)) {
       return res.status(401).json({ error: 'Password is incorrect' });
     }
 
@@ -2461,7 +2495,7 @@ app.post('/api/auth/delete-account', requireAuth, async (req, res) => {
       'SELECT id, passwordHash, passwordSalt FROM users WHERE id = ?',
       [userId]
     );
-    if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+    if (!user || !await verifyPassword(password, user.passwordSalt, user.passwordHash)) {
       return res.status(401).json({ error: 'Password is incorrect' });
     }
 
@@ -4495,7 +4529,7 @@ if (fs.existsSync(CLIENT_DIST) && process.env.NODE_ENV !== 'test') {
   });
 }
 
-export function startServer(port = PORT, host) {
+export function startServer(port = PORT, host = process.env.HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : undefined)) {
   const server = app.listen(port, host, () => {
     const address = server.address();
     const actualPort =

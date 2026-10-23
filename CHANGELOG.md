@@ -1,5 +1,14 @@
 # Changelog
 
+## Unveröffentlicht
+
+- Bekannte Schwachstellen in Backend, Router und Build-Abhängigkeiten durch Updates behoben
+- Anonyme Feedback-Anfragen und Registrierungen begrenzt; Login-Limits gegen gefälschte Proxy-Header abgesichert
+- Anmeldedaten und Anfragegrößen begrenzt und Passwortableitung asynchron ausgeführt
+- Session-Tokens nur noch gehasht gespeichert; bestehende Sitzungen automatisch migriert
+- Produktionsdienst und Monitoring auf isolierten Systembenutzer mit restriktiven Dateirechten umgestellt
+- Content-Security-Policy und konfigurierbare Netzwerkbindung ergänzt
+
 ## 1.3.1 – 09.10.2026
 
 - Jahresübergreifende Schulferien vollständig übernommen, damit etwa Weihnachten 2026/2027 in Niedersachsen auch im Januar sichtbar bleibt

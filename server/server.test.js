@@ -4,12 +4,22 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import sqlite3 from 'sqlite3';
+import crypto from 'node:crypto';
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ferienplaner-test-'));
 process.env.NODE_ENV = 'test';
 process.env.DB_PATH = path.join(tempDir, 'database.sqlite');
+const legacyToken = 'existing-session-before-security-upgrade';
+await new Promise((resolve, reject) => {
+  const db = new sqlite3.Database(process.env.DB_PATH);
+  db.serialize(() => {
+    db.run('CREATE TABLE sessions (token TEXT PRIMARY KEY, userId INTEGER NOT NULL, createdAt TEXT, expiresAt TEXT)');
+    db.run('INSERT INTO sessions VALUES (?, 1, ?, ?)', [legacyToken, new Date().toISOString(), new Date(Date.now() + 86400000).toISOString()]);
+  });
+  db.close((error) => error ? reject(error) : resolve());
+});
 
-const { startServer, stopRuntimeMetrics, selectSchoolHolidaysForCalendarYear } = await import('./server.js');
+const { app, startServer, stopRuntimeMetrics, selectSchoolHolidaysForCalendarYear } = await import('./server.js');
 const { buildIssues, cleanupOperationalData } = await import('./maintenance.js');
 const server = await new Promise((resolve) => {
   const instance = startServer(0);
@@ -104,6 +114,54 @@ test('auth bootstrap creates first admin and protects API', async () => {
   assert.equal(bootstrap.data.user.username, 'admin');
   assert.equal(bootstrap.data.user.isAdmin, true);
   assert.ok(bootstrap.data.token);
+});
+
+test('existing bearer sessions migrate to hashes and remain usable', async () => {
+  const { data } = await request('/api/auth/status', { headers: { Cookie: `ferienplanerAuthToken=${legacyToken}` } });
+  assert.equal(data.authenticated, true);
+  const rows = await withDb((db) => db.all('SELECT token FROM sessions'));
+  assert.ok(rows.every((row) => row.token.startsWith('sha256:')));
+  assert.ok(rows.some((row) => row.token === `sha256:${crypto.createHash('sha256').update(legacyToken).digest('hex')}`));
+});
+
+test('logout invalidates a hashed session and rejects the database hash as bearer token', async () => {
+  const login = await request('/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'secret12345' }),
+  });
+  const token = login.data.token;
+  assert.ok(token);
+  const databaseHash = `sha256:${crypto.createHash('sha256').update(token).digest('hex')}`;
+  const forged = await request('/api/auth/status', { headers: { Authorization: `Bearer ${databaseHash}` } });
+  assert.equal(forged.data.authenticated, false);
+  const logout = await request('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(logout.response.status, 200);
+  const status = await request('/api/auth/status', { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(status.data.authenticated, false);
+});
+
+test('rejects oversized authentication input before password processing', async () => {
+  const result = await request('/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'a'.repeat(1025) }),
+  });
+  assert.equal(result.response.status, 400);
+});
+
+test('untrusted forwarded addresses cannot bypass login throttling', async () => {
+  const previousTrust = app.get('trust proxy');
+  app.set('trust proxy', false);
+  try {
+    for (let index = 0; index < 11; index += 1) {
+      const result = await request('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': `192.0.2.${index}` },
+        body: JSON.stringify({ username: 'spoof-test', password: 'wrong-password-1' }),
+      });
+      assert.equal(result.response.status, index < 10 ? 401 : 429);
+    }
+  } finally {
+    app.set('trust proxy', previousTrust);
+  }
 });
 
 test('each user sees only their own default calendar data', async () => {
@@ -633,4 +691,17 @@ test('maintenance cleanup removes expired and old technical records', async () =
     assert.equal((await db.get('SELECT COUNT(*) AS count FROM digest_runs WHERE startedAt = ?', [oldIso])).count, 0);
     assert.equal((await db.get('SELECT COUNT(*) AS count FROM admin_logs WHERE ts = ?', [oldIso])).count, 0);
   });
+});
+
+test('anonymous feedback has a server-side request budget', async () => {
+  for (let index = 0; index < 6; index += 1) {
+    const result = await request('/api/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Rate limit test message' }),
+    });
+    if (index === 5) {
+      assert.equal(result.response.status, 429);
+      assert.ok(Number(result.response.headers.get('retry-after')) > 0);
+    }
+  }
 });

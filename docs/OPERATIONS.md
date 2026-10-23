@@ -82,3 +82,35 @@ systemctl stop ferienplanung-backend
 cp /var/lib/ferienplaner/database.sqlite.pre-restore /var/lib/ferienplaner/database.sqlite
 systemctl start ferienplanung-backend
 ```
+
+# Sicherheitsupdate und Proxy-Konfiguration
+
+Das Update legt eine Laufzeitkopie unter `/opt/ferienplaner` an. Backend und
+Monitoring laufen als Systembenutzer `ferienplaner`, mit Schreibzugriff nur auf
+das Datenverzeichnis. Das Git-Repository kann weiterhin unter `/root/Ferienplanner`
+liegen. Die Datenbank muss ausserhalb von `/root` und `/home` liegen; empfohlen
+ist `/var/lib/ferienplaner/database.sqlite`. Environment-Datei und Backups werden
+gegen Zugriffe anderer Benutzer abgesichert. Bestehende Sitzungen werden beim
+ersten Start automatisch auf gehashte Tokens migriert.
+
+SQLite 6 benoetigt fuer den nativen Build auf Debian die Pakete `python3`, `make`
+und `g++` (`apt-get install -y python3 make g++`). Das Update prueft die Werkzeuge
+vor dem Build. Node muss systemweit installiert sein, beispielsweise in `/usr/bin`.
+
+In Produktion lauscht das Backend standardmaessig auf `127.0.0.1`. Laeuft der
+Reverse Proxy in einem anderen Container, vor dem Update in
+`/etc/ferienplaner/ferienplaner.env` `HOST=0.0.0.0` sowie
+`TRUST_PROXY=<IP-Adresse-des-Proxys>` setzen. Port 3000 darf dann per Firewall nur
+vom Proxy erreichbar sein. Der Proxy muss eingehende Forwarded-Header ersetzen
+oder die echte Client-IP korrekt anhaengen. Standardmaessig werden ausschliesslich
+Loopback-Proxies vertraut. Keine pauschale Freigabe aller Proxies setzen.
+
+Die Content-Security-Policy erlaubt lokale Ressourcen und das bestehende Matomo
+unter `https://analytics.schellenberger.biz`. Zusaetzliche externe Skripte muessen
+vor ihrer Einbindung explizit in der Policy freigegeben werden.
+
+Nach dem Update `systemctl status ferienplanung-backend` und
+`systemctl status ferienplanung-monitor.timer` kontrollieren. Die systemd-Isolation
+kann auf macOS nicht ausgefuehrt werden und muss auf der Linux-Testinstanz
+geprueft werden. Fuer einen Rollback auf Code vor der Token-Migration muessen
+Benutzer sich erneut anmelden.

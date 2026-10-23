@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -Eeuo pipefail
+umask 077
 
 APP_NAME="ferienplaner"
 SERVICE_NAME="ferienplanung-backend"
@@ -72,6 +73,10 @@ ensure_prerequisites() {
   require_command systemctl
   require_command curl
 
+  if ! command -v python3 >/dev/null || ! command -v make >/dev/null || ! command -v g++ >/dev/null; then
+    fail "SQLite 6 benoetigt Buildwerkzeuge. Bitte zuerst ausfuehren: apt-get install -y python3 make g++"
+  fi
+
   ensure_supported_node
 
   [[ -d "${SERVER_DIR}" ]] || fail "Server-Verzeichnis nicht gefunden: ${SERVER_DIR}"
@@ -124,6 +129,19 @@ EOF
   else
     log "Environment-Datei bleibt erhalten: ${ENV_FILE}"
   fi
+  local configured_db
+  configured_db="$(sed -n 's/^DB_PATH=//p' "${ENV_FILE}" | tail -n 1)"
+  if [[ -n "${configured_db}" ]]; then
+    [[ "${configured_db}" = /* ]] || fail "DB_PATH muss ein absoluter Pfad sein"
+    DEFAULT_DB_PATH="${configured_db}"
+  fi
+  [[ "${DEFAULT_DB_PATH}" != /root/* && "${DEFAULT_DB_PATH}" != /home/* ]] || fail "DB_PATH muss fuer den isolierten Dienst ausserhalb von /root und /home liegen (empfohlen: /var/lib/ferienplaner/database.sqlite)"
+  case "$(dirname "${DEFAULT_DB_PATH}")" in
+    /|/var|/var/lib|/etc|/opt|/usr|/tmp) fail "DB_PATH benoetigt ein eigenes Datenverzeichnis" ;;
+  esac
+  mkdir -p "$(dirname "${DEFAULT_DB_PATH}")"
+  chmod 600 "${ENV_FILE}"
+  chmod 700 "${BACKUP_DIR}"
 }
 
 ensure_digest_token() {
@@ -167,6 +185,24 @@ write_systemd_unit() {
   local node_bin
   node_bin="$(command -v node)"
   [[ -n "${node_bin}" ]] || fail "Node-Binary konnte nicht ermittelt werden"
+  [[ "${node_bin}" != /root/* && "${node_bin}" != /home/* ]] || fail "Node muss systemweit ausserhalb von /root und /home installiert sein"
+
+  # Stage readable runtime code outside /root without weakening /root permissions.
+  id ferienplaner >/dev/null 2>&1 || useradd --system --home-dir /var/lib/ferienplaner --shell /usr/sbin/nologin ferienplaner
+  local runtime_dir="/opt/ferienplaner"
+  mkdir -p "${runtime_dir}/server" "${runtime_dir}/client"
+  cp -a "${SERVER_DIR}/." "${runtime_dir}/server/"
+  cp -a "${CLIENT_DIR}/dist" "${runtime_dir}/client/"
+  chmod 755 "${runtime_dir}"
+  chown -R root:ferienplaner "${runtime_dir}"
+  chmod -R u=rwX,g=rX,o= "${runtime_dir}"
+  chown -R ferienplaner:ferienplaner "$(dirname "${DEFAULT_DB_PATH}")"
+  chmod 700 "$(dirname "${DEFAULT_DB_PATH}")" "${BACKUP_DIR}"
+  chown root:root "${BACKUP_DIR}"
+  chmod 600 "${ENV_FILE}"
+  find "$(dirname "${DEFAULT_DB_PATH}")" -maxdepth 1 -type f -exec chmod 600 {} +
+  local revision
+  revision="$(git -C "${REPO_ROOT}" rev-parse --short=8 HEAD)"
 
   log "Schreibe systemd-Unit nach ${SYSTEMD_UNIT_PATH}"
   cat > "${SYSTEMD_UNIT_PATH}" <<EOF
@@ -178,9 +214,18 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-WorkingDirectory=${SERVER_DIR}
+User=ferienplaner
+Group=ferienplaner
+WorkingDirectory=${runtime_dir}/server
 EnvironmentFile=${ENV_FILE}
-ExecStart=${node_bin} ${SERVER_DIR}/server.js
+Environment=APP_GIT_REVISION=${revision}
+ExecStart=${node_bin} ${runtime_dir}/server/server.js
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$(dirname "${DEFAULT_DB_PATH}")
+UMask=0077
 Restart=on-failure
 RestartSec=2
 KillMode=mixed
@@ -245,9 +290,17 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=${SERVER_DIR}
+User=ferienplaner
+Group=ferienplaner
+WorkingDirectory=/opt/ferienplaner/server
 EnvironmentFile=${ENV_FILE}
-ExecStart=${node_bin} ${SERVER_DIR}/maintenance.js
+ExecStart=${node_bin} /opt/ferienplaner/server/maintenance.js
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$(dirname "${DEFAULT_DB_PATH}")
+UMask=0077
 StateDirectory=ferienplaner
 EOF
 

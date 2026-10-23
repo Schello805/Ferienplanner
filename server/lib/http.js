@@ -66,6 +66,9 @@ export function createCorsOptions(allowedOrigins) {
 }
 
 export function securityHeadersMiddleware(req, res, next) {
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' https://analytics.schellenberger.biz; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://analytics.schellenberger.biz; connect-src 'self' https://analytics.schellenberger.biz; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+  }
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
