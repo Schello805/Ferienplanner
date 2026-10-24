@@ -53,3 +53,6 @@ jobs:
 
       - name: Client build
         run: npm --prefix client run build
+
+      - name: Real systemd deployment smoke test
+        run: sudo env "PATH=$PATH" CI=true bash deploy/test-systemd.sh

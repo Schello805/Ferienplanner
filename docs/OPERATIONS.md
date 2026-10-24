@@ -111,6 +111,10 @@ vor ihrer Einbindung explizit in der Policy freigegeben werden.
 
 Nach dem Update `systemctl status ferienplanung-backend` und
 `systemctl status ferienplanung-monitor.timer` kontrollieren. Die systemd-Isolation
-kann auf macOS nicht ausgefuehrt werden und muss auf der Linux-Testinstanz
-geprueft werden. Fuer einen Rollback auf Code vor der Token-Migration muessen
+kann auf macOS nicht ausgefuehrt werden. GitHub Actions prueft sie auf einer
+wegwerfbaren Linux-VM mit echtem systemd automatisch: Runtime-Kopie aus `/root`,
+Dienstbenutzer, Dateirechte, Login, Datenpersistenz nach erneutem Deployment,
+Digest und Monitoring. Der Test `deploy/test-systemd.sh` verweigert den Start
+ausserhalb von CI und bei einer vorhandenen Installation. Fuer einen Rollback
+auf Code vor der Token-Migration muessen
 Benutzer sich erneut anmelden.

@@ -2,6 +2,7 @@
 
 ## Unveröffentlicht
 
+- Automatischen Linux-Deployment-Test mit echtem systemd, Dienstbenutzer, Dateirechten, Login, Neustart, Digest und Monitoring ergänzt
 - Bekannte Schwachstellen in Backend, Router und Build-Abhängigkeiten durch Updates behoben
 - Anonyme Feedback-Anfragen und Registrierungen begrenzt; Login-Limits gegen gefälschte Proxy-Header abgesichert
 - Anmeldedaten und Anfragegrößen begrenzt und Passwortableitung asynchron ausgeführt
