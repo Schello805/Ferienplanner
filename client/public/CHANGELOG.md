@@ -1,6 +1,6 @@
 # Changelog
 
-## Unveröffentlicht
+## 1.3.2 – 24.10.2026
 
 - Automatischen Linux-Deployment-Test mit echtem systemd, Dienstbenutzer, Dateirechten, Login, Neustart, Digest und Monitoring ergänzt
 - Bekannte Schwachstellen in Backend, Router und Build-Abhängigkeiten durch Updates behoben

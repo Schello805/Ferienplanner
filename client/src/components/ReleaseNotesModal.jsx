@@ -3,12 +3,8 @@ import { RELEASE_NOTES } from '../lib/releaseNotes.js';
 
 const features = [
   {
-    title: 'Weihnachtsferien in Niedersachsen korrigiert',
-    text: 'Die Weihnachtsferien vom 23.12.2026 bis 09.01.2027 werden jetzt vollständig angezeigt – einschließlich der Januarwoche.',
-  },
-  {
-    title: 'Jahreswechsel zuverlässig berücksichtigt',
-    text: 'Die Korrektur gilt für alle Bundesländer sowie für Jahresansicht, Betreuungslücken und Digest-Auswertung.',
+    title: 'Sicherheitsupdate',
+    text: 'Abhängigkeiten aktualisiert, Anmeldung und Feedback besser geschützt sowie automatische Deployment-Tests ergänzt.',
   },
 ];
 
