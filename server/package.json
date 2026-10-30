@@ -15,7 +15,7 @@
   "dependencies": {
     "axios": "^1.20.0",
     "cors": "^2.8.5",
-    "date-holidays": "^3.37.0",
+    "date-holidays": "^3.38.0",
     "express": "^4.22.3",
     "nodemailer": "^10.2.1",
     "sqlite3": "^6.0.1"
