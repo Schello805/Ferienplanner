@@ -136,11 +136,11 @@ export const DayCell = ({
             </span>
 
             {childMarkers.length > 0 && (
-                <div className="absolute bottom-1 left-1 z-10 flex items-center gap-0.5 pointer-events-none">
+                <div className="day-cell-child-markers absolute bottom-1 left-1 z-10 flex items-center gap-0.5 pointer-events-none">
                     {childMarkers.map((child) => (
                         <span
                             key={`${status.dateString}-child-${child.childId}`}
-                            className="h-1.5 w-1.5 rounded-full ring-1 ring-white/70 dark:ring-slate-950/80"
+                            className="day-cell-child-marker h-1.5 w-1.5 rounded-full ring-1 ring-white/70 dark:ring-slate-950/80"
                             style={{ backgroundColor: child.childColor || '#f59e0b' }}
                             title={child.childName}
                         />
@@ -160,15 +160,19 @@ export const DayCell = ({
                 </div>
             )}
 
-            {/* Public Holiday Text - Full visibility */}
+            {/* Reserve the left and right metadata lanes; full names remain available on hover. */}
             {status.publicHoliday && (
-                <span className="day-cell-holiday-text text-[7px] sm:text-[8px] leading-tight text-center w-full px-0.5 text-red-900 dark:text-white font-normal z-20 break-words">
+                <span
+                    className="day-cell-holiday-text absolute right-5 top-1/2 -translate-y-1/2 truncate text-[7px] sm:text-[8px] leading-tight text-center text-red-900 dark:text-white font-normal z-20"
+                    style={{ left: childMarkers.length > 0 ? `${8 + childMarkers.length * 8 + (extraChildrenCount > 0 ? 16 : 0)}px` : '14px' }}
+                    title={status.publicHoliday}
+                >
                     {status.publicHoliday}
                 </span>
             )}
 
             {/* Care Icon/Text */}
-            {status.care && !status.p1 && !status.p2 && (
+            {status.care && !status.p1 && !status.p2 && !status.publicHoliday && (
                 <span className="text-[10px] sm:text-xs text-white font-bold z-10 drop-shadow-md">
                     B
                 </span>

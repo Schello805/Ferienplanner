@@ -2,6 +2,7 @@
 
 ## Unveröffentlicht
 
+- Jahresübersicht auf die verfügbare Bildschirmhöhe eingepasst: alle 31 Tageszeilen sichtbar und gleich hoch; lange Feiertagsnamen platzsparend gekürzt
 - Tageszellen mit einheitlicher Höhe und eigenem Platz für Feiertagsnamen, Tageszahlen, Wochentage und Kinderpunkte gegen Überlagerungen abgesichert
 - Sidebar bei jedem normalen Seitenaufruf eingeklappt gestartet, auch bei zuvor gespeicherter offener Ansicht
 - Release-Version des Backends in der isolierten Laufzeitkopie korrigiert; Deployment-Test prüft übereinstimmende Frontend- und Backend-Versionen

@@ -94,13 +94,28 @@ body {
 }
 
 @media screen {
-  /* Every cell has the same height and reserves room for wrapped holiday names. */
-  .planner-app .calendar-day-cell {
-    height: 56px;
+  .planner-app .calendar-container {
+    container: year-calendar / size;
   }
 
-  .calendar-row .calendar-day-cell-with-holiday {
-    padding: 12px 2px;
+  .planner-app .calendar-min-width-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .planner-app .calendar-grid {
+    flex: 0 0 auto;
+  }
+
+  .planner-app .calendar-row {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .planner-app .calendar-day-cell {
+    height: 100%;
+    min-height: 0;
   }
 }
 
@@ -152,10 +167,6 @@ body {
     min-height: 2rem;
   }
 
-  .planner-app .calendar-day-cell {
-    height: 64px;
-  }
-
   .planner-app .calendar-header-cell,
   .planner-app .calendar-day-column,
   .planner-app .calendar-corner-header {
@@ -173,6 +184,24 @@ body {
   .planner-app .day-cell-weekday,
   .planner-app .day-cell-holiday-text {
     font-size: 10px;
+  }
+}
+
+@media screen {
+  @container year-calendar (max-height: 650px) {
+    .planner-app .day-cell-number {
+      top: 1px;
+      font-size: 6px;
+    }
+
+    .planner-app .day-cell-child-markers {
+      bottom: 1px;
+    }
+
+    .planner-app .day-cell-child-marker {
+      width: 4px;
+      height: 4px;
+    }
   }
 }
 
