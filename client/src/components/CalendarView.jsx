@@ -675,21 +675,17 @@ const CalendarView = ({
         setEndDate(dateString);
     };
 
-    const handleMouseEnter = (dateString, e, status) => {
+    const handleMouseEnter = (dateString, e) => {
         if (isDragging) {
             setEndDate(dateString);
         }
         
-        if (shouldShowDayTooltip(status)) {
-            const rect = e.target.getBoundingClientRect();
-            setTooltipPos({ 
-                x: rect.left + window.scrollX + rect.width / 2, 
-                y: rect.top + window.scrollY - 10 
-            });
-            setHoveredDay(status);
-        } else {
-            setHoveredDay(null);
-        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        setTooltipPos({
+            x: rect.left + window.scrollX + rect.width / 2,
+            y: rect.top + window.scrollY - 10
+        });
+        setHoveredDate(dateString);
     };
 
     // Attach global mouse up listener to handle dragging release outside of cells
@@ -710,11 +706,11 @@ const CalendarView = ({
     }, [isDragging, startDate, endDate]);
 
     // Tooltip State
-    const [hoveredDay, setHoveredDay] = useState(null);
+    const [hoveredDate, setHoveredDate] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
     const handleMouseLeaveCell = () => {
-        setHoveredDay(null);
+        setHoveredDate(null);
     };
 
     const handleCellClick = async (dateString) => {
@@ -840,6 +836,12 @@ const CalendarView = ({
             isSelected
         };
     }, [children.length, getChildrenNeedingCare, year, holidays.public, holidays.school, vacationsMap, p1RecurringRules, p2RecurringRules, p1UsesPublicHolidays, p2UsesPublicHolidays, startDate, endDate]);
+
+    // Derive tooltip content from current data, including optimistic changes and rollback.
+    const hoveredStatus = hoveredDate && Number(hoveredDate.slice(0, 4)) === year
+        ? getDayStatus(Number(hoveredDate.slice(5, 7)) - 1, Number(hoveredDate.slice(8, 10)))
+        : null;
+    const hoveredDay = shouldShowDayTooltip(hoveredStatus) ? hoveredStatus : null;
 
     const mobileDays = useMemo(() => {
         const daysInMonth = new Date(year, mobileMonth + 1, 0).getDate();

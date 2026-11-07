@@ -95,7 +95,7 @@ export const DayCell = ({
             onMouseLeave={onMouseLeave}
             onClick={() => onClick(status.dateString)}
             className={`
-                h-6 sm:h-7 rounded-md ${bgClass} border ${borderClass}
+                calendar-day-cell h-6 sm:h-7 rounded-md ${bgClass} border ${borderClass}
                 relative cursor-pointer hover:brightness-95 dark:hover:brightness-110 hover:z-10 transition-all duration-75
                 flex flex-col justify-center items-center overflow-hidden
             `}
@@ -130,8 +130,8 @@ export const DayCell = ({
                 {status.date.getDate()}
             </span>
 
-            {/* Weekday - Small & Subtle */}
-            <span className="day-cell-weekday absolute top-0.5 right-1 text-[8px] font-semibold font-mono pointer-events-none text-slate-500 opacity-90 dark:text-white dark:opacity-45">
+            {/* A quiet backing keeps labels readable even on custom family colors. */}
+            <span className="day-cell-weekday absolute top-0.5 right-1 rounded-sm bg-white/90 px-0.5 text-[8px] font-semibold font-mono pointer-events-none text-slate-900 dark:bg-slate-950/90 dark:text-slate-100">
                 {weekday}
             </span>
 

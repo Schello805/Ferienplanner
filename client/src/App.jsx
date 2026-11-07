@@ -899,7 +899,7 @@ function App() {
   }
 
   return (
-    <div className="mx-auto flex h-screen max-w-[1800px] flex-col overflow-hidden px-2 py-2 transition-colors duration-300 sm:px-3 sm:py-3">
+    <div className="planner-app mx-auto flex h-screen max-w-[1800px] flex-col overflow-hidden px-2 py-2 transition-colors duration-300 sm:px-3 sm:py-3">
       <SeoHead
         title="Kalender"
         description="Persönlicher Familienkalender für Schulferien, Urlaub, Betreuung und freie Tage."

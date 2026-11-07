@@ -99,6 +99,61 @@ body {
   line-height: 1.25rem !important;
 }
 
+@media screen and (min-width: 1600px) {
+  .planner-app {
+    --desktop-ui-size: clamp(0.875rem, 0.75rem + 0.125vw, 1rem);
+    max-width: 2400px;
+    padding: 1rem;
+  }
+
+  .planner-app .text-xs,
+  .planner-app .utility-sidebar {
+    font-size: var(--desktop-ui-size);
+    line-height: 1.5;
+  }
+
+  .planner-app .utility-sidebar .text-sm {
+    font-size: var(--desktop-ui-size) !important;
+    line-height: 1.5 !important;
+  }
+
+  .planner-app .utility-sidebar .text-base {
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+  }
+
+  .planner-app > header h1 {
+    font-size: 1.375rem;
+  }
+
+  .planner-app .calendar-toolbar button {
+    min-height: 2rem;
+  }
+
+  .planner-app .calendar-day-cell {
+    height: clamp(30px, calc((100dvh - 230px) / 32), 44px);
+  }
+
+  .planner-app .calendar-header-cell,
+  .planner-app .calendar-day-column,
+  .planner-app .calendar-corner-header {
+    font-size: 12px;
+  }
+
+  .planner-app .calendar-header-cell span + span {
+    font-size: 11px;
+  }
+
+  .planner-app .day-cell-number {
+    font-size: 9px;
+  }
+
+  .planner-app .day-cell-weekday,
+  .planner-app .day-cell-holiday-text {
+    font-size: 10px;
+  }
+}
+
 /* Calendar Grid Headers */
 :root.dark .sticky.top-0, 
 :root.dark .sticky.left-0 {
