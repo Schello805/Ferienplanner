@@ -2,6 +2,7 @@
 
 ## Unveröffentlicht
 
+- Release-Version des Backends in der isolierten Laufzeitkopie korrigiert; Deployment-Test prüft übereinstimmende Frontend- und Backend-Versionen
 - Überbreite Formularfelder im Sidepanel korrigiert und Admin-Log-Filter an die tatsächliche Panelbreite angepasst
 - Seitenleiste beim ersten Öffnen standardmäßig eingeklappt; gespeicherte Ansicht und direkte Einstellungslinks berücksichtigt
 - Indirekte Backend-Abhängigkeiten einschließlich Sicherheitskorrektur für follow-redirects aktualisiert

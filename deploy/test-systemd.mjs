@@ -19,10 +19,17 @@ const api = async (path, { token, ...options } = {}) => {
 };
 
 try {
+  const health = await api('/health');
+  const release = JSON.parse(readFileSync('/opt/ferienplaner/server/package.json', 'utf8')).version;
+  assert.equal(health.version.split('+')[0], release, 'Deployed backend must report its real release version');
   const page = await fetch(origin);
   assert.equal(page.status, 200);
   assert.match(page.headers.get('content-security-policy'), /object-src 'none'/);
   const html = await page.text();
+  const entryScript = html.match(/<script[^>]+src="([^\"]+\.js)"/)[1];
+  const entryResponse = await fetch(new URL(entryScript, origin));
+  assert.equal(entryResponse.status, 200);
+  assert.ok((await entryResponse.text()).includes(health.version), 'Frontend and backend must report the same build version');
   const stylesheet = html.match(/href="([^\"]+\.css)"/)[1];
   const css = await fetch(new URL(stylesheet, origin));
   assert.equal(css.status, 200);

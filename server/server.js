@@ -50,6 +50,7 @@ const getReleaseVersion = (cwd) => {
 
   const candidates = [
     path.join(cwd, 'client', 'package.json'),
+    path.join(cwd, 'server', 'package.json'),
     path.join(cwd, 'package.json'),
   ];
 
