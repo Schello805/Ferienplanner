@@ -681,9 +681,10 @@ const CalendarView = ({
         }
         
         const rect = e.currentTarget.getBoundingClientRect();
+        const tooltipWidth = Math.min(288, window.innerWidth - 16);
         setTooltipPos({
-            x: rect.left + window.scrollX + rect.width / 2,
-            y: rect.top + window.scrollY - 10
+            x: Math.max(tooltipWidth / 2 + 8, Math.min(window.innerWidth - tooltipWidth / 2 - 8, rect.left + rect.width / 2)),
+            y: rect.top - 10
         });
         setHoveredDate(dateString);
     };
@@ -1087,7 +1088,7 @@ const CalendarView = ({
             {/* Custom Tooltip */}
             {hoveredDay && (
                 <div 
-                    className="fixed pointer-events-none transform -translate-x-1/2 -translate-y-full px-3 py-2 bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-xs rounded-lg shadow-xl backdrop-blur border border-white/10"
+                    className="calendar-day-tooltip fixed w-72 max-w-[calc(100vw-16px)] pointer-events-none transform -translate-x-1/2 -translate-y-full px-3 py-2 bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-xs rounded-lg shadow-xl border border-white/10"
                     style={{ left: tooltipPos.x, top: tooltipPos.y, zIndex: LAYERS.floatingTooltip }}
                 >
                     <div className="font-bold mb-1 border-b border-white/20 pb-1">{new Date(hoveredDay.date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>

@@ -100,7 +100,7 @@ export const DayCell = ({
             onClick={() => onClick(status.dateString)}
             className={`
                 calendar-day-cell ${status.publicHoliday ? 'calendar-day-cell-with-holiday' : ''} h-6 sm:h-7 rounded-md ${bgClass} border ${borderClass}
-                relative cursor-pointer hover:brightness-95 dark:hover:brightness-110 hover:z-10 transition-all duration-75
+                relative cursor-pointer
                 flex flex-col justify-center items-center overflow-hidden
             `}
             style={inlineStyle}
