@@ -87,8 +87,12 @@ body {
 
 .planner-app .utility-sidebar,
 .planner-app .utility-sidebar .text-xs {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+
+.planner-app .utility-sidebar h3.text-xs {
   font-size: 0.75rem;
-  line-height: 1.4;
 }
 
 .utility-sidebar label {
@@ -180,14 +184,14 @@ body {
   max-width: 100%;
 }
 
-.utility-sidebar .text-sm {
-  font-size: 0.8125rem !important;
-  line-height: 1.15rem !important;
+.planner-app .utility-sidebar .text-sm {
+  font-size: 0.71875rem !important;
+  line-height: 1rem !important;
 }
 
-.utility-sidebar .text-base {
-  font-size: 0.9375rem !important;
-  line-height: 1.25rem !important;
+.planner-app .utility-sidebar .text-base {
+  font-size: 0.8125rem !important;
+  line-height: 1.15rem !important;
 }
 
 @media screen and (min-width: 1600px) {
