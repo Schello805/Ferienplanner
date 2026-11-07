@@ -2,6 +2,7 @@
 
 ## Unveröffentlicht
 
+- Kompakte Jahresansicht mit mindestens 20 sichtbaren Tageszeilen auf üblichen Desktopbildschirmen und vertikalem Scrollen für die übrigen Tage abgestimmt
 - Zellangaben auf gemeinsamer Mittellinie angeordnet, Tageszahlen lesbarer gemacht und Wochentagskontrast an die jeweilige Kalenderfarbe angepasst
 - Jahresübersicht auf die verfügbare Bildschirmhöhe eingepasst: alle 31 Tageszeilen sichtbar und gleich hoch; lange Feiertagsnamen platzsparend gekürzt
 - Tageszellen mit einheitlicher Höhe und eigenem Platz für Feiertagsnamen, Tageszahlen, Wochentage und Kinderpunkte gegen Überlagerungen abgesichert
