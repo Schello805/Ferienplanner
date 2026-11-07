@@ -194,6 +194,13 @@ body {
   line-height: 1.15rem !important;
 }
 
+.planner-app .calendar-toolbar .text-xs {
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
 @media screen and (min-width: 1600px) {
   .planner-app {
     --desktop-ui-size: clamp(0.875rem, 0.75rem + 0.125vw, 1rem);
@@ -211,17 +218,17 @@ body {
   }
 
   .planner-app .calendar-toolbar button {
-    min-height: 2rem;
+    min-height: 1.5rem;
   }
 
   .planner-app .calendar-header-cell,
   .planner-app .calendar-day-column,
   .planner-app .calendar-corner-header {
-    font-size: 12px;
+    font-size: 10px;
   }
 
   .planner-app .calendar-header-cell span + span {
-    font-size: 11px;
+    font-size: 9px;
   }
 
   .planner-app .day-cell-number {

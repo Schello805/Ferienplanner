@@ -2,6 +2,7 @@
 
 ## 1.3.3 – 07.11.2026
 
+- Kalenderleiste mit Jahresauswahl und Kennzahlen sowie Monatsüberschriften kompakter gesetzt und von der Desktop-Schriftvergrößerung ausgenommen
 - Schrift im Sidepanel kompakter und unabhängig von der automatischen Desktop-Vergrößerung dargestellt
 - Typografische Hierarchie im Sidepanel vereinheitlicht: Feldbezeichnungen und Fließtext kleiner als die Abschnittsüberschriften
 - Kennzahl „Gemeinsam“ für gleichzeitig eingetragenen Urlaub beider Eltern ergänzt, einschließlich gemeinsamer Netto-Urlaubstage und Hinweis im Release-Popup
