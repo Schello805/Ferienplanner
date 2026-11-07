@@ -89,6 +89,17 @@ body {
   font-size: 0.75rem;
 }
 
+.utility-sidebar label {
+  min-width: 0;
+}
+
+.utility-sidebar :is(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .utility-sidebar .text-sm {
   font-size: 0.8125rem !important;
   line-height: 1.15rem !important;

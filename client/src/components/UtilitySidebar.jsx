@@ -991,7 +991,7 @@ const AdminToolsPanel = ({ currentUser }) => {
             </SidebarSection>
 
             <SidebarSection title="Admin Log" subtitle="Letzte Ereignisse dieser Instanz, persistent gespeichert für 90 Tage.">
-                <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_180px]">
+                <div className="mb-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2">
                     <label className="grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
                         Suche
                         <input
@@ -1017,7 +1017,7 @@ const AdminToolsPanel = ({ currentUser }) => {
                     </label>
                 </div>
 
-                <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
                     <span>{filteredLogs.length} Einträge sichtbar</span>
                     <span>Aufbewahrung: 90 Tage</span>
                 </div>
@@ -1694,7 +1694,7 @@ const RecurringRulesGroup = ({ label, color, rules, setRules }) => (
 );
 
 const SidebarSection = ({ title, subtitle, children }) => (
-    <section className="space-y-2.5 rounded-2xl border border-slate-200/90 bg-white/82 p-3.5 shadow-sm shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900/78 dark:shadow-black/10">
+    <section className="min-w-0 max-w-full space-y-2.5 rounded-2xl border border-slate-200/90 bg-white/82 p-3.5 shadow-sm shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900/78 dark:shadow-black/10">
         <div>
             <h3 className="text-xs font-bold uppercase tracking-[0.22em] text-slate-700 dark:text-slate-100">{title}</h3>
             {subtitle && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
@@ -3343,7 +3343,7 @@ export const UtilitySidebar = ({
                         )}
                     </nav>
                     )}
-                    <div className={`min-h-0 flex-1 overflow-y-auto p-3 overscroll-contain pb-4 [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden xl:hidden'}`}>
+                    <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto p-3 overscroll-contain pb-4 [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden xl:hidden'}`}>
                         {renderContent()}
                     </div>
 

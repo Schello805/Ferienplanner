@@ -2,6 +2,7 @@
 
 ## Unveröffentlicht
 
+- Überbreite Formularfelder im Sidepanel korrigiert und Admin-Log-Filter an die tatsächliche Panelbreite angepasst
 - Seitenleiste beim ersten Öffnen standardmäßig eingeklappt; gespeicherte Ansicht und direkte Einstellungslinks berücksichtigt
 - Indirekte Backend-Abhängigkeiten einschließlich Sicherheitskorrektur für follow-redirects aktualisiert
 - Kalenderansicht auf großen Bildschirmen verbreitert und Zelltexte, Bedienelemente sowie Seitenleiste besser lesbar gemacht
