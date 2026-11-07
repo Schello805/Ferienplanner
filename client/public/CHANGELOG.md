@@ -2,6 +2,8 @@
 
 ## Unveröffentlicht
 
+- Tageszellen mit einheitlicher Höhe und eigenem Platz für Feiertagsnamen, Tageszahlen, Wochentage und Kinderpunkte gegen Überlagerungen abgesichert
+- Sidebar bei jedem normalen Seitenaufruf eingeklappt gestartet, auch bei zuvor gespeicherter offener Ansicht
 - Release-Version des Backends in der isolierten Laufzeitkopie korrigiert; Deployment-Test prüft übereinstimmende Frontend- und Backend-Versionen
 - Überbreite Formularfelder im Sidepanel korrigiert und Admin-Log-Filter an die tatsächliche Panelbreite angepasst
 - Seitenleiste beim ersten Öffnen standardmäßig eingeklappt; gespeicherte Ansicht und direkte Einstellungslinks berücksichtigt

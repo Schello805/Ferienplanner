@@ -93,6 +93,17 @@ body {
   min-width: 0;
 }
 
+@media screen {
+  /* Every cell has the same height and reserves room for wrapped holiday names. */
+  .planner-app .calendar-day-cell {
+    height: 56px;
+  }
+
+  .calendar-row .calendar-day-cell-with-holiday {
+    padding: 12px 2px;
+  }
+}
+
 .utility-sidebar :is(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea) {
   box-sizing: border-box;
   width: 100%;
@@ -142,7 +153,7 @@ body {
   }
 
   .planner-app .calendar-day-cell {
-    height: clamp(30px, calc((100dvh - 230px) / 32), 44px);
+    height: 64px;
   }
 
   .planner-app .calendar-header-cell,

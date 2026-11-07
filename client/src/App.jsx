@@ -146,8 +146,6 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       if (getRequestedSidebarTab()) return true;
-      const saved = localStorage.getItem('sidebarOpen');
-      if (saved !== null) return saved === 'true';
       return false;
     }
     return false;
