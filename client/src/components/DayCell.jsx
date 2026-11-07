@@ -1,4 +1,5 @@
 import React from 'react';
+import { getCellLabelStyle } from '../lib/cellContrast.js';
 
 export const DayCell = ({ 
     status, // The calculated status object for this day
@@ -84,6 +85,9 @@ export const DayCell = ({
     const weekday = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][status.date.getDay()];
     const childMarkers = (status.childrenNeedingCare || []).slice(0, 3);
     const extraChildrenCount = Math.max((status.childrenNeedingCare || []).length - childMarkers.length, 0);
+    const labelStyle = getCellLabelStyle(status.p1 && status.p2 ? [p1Color, p2Color]
+        : status.p1 ? [p1Color] : status.p2 ? [p2Color] : status.care ? [careColor] : []);
+    const contentLeft = childMarkers.length > 0 ? `${24 + childMarkers.length * 6 + (extraChildrenCount > 0 ? 16 : 0)}px` : '20px';
     const dayNumberColorClass = status.p1 || status.p2 || status.care
         ? 'text-white/85'
         : 'text-slate-500 dark:text-slate-300/75';
@@ -126,12 +130,12 @@ export const DayCell = ({
             )}
 
             {/* Day number - visible in every valid month cell */}
-            <span className={`day-cell-number pointer-events-none absolute left-1 top-1 z-20 font-mono text-[7px] font-bold leading-none ${dayNumberColorClass}`}>
+            <span style={labelStyle} className={`day-cell-number pointer-events-none absolute left-1 top-1 z-20 font-mono text-[7px] font-bold leading-none ${dayNumberColorClass}`}>
                 {status.date.getDate()}
             </span>
 
-            {/* A quiet backing keeps labels readable even on custom family colors. */}
-            <span className="day-cell-weekday absolute top-0.5 right-1 rounded-sm bg-white/90 px-0.5 text-[8px] leading-none font-semibold font-mono pointer-events-none text-slate-900 dark:bg-slate-950/90 dark:text-slate-100">
+            {/* Contrast follows the actual fill instead of repeating a badge in every cell. */}
+            <span style={labelStyle} className="day-cell-weekday absolute top-0.5 right-1 rounded-sm px-0.5 text-[8px] leading-none font-semibold font-mono pointer-events-none text-slate-600 dark:text-slate-300">
                 {weekday}
             </span>
 
@@ -164,7 +168,7 @@ export const DayCell = ({
             {status.publicHoliday && (
                 <span
                     className="day-cell-holiday-text absolute right-5 top-1/2 -translate-y-1/2 truncate text-[7px] sm:text-[8px] leading-tight text-center text-red-900 dark:text-white font-normal z-20"
-                    style={{ left: childMarkers.length > 0 ? `${8 + childMarkers.length * 8 + (extraChildrenCount > 0 ? 16 : 0)}px` : '14px' }}
+                    style={{ ...labelStyle, left: contentLeft }}
                     title={status.publicHoliday}
                 >
                     {status.publicHoliday}
@@ -173,14 +177,14 @@ export const DayCell = ({
 
             {/* Care Icon/Text */}
             {status.care && !status.p1 && !status.p2 && !status.publicHoliday && (
-                <span className="text-[10px] sm:text-xs text-white font-bold z-10 drop-shadow-md">
+                <span style={{ ...labelStyle, left: contentLeft }} className="absolute right-5 top-1/2 -translate-y-1/2 text-center text-[10px] sm:text-xs text-white font-bold z-10">
                     B
                 </span>
             )}
 
             {/* Warning Icon - Very Prominent */}
             {isUnattended && (
-                <div className="absolute inset-0 flex items-center justify-center z-10">
+                <div style={{ left: contentLeft }} className="absolute inset-y-0 right-5 flex items-center justify-center z-10">
                     <span className="text-red-600 dark:text-red-500 text-xl font-black drop-shadow-md">!</span>
                 </div>
             )}

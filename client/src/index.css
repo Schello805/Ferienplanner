@@ -188,20 +188,31 @@ body {
 }
 
 @media screen {
-  @container year-calendar (max-height: 650px) {
-    .planner-app .day-cell-number {
-      top: 1px;
-      font-size: 6px;
-    }
+  .planner-app .day-cell-number,
+  .planner-app .day-cell-weekday,
+  .planner-app .day-cell-child-markers {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
 
-    .planner-app .day-cell-child-markers {
-      bottom: 1px;
-    }
+  .planner-app .day-cell-number {
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+  }
 
-    .planner-app .day-cell-child-marker {
-      width: 4px;
-      height: 4px;
-    }
+  .planner-app .day-cell-weekday {
+    font-size: 9px;
+    font-weight: 500;
+  }
+
+  .planner-app .day-cell-child-markers {
+    left: 21px;
+  }
+
+  .planner-app .day-cell-child-marker {
+    width: 4px;
+    height: 4px;
   }
 }
 
@@ -337,8 +348,8 @@ body {
 
 :root.dark .day-cell-holiday-text,
 html.dark .day-cell-holiday-text {
-  color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
+  color: #ffffff;
+  -webkit-text-fill-color: currentColor;
 }
 
 /* --- SETTINGS MODAL FORCE DARK --- */

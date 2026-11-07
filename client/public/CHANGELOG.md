@@ -2,6 +2,7 @@
 
 ## Unveröffentlicht
 
+- Zellangaben auf gemeinsamer Mittellinie angeordnet, Tageszahlen lesbarer gemacht und Wochentagskontrast an die jeweilige Kalenderfarbe angepasst
 - Jahresübersicht auf die verfügbare Bildschirmhöhe eingepasst: alle 31 Tageszeilen sichtbar und gleich hoch; lange Feiertagsnamen platzsparend gekürzt
 - Tageszellen mit einheitlicher Höhe und eigenem Platz für Feiertagsnamen, Tageszahlen, Wochentage und Kinderpunkte gegen Überlagerungen abgesichert
 - Sidebar bei jedem normalen Seitenaufruf eingeklappt gestartet, auch bei zuvor gespeicherter offener Ansicht
