@@ -10,10 +10,12 @@ export const DayCell = ({
     onMouseDown,
     onMouseEnter,
     onMouseLeave,
-    onClick
+    onClick,
+    highlightedRow = false,
+    highlightedColumn = false
 }) => {
     if (status === 'invalid') {
-        return <div className="bg-transparent" />;
+        return <div className="calendar-hover-placeholder relative bg-transparent" data-hover-row={highlightedRow || undefined} data-hover-column={highlightedColumn || undefined} />;
     }
 
     // Logic for styling
@@ -94,6 +96,8 @@ export const DayCell = ({
 
     return (
         <div
+            data-hover-row={highlightedRow || undefined}
+            data-hover-column={highlightedColumn || undefined}
             onMouseDown={(e) => onMouseDown(status.dateString, e)}
             onMouseEnter={(e) => onMouseEnter(status.dateString, e, status)}
             onMouseLeave={onMouseLeave}

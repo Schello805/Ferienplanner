@@ -843,6 +843,8 @@ const CalendarView = ({
         ? getDayStatus(Number(hoveredDate.slice(5, 7)) - 1, Number(hoveredDate.slice(8, 10)))
         : null;
     const hoveredDay = shouldShowDayTooltip(hoveredStatus) ? hoveredStatus : null;
+    const hoveredMonth = hoveredStatus?.date.getMonth();
+    const hoveredDayNumber = hoveredStatus?.date.getDate();
 
     const mobileDays = useMemo(() => {
         const daysInMonth = new Date(year, mobileMonth + 1, 0).getDate();
@@ -1214,7 +1216,7 @@ const CalendarView = ({
                             const isFullyCovered = stats.covered >= stats.required;
                             
                             return (
-                                <div key={m} className="calendar-header-cell flex h-full flex-col items-center justify-center bg-white/95 py-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-700 backdrop-blur transition-colors dark:bg-slate-900 dark:text-slate-100">
+                                <div key={m} data-hover-column={hoveredMonth === i || undefined} className="calendar-header-cell flex h-full flex-col items-center justify-center bg-white/95 py-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-700 backdrop-blur transition-colors dark:bg-slate-900 dark:text-slate-100">
                                     <span>{m.substring(0, 3)}</span>
                                     {stats.required > 0 && (
                                         <span className={`text-[9px] font-bold leading-tight ${isFullyCovered ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -1230,7 +1232,7 @@ const CalendarView = ({
                     {DAYS.map(day => (
                         <div key={day} className="calendar-row grid grid-cols-[34px_repeat(12,minmax(0,1fr))] gap-px mb-px bg-gray-200 dark:bg-slate-800 group/row hover:bg-gray-300/60 dark:hover:bg-slate-700/40 transition-colors">
                             {/* Sticky Day Column */}
-                            <div className="calendar-day-column sticky left-0 z-10 bg-white/95 dark:bg-slate-900 text-[10px] text-gray-500 dark:text-gray-400 flex items-center justify-center font-mono border-r border-gray-200 dark:border-slate-800 transition-colors">
+                            <div data-hover-row={hoveredDayNumber === day || undefined} className="calendar-day-column sticky left-0 z-10 bg-white/95 dark:bg-slate-900 text-[10px] text-gray-500 dark:text-gray-400 flex items-center justify-center font-mono border-r border-gray-200 dark:border-slate-800 transition-colors">
                                 {day}
                             </div>
 
@@ -1241,6 +1243,8 @@ const CalendarView = ({
                                     <DayCell 
                                         key={monthIndex}
                                         status={status}
+                                        highlightedRow={hoveredDayNumber === day}
+                                        highlightedColumn={hoveredMonth === monthIndex}
                                         savingDate={savingDate}
                                         p1Color={p1Color}
                                         p2Color={p2Color}

@@ -2,6 +2,7 @@
 
 ## Unveröffentlicht
 
+- Aktive Zeile und Monatsspalte mit kontrastreichem Fadenkreuz, hervorgehobenen Überschriften und deutlichem Zellrahmen markiert
 - Wackelnde Hoverdarstellung durch Helligkeitsfilter entfernt und Hoverinfos mit fester Breite sowie begrenzter horizontaler Position stabilisiert
 - Kompakte Jahresansicht mit mindestens 20 sichtbaren Tageszeilen auf üblichen Desktopbildschirmen und vertikalem Scrollen für die übrigen Tage abgestimmt
 - Zellangaben auf gemeinsamer Mittellinie angeordnet, Tageszahlen lesbarer gemacht und Wochentagskontrast an die jeweilige Kalenderfarbe angepasst

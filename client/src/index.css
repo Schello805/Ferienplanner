@@ -120,8 +120,54 @@ body {
   }
 
   .planner-app .calendar-day-cell:hover {
-    outline: 1px solid #94a3b8;
-    outline-offset: -1px;
+    outline: 2px solid #0284c7;
+    outline-offset: -2px;
+  }
+
+  .planner-app {
+    --calendar-crosshair: #0284c7;
+  }
+
+  html.dark .planner-app {
+    --calendar-crosshair: #7dd3fc;
+  }
+
+  .planner-app :is(.calendar-day-cell, .calendar-hover-placeholder)[data-hover-row]::after,
+  .planner-app :is(.calendar-day-cell, .calendar-hover-placeholder)[data-hover-column]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    pointer-events: none;
+    border-radius: inherit;
+    background: rgb(14 165 233 / 10%);
+  }
+
+  .planner-app [data-hover-row]::after {
+    border-top: 1px solid var(--calendar-crosshair);
+    border-bottom: 1px solid var(--calendar-crosshair);
+  }
+
+  .planner-app [data-hover-column]::after {
+    border-left: 1px solid var(--calendar-crosshair);
+    border-right: 1px solid var(--calendar-crosshair);
+  }
+
+  .planner-app .calendar-header-cell[data-hover-column],
+  .planner-app .calendar-day-column[data-hover-row] {
+    background-color: #e0f2fe !important;
+    color: #075985 !important;
+    font-weight: 800;
+  }
+
+  html.dark .planner-app .calendar-header-cell[data-hover-column],
+  html.dark .planner-app .calendar-day-column[data-hover-row] {
+    background-color: #075985 !important;
+    color: #fff !important;
+  }
+
+  html.dark .planner-app .calendar-day-cell:hover {
+    outline-color: #e0f2fe;
   }
 }
 
