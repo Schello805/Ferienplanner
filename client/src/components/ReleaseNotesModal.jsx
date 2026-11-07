@@ -3,8 +3,24 @@ import { RELEASE_NOTES } from '../lib/releaseNotes.js';
 
 const features = [
   {
-    title: 'Sicherheitsupdate',
-    text: 'Abhängigkeiten aktualisiert, Anmeldung und Feedback besser geschützt sowie automatische Deployment-Tests ergänzt.',
+    title: 'Mehr Überblick auf großen Bildschirmen',
+    text: 'Die Kalenderansicht nutzt mehr Platz und zeigt mindestens 20 Tageszeilen auf üblichen Desktopbildschirmen. Weitere Tage sind bei Bedarf nach unten scrollbar.',
+  },
+  {
+    title: 'Klarere Beschriftungen und Farben',
+    text: 'Tageszahlen, Kinderpunkte und Wochentage sind besser angeordnet. Die Textfarbe passt sich dem Hintergrund an; Feiertagsnamen überlagern keine anderen Angaben.',
+  },
+  {
+    title: 'Stabile Hoverinfos und deutliche Orientierung',
+    text: 'Hoverinfos aktualisieren sich direkt nach einem Klick. Ein deutliches Fadenkreuz zeigt die aktuelle Zeile und Monatsspalte, ohne dass Inhalte verrutschen.',
+  },
+  {
+    title: 'Mehr Platz für deinen Kalender',
+    text: 'Die Sidebar startet eingeklappt. Ihre Formularfelder bleiben innerhalb des Panels und passen sich der verfügbaren Breite an.',
+  },
+  {
+    title: 'Versionsanzeige und Sicherheit verbessert',
+    text: 'Die Versionsanzeige wurde korrigiert und Sicherheitsabhängigkeiten wurden aktualisiert.',
   },
 ];
 

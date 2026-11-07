@@ -1,21 +1,17 @@
 # Changelog
 
-## Unveröffentlicht
+## 1.3.3 – 07.11.2026
 
-- Aktive Zeile und Monatsspalte mit kontrastreichem Fadenkreuz, hervorgehobenen Überschriften und deutlichem Zellrahmen markiert
-- Wackelnde Hoverdarstellung durch Helligkeitsfilter entfernt und Hoverinfos mit fester Breite sowie begrenzter horizontaler Position stabilisiert
-- Kompakte Jahresansicht mit mindestens 20 sichtbaren Tageszeilen auf üblichen Desktopbildschirmen und vertikalem Scrollen für die übrigen Tage abgestimmt
-- Zellangaben auf gemeinsamer Mittellinie angeordnet, Tageszahlen lesbarer gemacht und Wochentagskontrast an die jeweilige Kalenderfarbe angepasst
-- Jahresübersicht auf die verfügbare Bildschirmhöhe eingepasst: alle 31 Tageszeilen sichtbar und gleich hoch; lange Feiertagsnamen platzsparend gekürzt
-- Tageszellen mit einheitlicher Höhe und eigenem Platz für Feiertagsnamen, Tageszahlen, Wochentage und Kinderpunkte gegen Überlagerungen abgesichert
-- Sidebar bei jedem normalen Seitenaufruf eingeklappt gestartet, auch bei zuvor gespeicherter offener Ansicht
-- Release-Version des Backends in der isolierten Laufzeitkopie korrigiert; Deployment-Test prüft übereinstimmende Frontend- und Backend-Versionen
+- Kalenderansicht auf großen Bildschirmen verbreitert und Bedienelemente besser lesbar gemacht
+- Einheitliche, kompakte Tageszeilen mit mindestens 20 sichtbaren Tagen auf üblichen Desktopbildschirmen; weitere Tage sind bei Bedarf scrollbar
+- Tageszahlen, Kinderpunkte und Wochentage übersichtlich auf einer gemeinsamen Mittellinie angeordnet; Feiertagsnamen ohne Überlagerung platziert
+- Textkontrast automatisch an individuelle Kalenderfarben angepasst und Wochentage ohne störende Kästchen dargestellt
+- Hoverinfos nach Klicks und bei fehlgeschlagenem Speichern sofort aktualisiert; feste Breite und stabiler Hoverrahmen verhindern Positionssprünge
+- Aktive Zeile und Monatsspalte durch ein deutliches Fadenkreuz und hervorgehobene Überschriften markiert
+- Sidebar bei jedem normalen Seitenaufruf eingeklappt gestartet; direkte Einstellungslinks öffnen weiterhin das passende Panel
 - Überbreite Formularfelder im Sidepanel korrigiert und Admin-Log-Filter an die tatsächliche Panelbreite angepasst
-- Seitenleiste beim ersten Öffnen standardmäßig eingeklappt; gespeicherte Ansicht und direkte Einstellungslinks berücksichtigt
+- Release-Version in der isolierten Laufzeitkopie korrigiert und Deployment-Test um den Vergleich von Frontend- und Backend-Version erweitert
 - Indirekte Backend-Abhängigkeiten einschließlich Sicherheitskorrektur für follow-redirects aktualisiert
-- Kalenderansicht auf großen Bildschirmen verbreitert und Zelltexte, Bedienelemente sowie Seitenleiste besser lesbar gemacht
-- Wochentage mit kontrastreicher Beschriftung auch auf individuellen Kalenderfarben lesbar gemacht
-- Hoverinfos sofort nach Klicks und bei fehlgeschlagenem Speichern aktualisiert
 
 ## 1.3.2 – 24.10.2026
 

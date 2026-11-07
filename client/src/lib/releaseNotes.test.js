@@ -14,11 +14,12 @@ describe('release notes visibility', () => {
       setItem: (key, value) => storage.set(key, value),
     };
 
-    expect(RELEASE_NOTES.release).toBe('1.3.2');
+    expect(RELEASE_NOTES.release).toBe('1.3.3');
+    markReleaseNotesSeen(adapter, '1.3.2');
     expect(hasSeenReleaseNotes(adapter, RELEASE_NOTES.release)).toBe(false);
     markReleaseNotesSeen(adapter, RELEASE_NOTES.release);
     expect(hasSeenReleaseNotes(adapter, RELEASE_NOTES.release)).toBe(true);
     expect(storage.get(getReleaseNotesStorageKey(RELEASE_NOTES.release))).toBe('true');
-    expect(hasSeenReleaseNotes(adapter, '1.3.3')).toBe(false);
+    expect(hasSeenReleaseNotes(adapter, '1.3.4')).toBe(false);
   });
 });
