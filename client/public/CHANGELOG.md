@@ -2,6 +2,7 @@
 
 ## 1.3.3 – 07.11.2026
 
+- Schrift im Sidepanel kompakter und unabhängig von der automatischen Desktop-Vergrößerung dargestellt
 - Kennzahl „Gemeinsam“ für gleichzeitig eingetragenen Urlaub beider Eltern ergänzt, einschließlich gemeinsamer Netto-Urlaubstage und Hinweis im Release-Popup
 - Kalenderansicht auf großen Bildschirmen verbreitert und Bedienelemente besser lesbar gemacht
 - Einheitliche, kompakte Tageszeilen mit mindestens 20 sichtbaren Tagen auf üblichen Desktopbildschirmen; weitere Tage sind bei Bedarf scrollbar
