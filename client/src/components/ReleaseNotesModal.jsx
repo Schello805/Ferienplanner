@@ -3,6 +3,10 @@ import { RELEASE_NOTES } from '../lib/releaseNotes.js';
 
 const features = [
   {
+    title: 'Gemeinsamen Urlaub im Blick',
+    text: 'Die neue Kennzahl „Gemeinsam“ zeigt über dem Kalender, an wie vielen Tagen Mama und Papa gleichzeitig Urlaub eingetragen haben. In Klammern stehen die Tage, die bei beiden als Netto-Urlaubstage zählen. Auch mobil verfügbar.',
+  },
+  {
     title: 'Mehr Überblick auf großen Bildschirmen',
     text: 'Die Kalenderansicht nutzt mehr Platz und zeigt mindestens 20 Tageszeilen auf üblichen Desktopbildschirmen. Weitere Tage sind bei Bedarf nach unten scrollbar.',
   },
