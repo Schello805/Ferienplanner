@@ -1,5 +1,9 @@
 # Changelog
 
+## Unveröffentlicht
+
+- Kennzahl „Gemeinsam“ für gleichzeitig eingetragenen Urlaub beider Eltern ergänzt, einschließlich gemeinsamer Netto-Urlaubstage
+
 ## 1.3.3 – 07.11.2026
 
 - Kalenderansicht auf großen Bildschirmen verbreitert und Bedienelemente besser lesbar gemacht

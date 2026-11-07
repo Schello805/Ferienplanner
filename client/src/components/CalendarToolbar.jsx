@@ -80,6 +80,13 @@ export const CalendarToolbar = ({
             marker: <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p2Color }}></div>
         },
         {
+            label: 'Gemeinsam',
+            value: `${stats.both ?? 0} (${stats.bothNet ?? 0})`,
+            description: 'Gemeinsam eingetragene Urlaubstage. In Klammern: Tage, die bei beiden als Urlaubstage zählen.',
+            tone: 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100',
+            marker: <div className="flex h-2.5 w-2.5 overflow-hidden rounded-full" aria-hidden="true"><span className="w-1/2" style={{ backgroundColor: p1Color }} /><span className="w-1/2" style={{ backgroundColor: p2Color }} /></div>
+        },
+        {
             label: 'Ferien',
             value: `${stats.totalNetHolidays}`,
             tone: 'stat-item-holiday bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/30 text-amber-800 dark:text-amber-100',
@@ -191,6 +198,7 @@ export const CalendarToolbar = ({
                         return (
                             <div
                                 key={`${item.label}-${item.value}`}
+                                title={item.description}
                                 className={`relative overflow-visible flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs ${item.tone}`}
                             >
                                 {item.marker}

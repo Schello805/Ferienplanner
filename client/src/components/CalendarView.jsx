@@ -493,6 +493,8 @@ const CalendarView = ({
     const stats = useMemo(() => {
         let p1 = 0;
         let p2 = 0;
+        let both = 0;
+        let bothNet = 0;
         let care = 0;
         let p1Net = 0; // Net vacation days (no weekends/public holidays)
         let p2Net = 0;
@@ -531,6 +533,10 @@ const CalendarView = ({
                 if (hasP1) p1++;
                 if (hasP2) p2++;
                 if (hasCare) care++;
+                if (hasP1 && hasP2) {
+                    both++;
+                    if (!isWeekend && (!isPublicHoliday || (!p1UsesPublicHolidays && !p2UsesPublicHolidays))) bothNet++;
+                }
 
                 // Weekends never consume allowance; public holidays follow each parent's setting.
                 if (hasP1 && !isWeekend && (!isPublicHoliday || !p1UsesPublicHolidays)) p1Net++;
@@ -554,7 +560,7 @@ const CalendarView = ({
             }
         }
 
-        return { p1, p2, care, p1Net, p2Net, totalNetHolidays, unattended, unattendedDates };
+        return { p1, p2, both, bothNet, care, p1Net, p2Net, totalNetHolidays, unattended, unattendedDates };
     }, [children.length, getChildrenNeedingCare, vacationsMap, holidays, year, p1RecurringRules, p2RecurringRules, p1UsesPublicHolidays, p2UsesPublicHolidays]);
 
     useEffect(() => {
@@ -987,6 +993,10 @@ const CalendarView = ({
                             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
                                 <div className="font-semibold">Ferien</div>
                                 <div>{stats.totalNetHolidays}</div>
+                            </div>
+                            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100" title="Gemeinsam eingetragene Urlaubstage. In Klammern: Tage, die bei beiden als Urlaubstage zählen.">
+                                <div className="font-semibold">Gemeinsam</div>
+                                <div>{stats.both} ({stats.bothNet})</div>
                             </div>
                             <div className={`rounded-xl border px-3 py-2 text-xs ${stats.unattended > 0 ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-100' : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100'}`}>
                                 <div className="flex items-start justify-between gap-2">
