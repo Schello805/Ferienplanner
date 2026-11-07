@@ -2,6 +2,7 @@
 
 ## 1.3.3 – 07.11.2026
 
+- Sidepanel durch engere Kartenabstände, weniger Innenabstand und kompaktere Desktop-Formularfelder verdichtet
 - Kalenderleiste mit Jahresauswahl und Kennzahlen sowie Monatsüberschriften kompakter gesetzt und von der Desktop-Schriftvergrößerung ausgenommen
 - Schrift im Sidepanel kompakter und unabhängig von der automatischen Desktop-Vergrößerung dargestellt
 - Typografische Hierarchie im Sidepanel vereinheitlicht: Feldbezeichnungen und Fließtext kleiner als die Abschnittsüberschriften

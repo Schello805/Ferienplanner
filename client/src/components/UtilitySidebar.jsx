@@ -1694,7 +1694,7 @@ const RecurringRulesGroup = ({ label, color, rules, setRules }) => (
 );
 
 const SidebarSection = ({ title, subtitle, children }) => (
-    <section className="min-w-0 max-w-full space-y-2.5 rounded-2xl border border-slate-200/90 bg-white/82 p-3.5 shadow-sm shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900/78 dark:shadow-black/10">
+    <section className="sidebar-section min-w-0 max-w-full space-y-2 rounded-xl border border-slate-200/90 bg-white/82 p-2.5 shadow-sm shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-900/78 dark:shadow-black/10">
         <div>
             <h3 className="text-xs font-bold uppercase tracking-[0.22em] text-slate-700 dark:text-slate-100">{title}</h3>
             {subtitle && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
@@ -3343,7 +3343,7 @@ export const UtilitySidebar = ({
                         )}
                     </nav>
                     )}
-                    <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto p-3 overscroll-contain pb-4 [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden xl:hidden'}`}>
+                    <div className={`sidebar-content min-h-0 min-w-0 flex-1 overflow-y-auto p-2 overscroll-contain pb-3 [-webkit-overflow-scrolling:touch] ${isOpen ? 'block' : 'hidden xl:hidden'}`}>
                         {renderContent()}
                     </div>
 
