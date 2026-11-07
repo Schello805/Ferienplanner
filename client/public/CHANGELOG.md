@@ -2,6 +2,8 @@
 
 ## Unveröffentlicht
 
+- Seitenleiste beim ersten Öffnen standardmäßig eingeklappt; gespeicherte Ansicht und direkte Einstellungslinks berücksichtigt
+- Indirekte Backend-Abhängigkeiten einschließlich Sicherheitskorrektur für follow-redirects aktualisiert
 - Kalenderansicht auf großen Bildschirmen verbreitert und Zelltexte, Bedienelemente sowie Seitenleiste besser lesbar gemacht
 - Wochentage mit kontrastreicher Beschriftung auch auf individuellen Kalenderfarben lesbar gemacht
 - Hoverinfos sofort nach Klicks und bei fehlgeschlagenem Speichern aktualisiert

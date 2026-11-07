@@ -148,9 +148,9 @@ function App() {
       if (getRequestedSidebarTab()) return true;
       const saved = localStorage.getItem('sidebarOpen');
       if (saved !== null) return saved === 'true';
-      return window.innerWidth >= 1024;
+      return false;
     }
-    return true;
+    return false;
   });
   const [sidebarTab, setSidebarTab] = useState(() => {
     const requested = getRequestedSidebarTab();
