@@ -23,14 +23,19 @@ export const useAuthState = ({ pendingInviteToken }) => {
   const [currentCalendar, setCurrentCalendar] = useState(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const currentUserRef = useRef(currentUser);
+  const authGenerationRef = useRef(0);
+  const authMutationPendingRef = useRef(false);
 
   useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
   const refreshAuthStatus = useCallback(async () => {
+    if (authMutationPendingRef.current) return;
+    const generation = authGenerationRef.current;
     try {
-      const data = await requestJson('/api/auth/status', {}, 'Anmeldestatus konnte nicht geladen werden');
+      const data = await requestJson('/api/auth/status', { cache: 'no-store' }, 'Anmeldestatus konnte nicht geladen werden');
+      if (generation !== authGenerationRef.current || authMutationPendingRef.current) return;
       setApiOnline(true);
       setAuthNotice(null);
       setSetupRequired(Boolean(data.setupRequired));
@@ -44,6 +49,7 @@ export const useAuthState = ({ pendingInviteToken }) => {
         }
       }
     } catch (error) {
+      if (generation !== authGenerationRef.current || authMutationPendingRef.current) return;
       const apiError = toApiError(error, 'Anmeldestatus konnte nicht geladen werden');
       console.error('Failed to load auth status', apiError);
       if (apiError.isUnauthorized) {
@@ -62,11 +68,13 @@ export const useAuthState = ({ pendingInviteToken }) => {
         });
       }
     } finally {
-      setAuthReady(true);
+      if (generation === authGenerationRef.current && !authMutationPendingRef.current) setAuthReady(true);
     }
   }, []);
 
   const handleAuthSubmit = useCallback(async ({ mode, username, email, password }) => {
+    authGenerationRef.current += 1;
+    authMutationPendingRef.current = true;
     setAuthSubmitting(true);
     try {
       const effectiveMode = setupRequired ? 'setup' : (mode || 'login');
@@ -88,8 +96,22 @@ export const useAuthState = ({ pendingInviteToken }) => {
         return;
       }
 
-      setCurrentUser(normalizeUser(data.user));
-      setCurrentCalendar(data.calendar || null);
+      const confirmed = await requestJson('/api/auth/status', { cache: 'no-store' }, 'Anmeldung konnte nicht überprüft werden');
+      if (!confirmed.authenticated || confirmed.user?.id !== data.user?.id) {
+        const message = 'Die Anmeldung konnte im Browser nicht gespeichert werden. Bitte erlaube Cookies für diese Website, öffne die App über ihre HTTPS-Adresse und melde dich erneut an.';
+        setCurrentUser(null);
+        setCurrentCalendar(null);
+        setAuthNotice({ tone: 'error', title: 'Sitzung konnte nicht gespeichert werden', message });
+        toast.error(message);
+        return;
+      }
+      setCurrentUser(normalizeUser(confirmed.user));
+      setCurrentCalendar(confirmed.calendar || null);
+      try {
+        setStoredCalendarSlug(confirmed.calendar?.slug || '');
+      } catch {
+        // Authentication remains usable when local storage is unavailable.
+      }
       setSetupRequired(false);
       toast.success(effectiveMode === 'setup' ? 'Benutzer angelegt' : 'Angemeldet');
 
@@ -107,13 +129,22 @@ export const useAuthState = ({ pendingInviteToken }) => {
           message: apiError.message,
         });
       }
-      toast.error(apiError.message || 'Anmeldung fehlgeschlagen');
+      const message = apiError.status === 401
+        ? 'Benutzername oder Passwort ist nicht korrekt.'
+        : apiError.status === 403 && apiError.message === 'Email not verified'
+          ? 'Bitte bestätige zuerst deine E-Mail-Adresse über den Link in der Bestätigungsmail.'
+          : apiError.message || 'Anmeldung fehlgeschlagen';
+      if (!apiError.isNetworkError) setAuthNotice({ tone: 'error', title: 'Anmeldung fehlgeschlagen', message });
+      toast.error(message);
     } finally {
+      authMutationPendingRef.current = false;
       setAuthSubmitting(false);
     }
   }, [pendingInviteToken, setupRequired]);
 
   const handleLogout = useCallback(async () => {
+    authGenerationRef.current += 1;
+    authMutationPendingRef.current = true;
     try {
       await authFetch('/api/auth/logout', { method: 'POST' });
     } catch (error) {
@@ -122,6 +153,7 @@ export const useAuthState = ({ pendingInviteToken }) => {
       clearStoredAuthToken();
       setCurrentUser(null);
       setCurrentCalendar(null);
+      authMutationPendingRef.current = false;
       await refreshAuthStatus();
       toast.success('Abgemeldet');
     }

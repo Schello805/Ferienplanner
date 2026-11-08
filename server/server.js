@@ -2205,13 +2205,10 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/api/auth/status', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const authState = await getAuthState(req);
-    if (authState.authenticated) {
-      setSessionCookies(req, res, authState, SESSION_TTL_MS);
-    } else {
-      clearSessionCookies(req, res);
-    }
+    // Status reads must not overwrite cookies from a newer, concurrent login.
     res.json({
       setupRequired: authState.setupRequired,
       authenticated: authState.authenticated,

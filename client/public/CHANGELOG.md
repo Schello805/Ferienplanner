@@ -1,5 +1,11 @@
 # Changelog
 
+## Unveröffentlicht
+
+- Irreführende Meldung „Sitzung abgelaufen“ bei abgelehnten Anmeldungen und falschen aktuellen Passwörtern verhindert
+- Login gegen verspätete Statusantworten abgesichert und Speicherung der Sitzung im Browser vor dem Öffnen des Kalenders geprüft
+- Verständliche Hinweise für falsche Anmeldedaten, unbestätigte E-Mail-Adressen und blockierte Login-Cookies ergänzt
+
 ## 1.3.3 – 07.11.2026
 
 - Sidepanel durch engere Kartenabstände, weniger Innenabstand und kompaktere Desktop-Formularfelder verdichtet

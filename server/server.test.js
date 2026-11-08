@@ -124,6 +124,16 @@ test('existing bearer sessions migrate to hashes and remain usable', async () =>
   assert.ok(rows.some((row) => row.token === `sha256:${crypto.createHash('sha256').update(legacyToken).digest('hex')}`));
 });
 
+test('status reads do not set or delete cookies that could overwrite a concurrent login', async () => {
+  const anonymous = await request('/api/auth/status');
+  assert.equal(anonymous.data.authenticated, false);
+  assert.equal(anonymous.response.headers.get('set-cookie'), null);
+  assert.equal(anonymous.response.headers.get('cache-control'), 'no-store');
+  const signedIn = await request('/api/auth/status', { headers: { Cookie: `ferienplanerAuthToken=${legacyToken}` } });
+  assert.equal(signedIn.data.authenticated, true);
+  assert.equal(signedIn.response.headers.get('set-cookie'), null);
+});
+
 test('logout invalidates a hashed session and rejects the database hash as bearer token', async () => {
   const login = await request('/api/auth/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

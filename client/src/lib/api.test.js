@@ -1,4 +1,4 @@
-import { requestJson, setStoredCalendarSlug } from './api';
+import { authFetch, requestJson, setStoredCalendarSlug } from './api';
 
 describe('requestJson', () => {
   beforeEach(() => {
@@ -48,5 +48,20 @@ describe('requestJson', () => {
       status: 404,
       isUnauthorized: false,
     });
+  });
+
+  it('does not report rejected credentials or current-password errors as expired sessions', async () => {
+    const expired = vi.fn();
+    window.addEventListener('ferienplaner:unauthorized', expired);
+    try {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 401 }))));
+      await authFetch('/api/auth/login', { method: 'POST' });
+      await authFetch('/api/auth/change-password', { method: 'POST' });
+      expect(expired).not.toHaveBeenCalled();
+      await authFetch('/api/vacations');
+      expect(expired).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('ferienplaner:unauthorized', expired);
+    }
   });
 });

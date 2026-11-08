@@ -158,8 +158,8 @@ const delay = (ms) => new Promise((resolve) => {
   setTimeout(resolve, ms);
 });
 
-function withUnauthorizedEvent(response) {
-  if (response.status === 401 && typeof window !== 'undefined') {
+function withUnauthorizedEvent(response, path) {
+  if (response.status === 401 && !String(path).startsWith('/api/auth/') && typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('ferienplaner:unauthorized'));
   }
   return response;
@@ -186,7 +186,7 @@ export const authFetch = async (path, init = {}) => {
 
   while (attempt < maxAttempts) {
     try {
-      return withUnauthorizedEvent(await fetch(requestUrl, requestInit));
+      return withUnauthorizedEvent(await fetch(requestUrl, requestInit), path);
     } catch (error) {
       lastError = error;
       attempt += 1;
