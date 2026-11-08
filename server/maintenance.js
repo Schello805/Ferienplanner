@@ -110,6 +110,7 @@ export async function cleanupOperationalData(db, now = Date.now()) {
 
   results.expiredSessions = (await dbRun(db, 'DELETE FROM sessions WHERE expiresAt IS NOT NULL AND expiresAt <= ?', [nowIso])).changes;
   results.expiredVerifications = (await dbRun(db, 'DELETE FROM email_verifications WHERE expiresAt IS NOT NULL AND expiresAt <= ?', [nowIso])).changes;
+  results.expiredPasswordResets = (await dbRun(db, 'DELETE FROM password_resets WHERE expiresAt <= ?', [nowIso])).changes;
   results.oldInvitations = (await dbRun(
     db,
     `DELETE FROM calendar_invitations
@@ -131,6 +132,7 @@ export async function cleanupOperationalData(db, now = Date.now()) {
     [staleUserCutoff]
   );
   for (const user of staleUsers) {
+    await dbRun(db, 'DELETE FROM password_resets WHERE userId = ?', [user.id]);
     await dbRun(db, 'DELETE FROM users WHERE id = ?', [user.id]);
   }
   results.staleUnverifiedUsers = staleUsers.length;

@@ -2,6 +2,8 @@
 
 ## Unveröffentlicht
 
+- „Passwort vergessen?“ ergänzt: einmaliger E-Mail-Link (30 Minuten gültig), Hinweis auf den Benutzernamen und Abmeldung bestehender Sitzungen nach dem Zurücksetzen
+
 - Irreführende Meldung „Sitzung abgelaufen“ bei abgelehnten Anmeldungen und falschen aktuellen Passwörtern verhindert
 - Login gegen verspätete Statusantworten abgesichert und Speicherung der Sitzung im Browser vor dem Öffnen des Kalenders geprüft
 - Verständliche Hinweise für falsche Anmeldedaten, unbestätigte E-Mail-Adressen und blockierte Login-Cookies ergänzt

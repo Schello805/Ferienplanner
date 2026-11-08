@@ -10,6 +10,7 @@ const PrivacyPage = lazy(() => import('./components/PrivacyPage.jsx').then((modu
 const CookiePage = lazy(() => import('./components/CookiePage.jsx').then((module) => ({ default: module.CookiePage })));
 const HelpPage = lazy(() => import('./components/HelpPage.jsx').then((module) => ({ default: module.HelpPage })));
 const App = lazy(() => import('./App.jsx'));
+const PasswordRecovery = lazy(() => import('./components/PasswordRecovery.jsx').then((module) => ({ default: module.PasswordRecovery })));
 
 const RouteFallback = () => (
   <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
@@ -58,6 +59,7 @@ export const RootApp = () => {
             <Route path="/cookies" element={<CookiePage />} />
             <Route path="/hilfe" element={<HelpPage />} />
             <Route path="/app" element={<App />} />
+            <Route path="/passwort-zuruecksetzen" element={<PasswordRecovery reset />} />
             <Route path="/k/:slug" element={<CalendarSlugRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

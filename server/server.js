@@ -157,6 +157,8 @@ app.use('/api', (req, res, next) => {
     if (budget.until <= now) requestBudgets.delete(key);
   }
   const category = req.path === '/feedback' ? 'feedback'
+    : req.path === '/auth/forgot-password' ? 'recovery'
+    : req.path === '/auth/reset-password' ? 'reset'
     : req.path === '/auth/register' ? 'register'
     : req.path.startsWith('/auth/') && req.method === 'POST' ? 'auth' : null;
   if (category) {
@@ -164,7 +166,7 @@ app.use('/api', (req, res, next) => {
     const budget = requestBudgets.get(key) || { count: 0, until: now + 15 * 60 * 1000 };
     budget.count += 1;
     requestBudgets.set(key, budget);
-    if (budget.count > ({ feedback: 5, register: 10, auth: 100 }[category])) {
+    if (budget.count > ({ feedback: 5, recovery: 5, reset: 10, register: 10, auth: 100 }[category])) {
       res.setHeader('Retry-After', String(Math.ceil((budget.until - now) / 1000)));
       return res.status(429).json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
     }
@@ -345,6 +347,7 @@ async function consumeEmailVerificationToken(db, token) {
       [normalizedNewEmail, now, row.userId]
     );
     await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [row.userId]);
+    await dbRun(db, 'DELETE FROM password_resets WHERE userId = ?', [row.userId]);
     pushAdminLog('auth.change_email_verified', `Email changed for userId=${row.userId}`, { userId: row.userId });
     return { ok: true, status: 'success', httpStatus: 200 };
   }
@@ -796,6 +799,7 @@ async function cleanupStaleUnverifiedUsers(db, nowIso = new Date().toISOString()
   );
 
   for (const user of staleUsers) {
+    await dbRun(db, 'DELETE FROM password_resets WHERE userId = ?', [user.id]);
     await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [user.id]);
     await dbRun(db, 'DELETE FROM users WHERE id = ?', [user.id]);
     pushAdminLog('auth.cleanup_unverified_user', `Unverifiziertes Konto entfernt: ${String(user.username || user.id)}`, {
@@ -976,6 +980,15 @@ async function initializeDatabase() {
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       )`
     );
+
+    await dbRun(db, `CREATE TABLE IF NOT EXISTS password_resets (
+      tokenHash TEXT PRIMARY KEY,
+      userId INTEGER NOT NULL UNIQUE,
+      email TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      expiresAt TEXT NOT NULL,
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    )`);
 
     // Migrate existing sessions without logging users out or retaining bearer secrets.
     const legacySessions = await dbAll(db, "SELECT token FROM sessions WHERE token NOT LIKE 'sha256:%'");
@@ -2277,6 +2290,84 @@ app.post('/api/auth/bootstrap', async (req, res) => {
   }
 });
 
+app.post('/api/auth/forgot-password', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Bitte eine gültige E-Mail-Adresse angeben.' });
+  const db = openDb();
+  const message = 'Wenn ein bestätigtes Konto mit dieser E-Mail-Adresse existiert, erhältst du einen Link zum Zurücksetzen.';
+  try {
+    const smtp = await getEffectiveSmtpSettings();
+    if (!smtp) return res.status(503).json({ error: 'Der E-Mail-Versand ist momentan nicht verfügbar. Bitte den Betreiber kontaktieren.' });
+    const user = await dbGet(db, 'SELECT id, username, email FROM users WHERE lower(email) = ? AND emailVerified = 1', [email]);
+    if (!user) return res.json({ success: true, message });
+    const token = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const now = new Date().toISOString();
+    await dbRun(db, 'DELETE FROM password_resets WHERE expiresAt <= ?', [now]);
+    const inserted = await dbRun(db, `INSERT INTO password_resets (tokenHash, userId, email, createdAt, expiresAt)
+      VALUES (?, ?, ?, ?, ?) ON CONFLICT(userId) DO UPDATE SET tokenHash=excluded.tokenHash,
+      email=excluded.email, createdAt=excluded.createdAt, expiresAt=excluded.expiresAt
+      WHERE password_resets.createdAt < ?`,
+    [tokenHash, user.id, user.email, now, new Date(Date.now() + 30 * 60 * 1000).toISOString(), new Date(Date.now() - 60000).toISOString()]);
+    if (inserted.changes) {
+      // Respond independently of mail delivery to avoid revealing registered addresses by SMTP timing.
+      void sendBrandedEmail({ req, to: user.email,
+        subject: 'Mein Ferienplaner: Passwort zurücksetzen',
+        previewText: 'Dein Link gilt 30 Minuten.', headline: 'Passwort zurücksetzen',
+        subline: 'Dieser Link ist einmalig nutzbar und gilt 30 Minuten.',
+        bodyHtml: `<p>Dein Benutzername: <strong>${escapeHtml(user.username)}</strong></p><p>Falls du kein neues Passwort angefordert hast, kannst du diese Nachricht ignorieren. Dein Passwort bleibt unverändert.</p>`,
+        ctaUrl: `${resolvePublicBaseUrl(req, smtp)}/passwort-zuruecksetzen#token=${token}`,
+        ctaText: 'Neues Passwort festlegen', footerReason: 'Du hast einen Link zum Zurücksetzen deines Passworts angefordert.',
+      }).catch(async () => {
+        const cleanup = openDb();
+        try { await dbRun(cleanup, 'DELETE FROM password_resets WHERE tokenHash = ?', [tokenHash]); }
+        finally { cleanup.close(); }
+        process.stderr.write('[ferienplaner] Password recovery email delivery failed.\n');
+      }).catch(() => {});
+    }
+    return res.json({ success: true, message });
+  } catch {
+    return res.status(500).json({ error: 'Passwort-Link konnte nicht angefordert werden. Bitte später erneut versuchen.' });
+  } finally { db.close(); }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const { token, newPassword } = req.body || {};
+  const invalid = () => res.status(400).json({ error: 'Dieser Link ist ungültig oder abgelaufen. Bitte einen neuen Link anfordern.' });
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token) || typeof newPassword !== 'string') return invalid();
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const db = openDb();
+  let transaction = false;
+  try {
+    const user = await dbGet(db, `SELECT u.id, u.username FROM password_resets r JOIN users u ON u.id = r.userId
+      WHERE r.tokenHash = ? AND r.expiresAt > ? AND r.email = u.email AND u.emailVerified = 1`, [tokenHash, new Date().toISOString()]);
+    if (!user) return invalid();
+    const error = await validatePasswordAsync(newPassword, user.username);
+    if (error) return res.status(400).json({ error });
+    const { salt, hash } = await hashPassword(newPassword);
+    await dbRun(db, 'BEGIN IMMEDIATE');
+    transaction = true;
+    const consumed = await dbRun(db, `DELETE FROM password_resets WHERE tokenHash = ? AND expiresAt > ?
+      AND EXISTS (SELECT 1 FROM users u WHERE u.id = password_resets.userId AND u.email = password_resets.email AND u.emailVerified = 1)`, [tokenHash, new Date().toISOString()]);
+    if (!consumed.changes) {
+      await dbRun(db, 'ROLLBACK'); transaction = false;
+      return invalid();
+    }
+    await dbRun(db, 'UPDATE users SET passwordHash = ?, passwordSalt = ?, updatedAt = ? WHERE id = ?', [hash, salt, new Date().toISOString(), user.id]);
+    await dbRun(db, 'DELETE FROM sessions WHERE userId = ?', [user.id]);
+    await dbRun(db, 'DELETE FROM password_resets WHERE userId = ?', [user.id]);
+    await dbRun(db, "DELETE FROM email_verifications WHERE userId = ? AND type = 'change_email'", [user.id]);
+    await dbRun(db, 'COMMIT'); transaction = false;
+    clearSessionCookies(req, res);
+    return res.json({ success: true, username: user.username });
+  } catch {
+    if (transaction) await dbRun(db, 'ROLLBACK').catch(() => {});
+    return res.status(500).json({ error: 'Passwort konnte nicht zurückgesetzt werden. Bitte erneut versuchen.' });
+  } finally { db.close(); }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
@@ -2404,6 +2495,7 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     }
 
     const { salt, hash } = await hashPassword(newPassword);
+    await dbRun(db, 'DELETE FROM password_resets WHERE userId = ?', [req.auth.user.id]);
     await dbRun(
       db,
       'UPDATE users SET passwordHash = ?, passwordSalt = ?, updatedAt = ? WHERE id = ?',
@@ -2517,6 +2609,7 @@ app.post('/api/auth/delete-account', requireAuth, async (req, res) => {
       }
 
       await dbRun(db, 'DELETE FROM sessions WHERE userId = ?', [userId]);
+      await dbRun(db, 'DELETE FROM password_resets WHERE userId = ?', [userId]);
       await dbRun(db, 'DELETE FROM email_verifications WHERE userId = ?', [userId]);
       await dbRun(db, 'DELETE FROM users WHERE id = ?', [userId]);
 

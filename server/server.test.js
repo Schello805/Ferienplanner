@@ -5,6 +5,85 @@ import os from 'node:os';
 import path from 'node:path';
 import sqlite3 from 'sqlite3';
 import crypto from 'node:crypto';
+import nodemailer from 'nodemailer';
+
+async function testPasswordRecovery(t) {
+  const saved = { ...process.env };
+  Object.assign(process.env, { SMTP_HOST: 'smtp.example.test', SMTP_USER: 'test', SMTP_PASS: 'test', PUBLIC_BASE_URL: 'https://calendar.example.test' });
+  const mails = [];
+  t.mock.method(nodemailer, 'createTransport', () => ({ sendMail: async (mail) => {
+    if (mail.subject === 'Mein Ferienplaner: Passwort zurücksetzen') mails.push(mail);
+  } }));
+  const post = (route, body, ip = '192.0.2.80') => request(`/api/auth/${route}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, body: JSON.stringify(body),
+  });
+  const oldPassword = 'original7890';
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(oldPassword, salt, 64).toString('hex');
+  let userId;
+  try {
+    // Wait for application schema initialization before creating the fixture.
+    await request('/api/auth/status');
+    userId = await withDb(async (db) => (await db.run('INSERT INTO users (username,email,emailVerified,passwordHash,passwordSalt,isAdmin) VALUES (?,?,?,?,?,0)', ['recovery-user', 'recovery@example.test', 1, hash, salt])).lastID);
+    const session = await post('login', { username: 'recovery-user', password: oldPassword });
+    assert.equal(session.response.status, 200);
+    const known = await post('forgot-password', { email: 'RECOVERY@example.test' });
+    const unknown = await post('forgot-password', { email: 'unknown@example.test' });
+    assert.deepEqual(known.data, unknown.data);
+    for (let attempt = 0; mails.length === 0 && attempt < 100; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(mails.length, 1);
+    assert.equal(mails[0].to, 'recovery@example.test');
+    assert.match(mails[0].html, /recovery-user/);
+    const token = mails[0].html.match(/https:\/\/calendar\.example\.test\/passwort-zuruecksetzen#token=([A-Za-z0-9_-]{43})/)[1];
+    const row = await withDb((db) => db.get('SELECT * FROM password_resets WHERE userId = ?', [userId]));
+    assert.equal(row.tokenHash, crypto.createHash('sha256').update(token).digest('hex'));
+    assert.ok(Date.parse(row.expiresAt) - Date.now() <= 30 * 60000);
+    assert.equal(JSON.stringify(known.data).includes(token), false);
+    assert.equal((await post('forgot-password', { email: 'recovery@example.test' })).response.status, 200);
+    assert.equal(mails.length, 1, 'repeated requests are throttled per account');
+    assert.equal((await post('verify-email', { token })).response.status, 404, 'reset tokens are not registration tokens');
+    assert.equal((await post('reset-password', { token, newPassword: 'short' })).response.status, 400);
+    const results = await Promise.all([post('reset-password', { token, newPassword: 'replacement7890' }), post('reset-password', { token, newPassword: 'replacement7890' })]);
+    assert.deepEqual(results.map((result) => result.response.status).sort(), [200, 400]);
+    assert.equal((await post('reset-password', { token, newPassword: 'another7890' })).response.status, 400);
+    assert.equal((await withDb((db) => db.get('SELECT count(*) AS n FROM sessions WHERE userId = ?', [userId]))).n, 0);
+    assert.equal((await post('login', { username: 'recovery-user', password: oldPassword })).response.status, 401);
+    assert.equal((await post('login', { username: 'recovery-user', password: 'replacement7890' })).response.status, 200);
+
+    const expiredToken = crypto.randomBytes(32).toString('base64url');
+    await withDb((db) => db.run('INSERT INTO password_resets VALUES (?,?,?,?,?)', [crypto.createHash('sha256').update(expiredToken).digest('hex'), userId, 'recovery@example.test', new Date(0).toISOString(), new Date(1).toISOString()]));
+    assert.equal((await post('reset-password', { token: expiredToken, newPassword: 'another7890' })).response.status, 400);
+    await withDb((db) => db.run('UPDATE users SET emailVerified = 0 WHERE id = ?', [userId]));
+    const unverified = await post('forgot-password', { email: 'recovery@example.test' });
+    assert.deepEqual(unverified.data, unknown.data);
+    assert.equal(mails.length, 1, 'unverified accounts must not receive reset links');
+    await withDb((db) => db.run('UPDATE users SET emailVerified = 1 WHERE id = ?', [userId]));
+    const login = await post('login', { username: 'recovery-user', password: 'replacement7890' });
+    const changed = await request('/api/auth/change-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${login.data.token}` },
+      body: JSON.stringify({ currentPassword: 'replacement7890', newPassword: 'different7890' }),
+    });
+    assert.equal(changed.response.status, 200);
+    assert.equal(await withDb((db) => db.get('SELECT * FROM password_resets WHERE userId = ?', [userId])), undefined);
+    await withDb((db) => db.run('UPDATE password_resets SET expiresAt = ?, email = ? WHERE userId = ?', [new Date(Date.now() + 60000).toISOString(), 'old-address@example.test', userId]));
+    assert.equal((await post('reset-password', { token: expiredToken, newPassword: 'another7890' })).response.status, 400);
+    for (let index = 0; index < 6; index++) {
+      const result = await post('forgot-password', { email: 'unknown@example.test' }, '192.0.2.81');
+      assert.equal(result.response.status, index === 5 ? 429 : 200);
+    }
+  } finally {
+    if (userId) await withDb(async (db) => {
+      await db.run('DELETE FROM password_resets WHERE userId = ?', [userId]);
+      await db.run('DELETE FROM sessions WHERE userId = ?', [userId]);
+      await db.run('DELETE FROM calendar_memberships WHERE userId = ?', [userId]);
+      await db.run('DELETE FROM calendars WHERE ownerUserId = ?', [userId]);
+      await db.run('DELETE FROM users WHERE id = ?', [userId]);
+    });
+    for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'PUBLIC_BASE_URL']) {
+      if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key];
+    }
+  }
+}
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ferienplaner-test-'));
 process.env.NODE_ENV = 'test';
@@ -715,3 +794,5 @@ test('anonymous feedback has a server-side request budget', async () => {
     }
   }
 });
+
+test('password recovery emails a hashed, expiring, single-use token and revokes sessions', testPasswordRecovery);

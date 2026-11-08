@@ -22,6 +22,7 @@
   }
 
   function injectMatomo() {
+    if (window.location.pathname === '/passwort-zuruecksetzen') return;
     if (window.__ferienplanerMatomoLoaded) return;
     window.__ferienplanerMatomoLoaded = true;
 

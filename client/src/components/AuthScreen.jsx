@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PasswordRecovery } from './PasswordRecovery.jsx';
 import { getSiteHostLabel, getSiteUrl } from '../lib/site.js';
 
 export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = null, hasPendingInvite = false }) => {
@@ -8,6 +9,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState('');
+  const [recovering, setRecovering] = useState(false);
 
   const effectiveMode = setupRequired ? 'setup' : mode;
 
@@ -37,6 +39,8 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
       password,
     });
   };
+
+  if (recovering && !setupRequired) return <PasswordRecovery onBack={() => setRecovering(false)} />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 dark:bg-slate-950">
@@ -185,6 +189,7 @@ export const AuthScreen = ({ setupRequired, onSubmit, loading, statusNotice = nu
             {loading ? 'Bitte warten…' : effectiveMode === 'setup' ? 'Benutzer anlegen' : effectiveMode === 'register' ? 'Registrieren' : 'Anmelden'}
           </button>
         </form>
+        {effectiveMode === 'login' && <button type="button" onClick={() => setRecovering(true)} className="mt-3 min-h-11 w-full text-sm font-semibold text-sky-700 underline dark:text-sky-300">Passwort vergessen?</button>}
       </div>
     </div>
   );
